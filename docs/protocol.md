@@ -150,6 +150,14 @@ Panel knobs for effects drive several parameters at once: e.g. turning BOOSTER
 changes `BOOSTER(n) DRIVE` and `EFFECT_LEVEL` together, where `n` is chosen by
 the colour button. `set` targets the underlying parameters.
 
+**Panel knob position overrides remote on/off on colour change** (observed
+2026-10-22, by the user): with the physical BOOSTER knob at its off position
+(`PATCH_KNOB_READONLY` booster byte `00`), `set booster-sw on` turns the booster
+on, but a following `set booster-color …` switches it off again — the amp
+re-applies the knob position when the variation changes. With the knob turned
+on, colour changes keep the booster on. Editors must send colour before on/off
+(and may need to account for the knob-position byte).
+
 ## Open questions
 
 1. ~~Model ID width~~ — 3 bytes (resolved).
