@@ -15,9 +15,13 @@ pub fn read_patch(t: &mut dyn Transport, timeout: Duration) -> Result<Patch, Pro
     read_patch_blocks(t, PATCH_BLOCKS, timeout)
 }
 
-/// Writes `p` to the amp's current patch.
+/// Writes `p` to the amp's current patch, skipping `device::WRITE_PROTECTED`.
 pub fn write_patch(t: &mut dyn Transport, p: &Patch) -> Result<(), ProtoError> {
-    send_paced(t, &patch_messages(PATCH_BLOCKS, p)?, SEND_INTERVAL)
+    send_paced(t, &patch_messages(&writable(PATCH_BLOCKS), p)?, SEND_INTERVAL)
+}
+
+fn writable(blocks: &[(u32, u32)]) -> Vec<(u32, u32)> {
+    blocks.iter().copied().filter(|&(a, _)| !device::is_write_protected(a)).collect()
 }
 
 /// Stored patch slots PATCH(1)..PATCH(10) sit 16 << 14 apart above the
@@ -49,7 +53,7 @@ pub fn read_slot(t: &mut dyn Transport, slot: u8, timeout: Duration) -> Result<P
 /// that back. The original is restored even when the first check fails.
 pub fn verify_write_back(t: &mut dyn Transport, scratch: &Patch, timeout: Duration) -> Result<(), ProtoError> {
     let original = read_patch(t, timeout)?;
-    if original == *scratch {
+    if mismatch(scratch, &original).is_none() {
         return Err(ProtoError::ScratchEqualsCurrent);
     }
     write_patch(t, scratch)?;
@@ -65,11 +69,9 @@ pub fn verify_write_back(t: &mut dyn Transport, scratch: &Patch, timeout: Durati
 }
 
 fn mismatch(expected: &Patch, got: &Patch) -> Option<ProtoError> {
-    expected.mem.0.iter().find(|(k, b)| got.mem.0.get(k) != Some(b)).map(|(&k, &b)| ProtoError::WriteBackMismatch {
-        addr: Address(k),
-        expected: b,
-        got: got.mem.0.get(&k).copied(),
-    })
+    expected.mem.0.iter().find(|(k, b)| !device::is_write_protected(**k) && got.mem.0.get(k) != Some(b)).map(
+        |(&k, &b)| ProtoError::WriteBackMismatch { addr: Address(k), expected: b, got: got.mem.0.get(&k).copied() },
+    )
 }
 
 impl Patch {
@@ -141,7 +143,7 @@ pub(crate) fn read_patch_blocks(
 
 #[cfg(test)]
 pub(crate) fn write_patch_blocks(t: &mut dyn Transport, blocks: &[(u32, u32)], p: &Patch) -> Result<(), ProtoError> {
-    send_paced(t, &patch_messages(blocks, p)?, Duration::ZERO)
+    send_paced(t, &patch_messages(&writable(blocks), p)?, Duration::ZERO)
 }
 
 /// DT1 messages for every block, chunked at `MAX_DT1_DATA`.
@@ -212,6 +214,42 @@ mod tests {
             verify_write_back(&mut amp, &other, Duration::from_millis(50)),
             Err(ProtoError::WriteBackMismatch { .. })
         ));
+    }
+
+    #[test]
+    fn verify_write_back_passes_when_only_write_protected_blocks_are_ignored() {
+        let mut amp = slot_amp(false);
+        amp.read_only = device::WRITE_PROTECTED.to_vec();
+        let other = read_slot(&mut amp, 3, Duration::from_millis(50)).unwrap();
+        verify_write_back(&mut amp, &other, Duration::from_millis(50)).unwrap();
+    }
+
+    #[test]
+    fn verify_write_back_still_fails_when_another_block_is_ignored() {
+        let mut amp = slot_amp(false);
+        amp.read_only = vec![PATCH_BLOCKS[3]];
+        let other = read_slot(&mut amp, 3, Duration::from_millis(50)).unwrap();
+        assert!(matches!(
+            verify_write_back(&mut amp, &other, Duration::from_millis(50)),
+            Err(ProtoError::WriteBackMismatch { .. })
+        ));
+    }
+
+    #[test]
+    fn write_patch_skips_write_protected_blocks() {
+        let mut src = slot_amp(false);
+        let p = read_patch(&mut src, Duration::from_millis(50)).unwrap();
+        let mut amp = FakeAmp::new(device::header(), 128);
+        write_patch(&mut amp, &p).unwrap();
+        for m in &amp.sent {
+            let Command::Dt1 { addr, data } = decode(&device::header(), m).unwrap() else { panic!() };
+            for &(a, n) in device::WRITE_PROTECTED {
+                assert!(
+                    addr.0 + data.len() as u32 <= a || addr.0 >= a + n,
+                    "DT1 at {addr:?} overlaps a protected block"
+                );
+            }
+        }
     }
 
     #[test]

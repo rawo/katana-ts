@@ -150,6 +150,16 @@ Panel knobs for effects drive several parameters at once: e.g. turning BOOSTER
 changes `BOOSTER(n) DRIVE` and `EFFECT_LEVEL` together, where `n` is chosen by
 the colour button. `set` targets the underlying parameters.
 
+**Write-protected: SOLO_DELAY in the current patch** (VERIFIED 2026-10-22):
+DT1s to `20 00 3E 00`–`3E 0D` are accepted silently but never change the
+value — level 0/30/1, feedback +1 and on/off 1 all read back unchanged, with
+solo off and on. Writing all of stored PATCH(1) into the current patch changed
+79 of the 80 differing bytes; the only one kept was SOLO_DELAY level. The
+`PATCH_KNOB_*_READONLY` blocks, despite their app names, *are* written.
+`write_patch` skips SOLO_DELAY (`device::WRITE_PROTECTED`), so `load` cannot
+change solo-delay settings; `dump` still saves them. Whether stored slots
+accept SOLO_DELAY writes is untested.
+
 **Panel knob position overrides remote on/off on colour change** (observed
 2026-10-22, by the user): with the physical BOOSTER knob at its off position
 (`PATCH_KNOB_READONLY` booster byte `00`), `set booster-sw on` turns the booster

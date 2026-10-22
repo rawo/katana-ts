@@ -18,6 +18,8 @@ pub struct FakeAmp {
     pub noise: Vec<Vec<u8>>,
     /// Accept DT1 without applying it (an amp that silently drops writes).
     pub ignore_dt1: bool,
+    /// (addr, len) ranges whose DT1 bytes are accepted but not applied.
+    pub read_only: Vec<(u32, u32)>,
     pending: VecDeque<Vec<u8>>,
 }
 
@@ -31,6 +33,7 @@ impl FakeAmp {
             silent: false,
             noise: Vec::new(),
             ignore_dt1: false,
+            read_only: Vec::new(),
             pending: VecDeque::new(),
         }
     }
@@ -40,7 +43,14 @@ impl Transport for FakeAmp {
     fn send(&mut self, msg: &[u8]) -> Result<(), ProtoError> {
         self.sent.push(msg.to_vec());
         match decode(&self.header, msg) {
-            Ok(Command::Dt1 { addr, data }) if !self.ignore_dt1 => self.mem.apply(addr, &data),
+            Ok(Command::Dt1 { addr, data }) if !self.ignore_dt1 => {
+                for (i, &b) in data.iter().enumerate() {
+                    let k = addr.0 + i as u32;
+                    if !self.read_only.iter().any(|&(a, n)| (a..a + n).contains(&k)) {
+                        self.mem.0.insert(k, b);
+                    }
+                }
+            }
             Ok(Command::Rq1 { addr, size }) if !self.silent => {
                 self.pending.extend(self.noise.iter().cloned());
                 let data: Vec<u8> =

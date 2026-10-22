@@ -28,6 +28,18 @@ pub const MAX_DT1_DATA: usize = 128 - 13;
 /// Pause between messages we send, as the official app does (S1 `interval`).
 pub const SEND_INTERVAL: std::time::Duration = std::time::Duration::from_millis(20);
 
+/// Current-patch ranges the amp accepts DT1 for but never changes (no error,
+/// value kept). Skipped by `write_patch`, excluded from write-back checks.
+/// SOLO_DELAY (`20 00 3E 00`, 14 bytes) — evidence: 2026-10-22 writes of
+/// level 0/30/1, feedback +1 and on/off 1 (solo off and on) all read back
+/// unchanged; a full PATCH(1) write changed 79 of 80 differing bytes, all but
+/// this block. See docs/protocol.md.
+pub const WRITE_PROTECTED: &[(u32, u32)] = &[(addr([0x20, 0x00, 0x3E, 0x00]), 14)];
+
+pub fn is_write_protected(linear: u32) -> bool {
+    WRITE_PROTECTED.iter().any(|&(a, n)| (a..a + n).contains(&linear))
+}
+
 /// Current-patch blocks (base `20 00 00 00`), in read order. Block offsets and
 /// sizes come from the official app's address table; each was read back in
 /// full from the amp — evidence: captures/02-patch-read-{rq1,dt1}.syx
