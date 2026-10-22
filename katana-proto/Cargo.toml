@@ -6,6 +6,8 @@ edition = "2021"
 [features]
 default = ["midi"]
 midi = ["dep:midir"]
+testing = []
+hardware-tests = ["midi"]
 
 [dependencies]
 thiserror = "2"

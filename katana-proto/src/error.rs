@@ -20,4 +20,8 @@ pub enum ProtoError {
     BadChecksum { expected: u8, got: u8 },
     #[error("malformed capture export at line {line}")]
     BadExport { line: usize },
+    #[error("no MIDI port matching {wanted:?}; available: {available:?}")]
+    PortNotFound { wanted: String, available: Vec<String> },
+    #[error("MIDI error: {0}")]
+    Midi(String),
 }

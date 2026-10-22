@@ -14,3 +14,17 @@ pub mod sysex;
 pub use identity::{parse_identity_reply, IdentityReply, IDENTITY_REQUEST};
 pub use sysex::{decode, encode, Command, Header};
 pub use capture::{extract_sysex, load_tshark_export, CapturedMessage, Direction};
+
+pub mod memmap;
+pub mod transport;
+#[cfg(feature = "midi")]
+pub mod midi;
+#[cfg(any(test, feature = "testing"))]
+pub mod fake;
+
+pub use memmap::MemoryMap;
+pub use transport::Transport;
+#[cfg(feature = "midi")]
+pub use midi::{MidirTransport, DEFAULT_PORT};
+#[cfg(any(test, feature = "testing"))]
+pub use fake::FakeAmp;
