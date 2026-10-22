@@ -123,6 +123,31 @@ Only VERIFIED entries.
 |---------|------|------|----------|-------|----------|
 | `20 00 00 00` | 16 | PATCH COM: patch name | ASCII, space-padded | — | `golden_captures.rs::captured_patch_name_reply_decodes` |
 | `20 00 00 00` … `20 01 1E 00` | 80 blocks, 2 649 bytes | Current patch blocks | see `device::PATCH_BLOCKS` | — | `captures/02-patch-read-{rq1,dt1}.syx` (each block answered in full) |
+| `20 00 06 00` | 1 | AMP GAIN (`gain`) | U7 | 0–100 | `captures/100-watch-knobs.log` (swept 33→100) |
+| `20 00 06 01` | 1 | AMP VOLUME (`volume`) | U7 | 0–100 | `captures/100-watch-knobs.log` (swept 46→100) |
+| `20 00 06 02` | 1 | AMP BASS (`bass`) | U7 | 0–100 | `captures/100-watch-knobs.log` (swept 0→100) |
+| `20 00 06 03` | 1 | AMP MIDDLE (`middle`) | U7 | 0–100 | `captures/100-watch-knobs.log` (swept 0→100) |
+| `20 00 06 04` | 1 | AMP TREBLE (`treble`) | U7 | 0–100 | `captures/100-watch-knobs.log` (swept 20→100) |
+| `20 00 06 05` | 1 | AMP PRESENCE (`presence`) | U7 | 0–100 | `captures/100-watch-knobs.log` (swept 15→100) |
+| `20 00 06 07` | 1 | AMP TYPE (`amp-type`) | U7 | 0–5 | `captures/100-watch-knobs.log` (all 6 positions) |
+| `20 00 08 00` | 1 | BOOSTER on/off (`booster-sw`) | U7 | 0–1 | `captures/100-watch-knobs.log` (toggled) |
+| `20 00 08 01` | 1 | MOD on/off (`mod-sw`) | U7 | 0–1 | `captures/100-watch-knobs.log` (toggled) |
+| `20 00 08 02` | 1 | FX on/off (`fx-sw`) | U7 | 0–1 | `captures/100-watch-knobs.log` (toggled) |
+| `20 00 08 03` | 1 | DELAY on/off (`delay-sw`) | U7 | 0–1 | `captures/100-watch-knobs.log` (toggled) |
+| `20 00 08 05` | 1 | REVERB on/off (`reverb-sw`) | U7 | 0–1 | `captures/100-watch-knobs.log` (toggled) |
+| `20 00 3A 00` | 1 | SOLO on/off (`solo-sw`) | U7 | 0–1 | `captures/100-watch-knobs.log` (toggled) |
+| `20 00 04 00` | 1 | BOOSTER colour (`booster-color`); selects BOOSTER(1..3) | U7 | 0–2 | `captures/100-watch-knobs.log` (0,1,2; knob edits moved between blocks) |
+| `20 00 02 01` | 1 | Cabinet resonance (`cab-resonance`) | U7 | 0–2 | `captures/100-watch-knobs.log` (0,1,2) |
+| `20 00 0A 01 / 0C 01 / 0E 01` | 1 | BOOSTER(1/2/3) DRIVE (`booster1..3-drive`) | U7 | 0–120 | `captures/100-watch-knobs.log` (changed in each colour) |
+| `20 00 2A 01` | 4 | DELAY(2) TIME (`delay2-time`) | 4 nibbles, high first | 1–2000 ms | `captures/100-watch-knobs.log` (382→489) |
+| `20 00 2A 05` | 1 | DELAY(2) FEEDBACK (`delay2-feedback`) | U7 | 0–100 | `captures/100-watch-knobs.log` (changed) |
+| `20 00 2A 07` | 1 | DELAY(2) EFFECT LEVEL (`delay2-level`) | U7 | 0–120 | `captures/100-watch-knobs.log` (changed) |
+| `20 00 34 0A` | 1 | REVERB(1) EFFECT LEVEL (`reverb1-level`) | U7 | 0–100 | `captures/100-watch-knobs.log` (swept 0→100) |
+| `20 01 1C 00–04` | 1 each | Panel knob positions BOOSTER/MOD/FX/DELAY/REVERB (read-only per app; −1 = off) | U7, ofs 1 | −1–100 | `captures/100-watch-knobs.log` (observed; not settable) |
+
+Panel knobs for effects drive several parameters at once: e.g. turning BOOSTER
+changes `BOOSTER(n) DRIVE` and `EFFECT_LEVEL` together, where `n` is chosen by
+the colour button. `set` targets the underlying parameters.
 
 ## Open questions
 
