@@ -1,0 +1,12 @@
+[package]
+name = "katana-proto"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+default = ["midi"]
+midi = ["dep:midir"]
+
+[dependencies]
+thiserror = "2"
+midir = { version = "0.10", optional = true }
