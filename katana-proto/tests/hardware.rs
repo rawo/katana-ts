@@ -13,3 +13,13 @@ fn amp_answers_identity_request() {
     let reply = t.recv(Duration::from_secs(2)).unwrap().expect("no identity reply");
     assert_eq!(parse_identity_reply(&reply).unwrap().manufacturer, 0x41);
 }
+
+#[test]
+fn hardware_patch_round_trip_is_byte_identical() {
+    use katana_proto::{read_patch, write_patch};
+    let mut t = MidirTransport::open(DEFAULT_PORT).unwrap();
+    let a = read_patch(&mut t, Duration::from_secs(2)).unwrap();
+    write_patch(&mut t, &a).unwrap();
+    let b = read_patch(&mut t, Duration::from_secs(2)).unwrap();
+    assert_eq!(a, b);
+}

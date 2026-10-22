@@ -32,6 +32,12 @@ enum Command {
     Extract { file: PathBuf },
     /// Show bytes that differ between the DT1 data in two files.
     Diff { a: PathBuf, b: PathBuf },
+    /// Read the amp's current patch into a .syx file.
+    Dump { out: PathBuf },
+    /// Write a .syx patch (from `dump`) into the amp's current patch.
+    Load { file: PathBuf },
+    /// Read the current patch, write it back, read again, and compare.
+    Verify,
 }
 
 fn main() -> anyhow::Result<()> {
@@ -43,5 +49,8 @@ fn main() -> anyhow::Result<()> {
         Command::Monitor => cmd::monitor::run(&cli.port, &header),
         Command::Extract { file } => cmd::extract::run(&file),
         Command::Diff { a, b } => cmd::diff::run(&header, &a, &b),
+        Command::Dump { out } => cmd::dump::run(&cli.port, &out),
+        Command::Load { file } => cmd::load::run(&cli.port, &file),
+        Command::Verify => cmd::verify::run(&cli.port),
     }
 }

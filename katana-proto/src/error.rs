@@ -1,5 +1,7 @@
 use thiserror::Error;
 
+use crate::Address;
+
 #[derive(Debug, Error)]
 pub enum ProtoError {
     #[error("byte {byte:#04x} at index {index} is not 7-bit")]
@@ -24,6 +26,10 @@ pub enum ProtoError {
     PortNotFound { wanted: String, available: Vec<String> },
     #[error("malformed .syx data at byte {offset}")]
     BadSyx { offset: usize },
+    #[error("no complete reply from the amp for block {addr}")]
+    Timeout { addr: Address },
+    #[error("patch data does not cover block {addr}")]
+    IncompletePatch { addr: Address },
     #[error("MIDI error: {0}")]
     Midi(String),
 }

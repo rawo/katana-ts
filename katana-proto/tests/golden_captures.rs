@@ -49,3 +49,11 @@ fn captured_identity_reply_parses() {
         .unwrap();
     assert_eq!((r.device_id, r.manufacturer, r.family), (device::DEVICE_ID, 0x41, [0x07, 0x05]));
 }
+
+#[test]
+fn captured_patch_survives_syx_round_trip() {
+    let p = katana_proto::Patch::from_syx(DT1).unwrap();
+    assert_eq!(katana_proto::Patch::from_syx(&p.to_syx()).unwrap(), p);
+    let total: u32 = PATCH_BLOCKS.iter().map(|&(_, s)| s).sum();
+    assert_eq!(p.mem.0.len() as u32, total);
+}

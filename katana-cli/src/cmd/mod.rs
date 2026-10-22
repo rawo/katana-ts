@@ -1,8 +1,11 @@
 pub mod diff;
+pub mod dump;
 pub mod extract;
 pub mod identity;
+pub mod load;
 pub mod monitor;
 pub mod ports;
+pub mod verify;
 
 use std::path::Path;
 

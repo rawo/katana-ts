@@ -25,6 +25,9 @@ pub const fn addr(b: [u8; 4]) -> u32 {
 /// can be longer (225-byte FX_DETAIL blocks arrive in one DT1).
 pub const MAX_DT1_DATA: usize = 128 - 13;
 
+/// Pause between messages we send, as the official app does (S1 `interval`).
+pub const SEND_INTERVAL: std::time::Duration = std::time::Duration::from_millis(20);
+
 /// Current-patch blocks (base `20 00 00 00`), in read order. Block offsets and
 /// sizes come from the official app's address table; each was read back in
 /// full from the amp — evidence: captures/02-patch-read-{rq1,dt1}.syx

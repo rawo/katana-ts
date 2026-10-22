@@ -18,6 +18,7 @@ pub use sysex::{decode, encode, Command, Header};
 pub use capture::{extract_sysex, load_tshark_export, CapturedMessage, Direction};
 
 pub mod memmap;
+pub mod patch;
 pub mod transport;
 #[cfg(feature = "midi")]
 pub mod midi;
@@ -31,3 +32,4 @@ pub use midi::{MidirTransport, DEFAULT_PORT};
 #[cfg(any(test, feature = "testing"))]
 pub use fake::FakeAmp;
 pub use syx::{read_syx, write_syx};
+pub use patch::{read_patch, write_patch, Patch};
