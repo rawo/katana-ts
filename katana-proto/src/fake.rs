@@ -40,9 +40,8 @@ impl Transport for FakeAmp {
             Ok(Command::Dt1 { addr, data }) => self.mem.apply(addr, &data),
             Ok(Command::Rq1 { addr, size }) if !self.silent => {
                 self.pending.extend(self.noise.iter().cloned());
-                let data: Vec<u8> = (addr.0..addr.0 + size.0)
-                    .map(|k| self.mem.0.get(&k).copied().unwrap_or(0))
-                    .collect();
+                let data: Vec<u8> =
+                    (addr.0..addr.0 + size.0).map(|k| self.mem.0.get(&k).copied().unwrap_or(0)).collect();
                 for (i, chunk) in data.chunks(self.max_dt1).enumerate() {
                     let c = Command::Dt1 { addr: addr + (i * self.max_dt1) as u32, data: chunk.to_vec() };
                     self.pending.push_back(encode(&self.header, &c)?);
@@ -57,7 +56,6 @@ impl Transport for FakeAmp {
         Ok(self.pending.pop_front())
     }
 }
-
 
 #[cfg(test)]
 mod tests {

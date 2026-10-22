@@ -20,10 +20,8 @@ impl Address {
             if byte > 0x7F {
                 return Err(ProtoError::NotSevenBit { index, byte });
             }
-            value = value
-                .checked_mul(128)
-                .and_then(|v| v.checked_add(byte as u32))
-                .ok_or(ProtoError::AddressOverflow)?;
+            value =
+                value.checked_mul(128).and_then(|v| v.checked_add(byte as u32)).ok_or(ProtoError::AddressOverflow)?;
         }
         Ok(Address(value))
     }
@@ -83,10 +81,7 @@ mod tests {
 
     #[test]
     fn address_rejects_8bit_byte() {
-        assert!(matches!(
-            Address::from_bytes(&[0x00, 0x80]),
-            Err(ProtoError::NotSevenBit { index: 1, byte: 0x80 })
-        ));
+        assert!(matches!(Address::from_bytes(&[0x00, 0x80]), Err(ProtoError::NotSevenBit { index: 1, byte: 0x80 })));
     }
 
     #[test]

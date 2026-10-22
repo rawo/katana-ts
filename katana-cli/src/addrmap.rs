@@ -154,7 +154,10 @@ mod tests {
     fn labels_single_byte_param() {
         let m = AddrMap::parse(SAMPLE, lin([0x20, 0, 0, 0]));
         let l = m.label(lin([0x20, 0x00, 0x06, 0x00])).unwrap();
-        assert_eq!((l.block.as_str(), l.param.as_str(), l.byte, l.len, l.ofs), ("AMP", "PRMID_PATCH_AMP_GAIN", 0, 1, 0));
+        assert_eq!(
+            (l.block.as_str(), l.param.as_str(), l.byte, l.len, l.ofs),
+            ("AMP", "PRMID_PATCH_AMP_GAIN", 0, 1, 0)
+        );
     }
 
     #[test]
