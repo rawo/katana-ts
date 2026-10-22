@@ -62,6 +62,8 @@ pub const PARAMS: &[ParamDef] = &[
     // Variation colour (selects BOOSTER(1..3))
     p("booster-color", [0x20, 0x00, 0x04, 0x00], U7, 0, 2),
     p("cab-resonance", [0x20, 0x00, 0x02, 0x01], U7, 0, 2),
+    // Contour button cycles 0..3 (captures/101-watch-contour.log)
+    p("contour", [0x20, 0x00, 0x40, 0x00], U7, 0, 3),
     // Per-variation blocks, as edited by the panel knobs
     p("booster1-drive", [0x20, 0x00, 0x0A, 0x01], U7, 0, 120),
     p("booster2-drive", [0x20, 0x00, 0x0C, 0x01], U7, 0, 120),

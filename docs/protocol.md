@@ -138,6 +138,7 @@ Only VERIFIED entries.
 | `20 00 3A 00` | 1 | SOLO on/off (`solo-sw`) | U7 | 0–1 | `captures/100-watch-knobs.log` (toggled) |
 | `20 00 04 00` | 1 | BOOSTER colour (`booster-color`); selects BOOSTER(1..3) | U7 | 0–2 | `captures/100-watch-knobs.log` (0,1,2; knob edits moved between blocks) |
 | `20 00 02 01` | 1 | Cabinet resonance (`cab-resonance`) | U7 | 0–2 | `captures/100-watch-knobs.log` (0,1,2) |
+| `20 00 40 00` | 1 | Contour button (`contour`) | U7 | 0–3 | `captures/101-watch-contour.log` (cycles 0→1→2→3→0) |
 | `20 00 0A 01 / 0C 01 / 0E 01` | 1 | BOOSTER(1/2/3) DRIVE (`booster1..3-drive`) | U7 | 0–120 | `captures/100-watch-knobs.log` (changed in each colour) |
 | `20 00 2A 01` | 4 | DELAY(2) TIME (`delay2-time`) | 4 nibbles, high first | 1–2000 ms | `captures/100-watch-knobs.log` (382→489) |
 | `20 00 2A 05` | 1 | DELAY(2) FEEDBACK (`delay2-feedback`) | U7 | 0–100 | `captures/100-watch-knobs.log` (changed) |

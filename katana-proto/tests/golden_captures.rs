@@ -88,3 +88,10 @@ fn set_delay_time_2000_bytes() {
         [0xF0, 0x41, 0x10, 0x01, 0x05, 0x07, 0x12, 0x20, 0x00, 0x2A, 0x01, 0x00, 0x07, 0x0D, 0x00, 0x21, 0xF7]
     );
 }
+
+#[test]
+fn contour_button_cycles_0_to_3() {
+    // captures/101-watch-contour.log
+    let p = katana_proto::find_param("contour").expect("contour param");
+    assert_eq!((p.addr, p.min, p.max), (device::addr([0x20, 0x00, 0x40, 0x00]), 0, 3));
+}

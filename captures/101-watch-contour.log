@@ -1,0 +1,5 @@
+20 00 40 00  CONTOUR_COM  PRMID_PATCH_CONTOUR_COM_KNOB                 0 -> 1   (raw 0 -> 1)
+20 00 40 00  CONTOUR_COM  PRMID_PATCH_CONTOUR_COM_KNOB                 1 -> 2   (raw 1 -> 2)
+20 00 40 00  CONTOUR_COM  PRMID_PATCH_CONTOUR_COM_KNOB                 2 -> 3   (raw 2 -> 3)
+20 00 40 00  CONTOUR_COM  PRMID_PATCH_CONTOUR_COM_KNOB                 3 -> 0   (raw 3 -> 0)
+20 00 40 00  CONTOUR_COM  PRMID_PATCH_CONTOUR_COM_KNOB                 0 -> 1   (raw 0 -> 1)
