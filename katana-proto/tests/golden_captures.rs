@@ -111,5 +111,6 @@ fn enumerated_params_have_value_names() {
     assert_eq!(name("contour", 0), Some("OFF"));
     assert_eq!(name("cab-resonance", 2), Some("DEEP"));
     assert_eq!(name("booster-color", 0), Some("GREEN"));
+    assert_eq!(name("booster-color", 2), Some("ORANGE"));
     assert_eq!(name("reverb-sw", 1), Some("ON"));
 }

@@ -176,5 +176,5 @@ From the official app's panel labels (`js/businesslogic/bts/effect_controller.js
 | `amp-type` | 0 ACOUSTIC, 1 CLEAN, 2 PUSHED, 3 CRUNCH, 4 LEAD, 5 BROWN | 6 panel positions = 0..5 in `100-watch-knobs.log`; `set amp-type 2` took effect |
 | `contour` | 0 OFF, 1, 2, 3 | button cycle 0→3→0 in `101-watch-contour.log`; `set contour 2` took effect |
 | `cab-resonance` | 0 VINTAGE, 1 MODERN, 2 DEEP | 3 positions in log |
-| `booster-color` | 0 GREEN, 1 RED, 2 YELLOW | **order UNVERIFIED** (Katana convention; app has no table) |
+| `booster-color` | 0 GREEN, 1 RED, 2 ORANGE | button LED observed by the user after `set booster-color 0/1/2` |
 | `*-sw` | 0 OFF, 1 ON | toggled in log; `set reverb-sw 0` took effect |

@@ -48,7 +48,7 @@ use Encoding::{Nibbles4, U7};
 const ON_OFF: &[(u32, &str)] = &[(0, "OFF"), (1, "ON")];
 const AMP_TYPES: &[(u32, &str)] =
     &[(0, "ACOUSTIC"), (1, "CLEAN"), (2, "PUSHED"), (3, "CRUNCH"), (4, "LEAD"), (5, "BROWN")];
-const COLORS: &[(u32, &str)] = &[(0, "GREEN"), (1, "RED"), (2, "YELLOW")];
+const COLORS: &[(u32, &str)] = &[(0, "GREEN"), (1, "RED"), (2, "ORANGE")];
 const CAB_RESONANCE: &[(u32, &str)] = &[(0, "VINTAGE"), (1, "MODERN"), (2, "DEEP")];
 const CONTOUR: &[(u32, &str)] = &[(0, "OFF"), (1, "1"), (2, "2"), (3, "3")];
 
