@@ -72,7 +72,8 @@ into the current patch at `20 00 00 00`.
 | 0 | PANEL | PATCH(1) `20 10 00 00` | selector read `00 00` in PANEL mode |
 | 1 | A: CH1 | PATCH(2) `20 20 00 00` | selector `00 01`; current patch equal to PATCH(2) in 6 blocks, unequal to PATCH(1)/(3) |
 | 2–4 | A: CH2–CH4 | PATCH(3)–(5) | CH4: selector `00 04`, current name "Bloom Crunch" = PATCH(5) |
-| 5–8 | B: CH1–CH4 | PATCH(6)–(9) | inferred; bank B not selectable from this amp's panel (4 channel buttons) |
+| 5–7 | B: CH1–CH3 | PATCH(6)–(8) | follows the pattern (bank B selected with the panel's bank button) |
+| 8 | B: CH4 | PATCH(9) `21 10 00 00` | selector `00 08`, current name "Bite Lead" = PATCH(9) |
 | — | app preview buffer | PATCH(10) `21 20 00 00` | slot named `PREVIEW` |
 
 ### Patch layout (offset from patch base)
