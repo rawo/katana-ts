@@ -20,6 +20,58 @@ pub fn write_patch(t: &mut dyn Transport, p: &Patch) -> Result<(), ProtoError> {
     send_paced(t, &patch_messages(PATCH_BLOCKS, p)?, SEND_INTERVAL)
 }
 
+/// Stored patch slots PATCH(1)..PATCH(10) sit 16 << 14 apart above the
+/// current patch (`20 10 00 00`, … `20 70 00 00`, `21 00 00 00`, …).
+pub const SLOTS: u8 = 10;
+
+pub(crate) fn slot_offset(slot: u8) -> u32 {
+    slot as u32 * (0x10 << 14)
+}
+
+/// Reads stored slot `slot` (1..=10; selector + 1, see docs/protocol.md),
+/// relocated to current-patch addresses so it can be compared or written.
+pub fn read_slot(t: &mut dyn Transport, slot: u8, timeout: Duration) -> Result<Patch, ProtoError> {
+    if !(1..=SLOTS).contains(&slot) {
+        return Err(ProtoError::OutOfRange { name: "slot", value: slot as u32, min: 1, max: SLOTS as u32 });
+    }
+    let off = slot_offset(slot);
+    let blocks: Vec<(u32, u32)> = PATCH_BLOCKS.iter().map(|&(a, s)| (a + off, s)).collect();
+    let stored = read_patch_blocks(t, &blocks, timeout)?;
+    let mut mem = MemoryMap::default();
+    for (&k, &b) in &stored.mem.0 {
+        mem.0.insert(k - off, b);
+    }
+    Ok(Patch { mem })
+}
+
+/// Proves that writes land: writes `scratch` (which must differ from the
+/// current patch) and reads it back, then restores the original and reads
+/// that back. The original is restored even when the first check fails.
+pub fn verify_write_back(t: &mut dyn Transport, scratch: &Patch, timeout: Duration) -> Result<(), ProtoError> {
+    let original = read_patch(t, timeout)?;
+    if original == *scratch {
+        return Err(ProtoError::ScratchEqualsCurrent);
+    }
+    write_patch(t, scratch)?;
+    let first = read_patch(t, timeout).map(|got| mismatch(scratch, &got));
+    write_patch(t, &original)?;
+    if let Some(e) = first? {
+        return Err(e);
+    }
+    match mismatch(&original, &read_patch(t, timeout)?) {
+        Some(e) => Err(e),
+        None => Ok(()),
+    }
+}
+
+fn mismatch(expected: &Patch, got: &Patch) -> Option<ProtoError> {
+    expected.mem.0.iter().find(|(k, b)| got.mem.0.get(k) != Some(b)).map(|(&k, &b)| ProtoError::WriteBackMismatch {
+        addr: Address(k),
+        expected: b,
+        got: got.mem.0.get(&k).copied(),
+    })
+}
+
 impl Patch {
     /// The DT1 messages `write_patch` sends, as a `.syx` file.
     pub fn to_syx(&self) -> Vec<u8> {
@@ -117,6 +169,60 @@ fn send_paced(t: &mut dyn Transport, msgs: &[Vec<u8>], interval: Duration) -> Re
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn slot_amp(ignore_dt1: bool) -> FakeAmp {
+        let mut amp = FakeAmp::new(device::header(), 128);
+        amp.ignore_dt1 = ignore_dt1;
+        for &(a, s) in PATCH_BLOCKS {
+            amp.mem.apply(Address(a), &vec![0x01; s as usize]);
+            amp.mem.apply(Address(a + slot_offset(3)), &vec![0x02; s as usize]);
+        }
+        amp
+    }
+
+    #[test]
+    fn read_slot_relocates_to_current_patch_addresses() {
+        let mut amp = slot_amp(false);
+        let s = read_slot(&mut amp, 3, Duration::from_millis(50)).unwrap();
+        let (a, n) = PATCH_BLOCKS[0];
+        assert_eq!(s.mem.read(Address(a), n), Some(vec![0x02; n as usize]));
+    }
+
+    #[test]
+    fn slot_offsets_follow_channel_layout() {
+        let current = device::addr([0x20, 0, 0, 0]);
+        assert_eq!(Address(current + slot_offset(1)).to_bytes(4).unwrap(), vec![0x20, 0x10, 0x00, 0x00]);
+        assert_eq!(Address(current + slot_offset(8)).to_bytes(4).unwrap(), vec![0x21, 0x00, 0x00, 0x00]);
+    }
+
+    #[test]
+    fn verify_write_back_restores_original() {
+        let mut amp = slot_amp(false);
+        let before = amp.mem.clone();
+        let other = read_slot(&mut amp, 3, Duration::from_millis(50)).unwrap();
+        verify_write_back(&mut amp, &other, Duration::from_millis(50)).unwrap();
+        assert_eq!(amp.mem, before);
+    }
+
+    #[test]
+    fn verify_write_back_fails_when_amp_ignores_writes() {
+        let mut amp = slot_amp(true);
+        let other = read_slot(&mut amp, 3, Duration::from_millis(50)).unwrap();
+        assert!(matches!(
+            verify_write_back(&mut amp, &other, Duration::from_millis(50)),
+            Err(ProtoError::WriteBackMismatch { .. })
+        ));
+    }
+
+    #[test]
+    fn verify_write_back_rejects_identical_scratch() {
+        let mut amp = slot_amp(false);
+        let same = read_patch(&mut amp, Duration::from_millis(50)).unwrap();
+        assert!(matches!(
+            verify_write_back(&mut amp, &same, Duration::from_millis(50)),
+            Err(ProtoError::ScratchEqualsCurrent)
+        ));
+    }
     use crate::{decode, device, encode, Address, Command, FakeAmp, Header, ProtoError, IDENTITY_REQUEST};
 
     const BLOCKS: &[(u32, u32)] = &[(0x100, 20), (0x200, 300), (0x400, 1)];

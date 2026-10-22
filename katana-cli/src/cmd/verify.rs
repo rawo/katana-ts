@@ -1,19 +1,35 @@
 use std::time::Duration;
 
 use anyhow::bail;
-use katana_proto::{read_patch, write_patch, MidirTransport};
+use katana_proto::{read_patch, read_slot, verify_write_back, MidirTransport, SLOTS};
 
-/// Dump, write back, dump again, and compare.
-pub fn run(port: &str) -> anyhow::Result<()> {
+const TIMEOUT: Duration = Duration::from_secs(2);
+
+/// Writes a different stored patch into the current patch and reads it back,
+/// then restores the original and reads that back. `slot` picks the stored
+/// patch; by default the first one that differs from the current patch.
+pub fn run(port: &str, slot: Option<u8>) -> anyhow::Result<()> {
     let mut t = MidirTransport::open(port)?;
-    let a = read_patch(&mut t, Duration::from_secs(2))?;
-    write_patch(&mut t, &a)?;
-    let b = read_patch(&mut t, Duration::from_secs(2))?;
-    match a.mem.diff(&b.mem).first() {
+    let current = read_patch(&mut t, TIMEOUT)?;
+    let (slot, scratch) = match slot {
+        Some(n) => (n, read_slot(&mut t, n, TIMEOUT)?),
         None => {
-            println!("identical");
-            Ok(())
+            let mut found = None;
+            for n in 1..=SLOTS {
+                let p = read_slot(&mut t, n, TIMEOUT)?;
+                if p != current {
+                    found = Some((n, p));
+                    break;
+                }
+            }
+            match found {
+                Some(f) => f,
+                None => bail!("every stored slot equals the current patch; nothing different to write"),
+            }
         }
-        Some((addr, old, new)) => bail!("first difference at {addr}: {old:02X?} -> {new:02X?}"),
-    }
+    };
+    println!("writing stored slot PATCH({slot}) into the current patch, then restoring…");
+    verify_write_back(&mut t, &scratch, TIMEOUT)?;
+    println!("identical: slot PATCH({slot}) written and read back, original restored and read back");
+    Ok(())
 }

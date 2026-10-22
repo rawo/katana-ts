@@ -37,8 +37,13 @@ enum Command {
     Dump { out: PathBuf },
     /// Write a .syx patch (from `dump`) into the amp's current patch.
     Load { file: PathBuf },
-    /// Read the current patch, write it back, read again, and compare.
-    Verify,
+    /// Prove writes land: write a different stored patch into the current
+    /// patch, read it back, restore the original, read that back.
+    Verify {
+        /// Stored slot PATCH(n), 1..=10, to use as the different patch.
+        #[arg(long)]
+        slot: Option<u8>,
+    },
     /// Set one parameter of the current patch.
     Set { name: String, value: String },
     /// List known parameters with their current values.
@@ -66,7 +71,7 @@ fn main() -> anyhow::Result<()> {
         Command::Diff { a, b } => cmd::diff::run(&header, &a, &b),
         Command::Dump { out } => cmd::dump::run(&cli.port, &out),
         Command::Load { file } => cmd::load::run(&cli.port, &file),
-        Command::Verify => cmd::verify::run(&cli.port),
+        Command::Verify { slot } => cmd::verify::run(&cli.port, slot),
         Command::Set { name, value } => cmd::set::run(&cli.port, &name, &value),
         Command::Params => cmd::params::run(&cli.port),
         Command::Watch { map, interval_ms } => {

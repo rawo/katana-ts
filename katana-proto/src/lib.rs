@@ -32,6 +32,6 @@ pub use memmap::MemoryMap;
 #[cfg(feature = "midi")]
 pub use midi::{MidirTransport, DEFAULT_PORT};
 pub use params::{encode_param, find_param, set_param, Encoding, ParamDef, PARAMS};
-pub use patch::{read_patch, write_patch, Patch};
+pub use patch::{read_patch, read_slot, verify_write_back, write_patch, Patch, SLOTS};
 pub use syx::{read_syx, write_syx};
 pub use transport::Transport;

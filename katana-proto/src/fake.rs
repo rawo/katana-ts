@@ -16,6 +16,8 @@ pub struct FakeAmp {
     pub silent: bool,
     /// Unrelated messages delivered before each RQ1 reply.
     pub noise: Vec<Vec<u8>>,
+    /// Accept DT1 without applying it (an amp that silently drops writes).
+    pub ignore_dt1: bool,
     pending: VecDeque<Vec<u8>>,
 }
 
@@ -28,6 +30,7 @@ impl FakeAmp {
             max_dt1,
             silent: false,
             noise: Vec::new(),
+            ignore_dt1: false,
             pending: VecDeque::new(),
         }
     }
@@ -37,7 +40,7 @@ impl Transport for FakeAmp {
     fn send(&mut self, msg: &[u8]) -> Result<(), ProtoError> {
         self.sent.push(msg.to_vec());
         match decode(&self.header, msg) {
-            Ok(Command::Dt1 { addr, data }) => self.mem.apply(addr, &data),
+            Ok(Command::Dt1 { addr, data }) if !self.ignore_dt1 => self.mem.apply(addr, &data),
             Ok(Command::Rq1 { addr, size }) if !self.silent => {
                 self.pending.extend(self.noise.iter().cloned());
                 let data: Vec<u8> =

@@ -16,10 +16,13 @@ fn amp_answers_identity_request() {
 
 #[test]
 fn hardware_patch_round_trip_is_byte_identical() {
-    use katana_proto::{read_patch, write_patch};
+    use katana_proto::{read_patch, read_slot, verify_write_back, SLOTS};
+    let timeout = Duration::from_secs(2);
     let mut t = MidirTransport::open(DEFAULT_PORT).unwrap();
-    let a = read_patch(&mut t, Duration::from_secs(2)).unwrap();
-    write_patch(&mut t, &a).unwrap();
-    let b = read_patch(&mut t, Duration::from_secs(2)).unwrap();
-    assert_eq!(a, b);
+    let current = read_patch(&mut t, timeout).unwrap();
+    let scratch = (1..=SLOTS)
+        .map(|n| read_slot(&mut t, n, timeout).unwrap())
+        .find(|p| *p != current)
+        .expect("a stored slot that differs from the current patch");
+    verify_write_back(&mut t, &scratch, timeout).unwrap();
 }
