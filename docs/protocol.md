@@ -114,4 +114,5 @@ Only VERIFIED entries.
 1. ~~Model ID width~~ — 3 bytes (resolved).
 2. ~~Editor communication mode needed for RQ1?~~ — no: the amp answers RQ1 for the patch area without it (resolved).
 3. The official app's own RQ1/DT1 sequence (connect handshake, write chunking) — not yet captured with usbmon; our block list is derived from its address table and verified against the amp.
-4. Whether DT1 to `20 00 00 00` (current patch) is applied immediately / audibly, and whether the amp accepts >128-byte DT1.
+4. ~~Whether DT1 to the current patch is applied audibly~~ — yes (resolved 2026-10-22, by ear, amp in PANEL mode: `katana-cli dump`, knobs changed, `katana-cli load` restored the dumped sound). Still open: whether the amp accepts >128-byte DT1 (we never send one).
+5. Slot ↔ channel mapping: `SETUP PATCH_NUMBER` (`00 00 00 00`, INTEGER2x4) reads `00 00` in PANEL mode. App resource list is `PANEL, A: CH1–CH4, B: CH1–CH4`; stored slots PATCH(1)…(10) at `20 10 00 00`…`21 20 00 00`, PATCH(10) named `PREVIEW`. Mapping of PATCH(n) to channels not yet confirmed.
