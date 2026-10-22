@@ -61,6 +61,20 @@ converts them to linear values the same way our `Address` type does.
 | `30 00 00 00` | TEMP | `TEMP_COM`, `TEMP_KNOB`, `TEMP_KNOB_SOLO_DELAY` |
 | `7F 00 00 00` | COMMAND | editor/control commands, see below |
 
+### Channels
+
+**VERIFIED** 2026-10-22: `SETUP PATCH_NUMBER` (`00 00 00 00`, INTEGER2x4) holds the
+selected channel; selecting a channel copies stored slot **PATCH(selector + 1)**
+into the current patch at `20 00 00 00`.
+
+| Selector | Channel (app label) | Stored slot | Evidence |
+|---|---|---|---|
+| 0 | PANEL | PATCH(1) `20 10 00 00` | selector read `00 00` in PANEL mode |
+| 1 | A: CH1 | PATCH(2) `20 20 00 00` | selector `00 01`; current patch equal to PATCH(2) in 6 blocks, unequal to PATCH(1)/(3) |
+| 2–4 | A: CH2–CH4 | PATCH(3)–(5) | CH4: selector `00 04`, current name "Bloom Crunch" = PATCH(5) |
+| 5–8 | B: CH1–CH4 | PATCH(6)–(9) | inferred; bank B not selectable from this amp's panel (4 channel buttons) |
+| — | app preview buffer | PATCH(10) `21 20 00 00` | slot named `PREVIEW` |
+
 ### Patch layout (offset from patch base)
 
 Blocks every `00 00 02 00`: `COM` 00 00, `OTHER` 02 00, `COLOR` 04 00, `AMP` 06 00,
@@ -115,4 +129,4 @@ Only VERIFIED entries.
 2. ~~Editor communication mode needed for RQ1?~~ — no: the amp answers RQ1 for the patch area without it (resolved).
 3. The official app's own RQ1/DT1 sequence (connect handshake, write chunking) — not yet captured with usbmon; our block list is derived from its address table and verified against the amp.
 4. ~~Whether DT1 to the current patch is applied audibly~~ — yes (resolved 2026-10-22, by ear, amp in PANEL mode: `katana-cli dump`, knobs changed, `katana-cli load` restored the dumped sound). Still open: whether the amp accepts >128-byte DT1 (we never send one).
-5. Slot ↔ channel mapping: `SETUP PATCH_NUMBER` (`00 00 00 00`, INTEGER2x4) reads `00 00` in PANEL mode. App resource list is `PANEL, A: CH1–CH4, B: CH1–CH4`; stored slots PATCH(1)…(10) at `20 10 00 00`…`21 20 00 00`, PATCH(10) named `PREVIEW`. Mapping of PATCH(n) to channels not yet confirmed.
+5. ~~Slot ↔ channel mapping~~ — resolved, see "Channels" below.
