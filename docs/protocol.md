@@ -177,6 +177,27 @@ re-applies the knob position when the variation changes. With the knob turned
 on, colour changes keep the booster on. Editors must send colour before on/off
 (and may need to account for the knob-position byte).
 
+## Amp control (observed 2026-10-22, not yet in katana-proto — phase 2 stage 1)
+
+Probed by hand with `amidi` on the user's amp; to be re-verified and coded in stage 1.
+
+- **Editor mode:** DT1 `7F 00 00 01` ← `01` on, ← `00` off. While on, the amp sends
+  unsolicited DT1s by itself: the selector (`00 00 00 00` ← `00 nn`) after a channel
+  change, a `PATCH_WRITE` echo (`7F 00 01 04` ← `00 nn`) after a store, and a stream of
+  `7F 01 01 xx` ← `yy` status messages (meaning not yet decoded).
+- **Channel select:**
+  - MIDI **Program Change** works without editor mode: PC 2 → selector 3 (A:CH3),
+    PC 3 → selector 4 (A:CH4), i.e. PC *n* → selector *n*+1 (PANEL via PC untested).
+  - DT1 to the selector `00 00 00 00` and `PATCH_SELECT` `7F 00 01 00` ← `00 nn` are
+    **ignored without editor mode**; `PATCH_SELECT` works **with** editor mode on.
+- **Store to channel:** `PATCH_WRITE` `7F 00 01 04` ← `00 <selector>` stores the
+  current patch into that channel **only in editor mode** (ignored otherwise).
+  Tested on A:CH4: live gain 60→77, store → stored slot `20 50 06 00` = 77; then
+  gain 60, store → stored slot byte-identical to the backup taken before the test.
+- Backups of the user's scratch channels (A3 Riff Shred, A4 Bloom Crunch, B3 Spongy
+  Crunch, B4 Bite Lead) taken before the test: `backups/slot{4,5,8,9}-*.syx`
+  (untracked, local).
+
 ## Open questions
 
 1. ~~Model ID width~~ — 3 bytes (resolved).
