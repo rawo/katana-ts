@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>katana-ts — main window layouts</title>
+<style>
+:root{--bg:#16181c;--panel:#1f2329;--line:#333a44;--txt:#d8dde4;--dim:#8a93a0;--acc:#e0a030;--g:#3fbf5a;--r:#e0443c;--o:#f08a24}
+*{box-sizing:border-box}body{margin:0;padding:24px;background:#0e0f12;color:var(--txt);font:14px system-ui,sans-serif}
+h1{font-size:20px;margin:0 0 4px}.sub{color:var(--dim);margin:0 0 20px}
+.opt{margin-bottom:40px}.opt h2{font-size:16px;margin:0 0 4px;color:var(--acc)}.opt p.d{margin:0 0 10px;color:var(--dim);max-width:900px}
+.win{background:var(--bg);border:1px solid var(--line);border-radius:8px;overflow:hidden;max-width:1200px}
+.top{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 10px;background:var(--panel);border-bottom:1px solid var(--line)}
+.btn{padding:4px 9px;border:1px solid var(--line);border-radius:4px;background:#2a2f37;font-size:12px;white-space:nowrap}
+.btn.hot{border-color:var(--acc);color:var(--acc)}.sep{flex:1}
+.conn{font-size:12px;color:var(--g)}.pname{font-weight:600}.dirty{color:var(--acc);font-size:12px}
+.chans{display:flex;gap:3px}.ch{padding:3px 6px;border:1px solid var(--line);border-radius:3px;font-size:11px}.ch.on{background:var(--acc);color:#111;border-color:var(--acc)}
+.tog{font-size:12px}.tog b{display:inline-block;width:28px;height:14px;border-radius:7px;background:var(--g);vertical-align:middle;margin-left:4px;position:relative}.tog b:after{content:"";position:absolute;right:2px;top:2px;width:10px;height:10px;border-radius:5px;background:#fff}
+.body{display:flex;min-height:420px}.main{flex:1;padding:12px;display:flex;flex-direction:column;gap:12px}
+.side{width:250px;border-left:1px solid var(--line);background:var(--panel);padding:10px;font-size:12px}
+.side input{width:100%;padding:5px;background:#111;border:1px solid var(--line);color:var(--txt);border-radius:3px;margin-bottom:6px}
+.side .sort{color:var(--dim);margin-bottom:6px}.item{padding:5px 4px;border-bottom:1px solid #2a2f37;display:flex;justify-content:space-between}.item .t{color:var(--dim)}.item.sel{background:#2a2f37}
+.lock{color:var(--dim)}
+.sect{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:10px}
+.sect h3{margin:0 0 8px;font-size:12px;letter-spacing:.08em;color:var(--dim)}
+.amp{display:flex;gap:16px;align-items:center}.types{display:flex;flex-direction:column;gap:2px;font-size:11px}.types span{padding:1px 6px;border-radius:3px}.types .on{background:var(--acc);color:#111}
+.knobs{display:flex;gap:14px;flex-wrap:wrap}.k{text-align:center;font-size:11px;color:var(--dim)}
+.k i{display:block;width:44px;height:44px;border-radius:50%;border:3px solid #444;border-top-color:var(--acc);margin:0 auto 3px;background:#22262c}.k em{display:block;font-style:normal;color:var(--txt);font-size:12px}
+.fx{display:flex;gap:8px;flex-wrap:wrap}.blk{flex:1;min-width:110px;border:1px solid var(--line);border-radius:6px;padding:8px;background:#22262c;font-size:12px}
+.blk.sel{border-color:var(--acc)}.blk .n{font-weight:600}.blk .ty{color:var(--dim);font-size:11px;margin:3px 0}
+.led{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:3px;opacity:.25}.led.on{opacity:1}.G{background:var(--g)}.R{background:var(--r)}.O{background:var(--o)}
+.pw{float:right;font-size:10px;padding:1px 5px;border-radius:3px;background:var(--g);color:#111}.pw.off{background:#444;color:var(--dim)}
+.detail{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end}
+.chain{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.chain .blk{flex:0 0 auto;min-width:95px}.arrow{color:var(--dim)}
+.tabs{display:flex;gap:2px;padding:0 10px;background:var(--panel);border-bottom:1px solid var(--line)}.tab{padding:6px 12px;font-size:12px;color:var(--dim)}.tab.on{color:var(--txt);border-bottom:2px solid var(--acc)}
+.status{padding:4px 10px;font-size:11px;color:var(--dim);border-top:1px solid var(--line);background:var(--panel)}
+</style></head><body>
+<h1>Main window — two layout directions</h1>
+<p class="sub">Same features in both; the difference is how the sound is laid out. Values are your current A:CH4 "Bloom Crunch"-ish example. Not final styling.</p>
+
+<div class="opt"><h2>A — "Amp panel" layout, library always visible</h2>
+<p class="d">Mirrors the physical amp: AMP section on top, a row of effect blocks under it (each with on/off + green/red/orange variation). Click a block → its full parameters open below. Preset library sits permanently on the right.</p>
+<div class="win">
+ <div class="top">
+  <span class="conn">● KATANA3 connected</span>
+  <div class="chans"><span class="ch">PANEL</span><span class="ch">A1</span><span class="ch">A2</span><span class="ch">A3</span><span class="ch on">A4</span><span class="ch">B1</span><span class="ch">B2</span><span class="ch">B3</span><span class="ch">B4</span></div>
+  <span class="sep"></span>
+  <span class="pname">Bloom Crunch</span><span class="dirty">● unsaved</span>
+  <span class="tog">Live edit<b></b></span>
+  <span class="btn">Quick save</span><span class="btn">Save</span><span class="btn">Save as…</span><span class="btn">Load to amp</span><span class="btn hot">Store to channel…</span>
+ </div>
+ <div class="body">
+  <div class="main">
+   <div class="sect"><h3>AMP</h3><div class="amp">
+    <div class="types"><span>ACOUSTIC</span><span>CLEAN</span><span>PUSHED</span><span class="on">CRUNCH</span><span>LEAD</span><span>BROWN</span></div>
+    <div class="knobs"><div class="k"><i></i>GAIN<em>60</em></div><div class="k"><i></i>VOLUME<em>50</em></div><div class="k"><i></i>BASS<em>48</em></div><div class="k"><i></i>MIDDLE<em>46</em></div><div class="k"><i></i>TREBLE<em>55</em></div><div class="k"><i></i>PRESENCE<em>48</em></div></div>
+    <div class="types" style="margin-left:auto"><span>CAB: MODERN</span><span>CONTOUR: 2</span><span>SOLO: off</span></div>
+   </div></div>
+   <div class="sect"><h3>EFFECTS</h3><div class="fx">
+    <div class="blk sel"><span class="pw">ON</span><div class="n">BOOSTER</div><div class="ty">BLUES DRIVE</div><span class="led G on"></span><span class="led R"></span><span class="led O"></span></div>
+    <div class="blk"><span class="pw off">OFF</span><div class="n">MOD</div><div class="ty">CHORUS</div><span class="led G"></span><span class="led R on"></span><span class="led O"></span></div>
+    <div class="blk"><span class="pw off">OFF</span><div class="n">FX</div><div class="ty">T.WAH</div><span class="led G"></span><span class="led R"></span><span class="led O on"></span></div>
+    <div class="blk"><span class="pw">ON</span><div class="n">DELAY</div><div class="ty">ANALOG</div><span class="led G"></span><span class="led R on"></span><span class="led O"></span></div>
+    <div class="blk"><span class="pw">ON</span><div class="n">REVERB</div><div class="ty">PLATE</div><span class="led G on"></span><span class="led R"></span><span class="led O"></span></div>
+    <div class="blk"><span class="pw off">OFF</span><div class="n">EQ</div><div class="ty">PARAMETRIC</div></div>
+    <div class="blk"><span class="pw">ON</span><div class="n">NS</div><div class="ty">noise suppressor</div></div>
+   </div></div>
+   <div class="sect"><h3>BOOSTER · GREEN variation · type BLUES DRIVE</h3><div class="detail">
+    <div class="k"><i></i>DRIVE<em>5</em></div><div class="k"><i></i>BOTTOM<em>10</em></div><div class="k"><i></i>TONE<em>0</em></div><div class="k"><i></i>SOLO LVL<em>50</em></div><div class="k"><i></i>EFFECT LVL<em>73</em></div><div class="k"><i></i>DIRECT<em>0</em></div>
+    <span class="btn">Type ▾</span>
+   </div></div>
+  </div>
+  <div class="side">
+   <input placeholder="search: crunch lead">
+   <div class="sort">Sort: Date ▾ · Name</div>
+   <div class="item sel"><span>Bloom Crunch v2</span><span class="t">22:41</span></div>
+   <div class="item"><span>quicksave007</span><span class="t">22:35</span></div>
+   <div class="item"><span>autosave-03</span><span class="t">22:30</span></div>
+   <div class="item"><span>Bite Lead (backup) <span class="lock">🔒</span></span><span class="t">yesterday</span></div>
+   <div class="item"><span>Clean Sparkle</span><span class="t">Oct 20</span></div>
+  </div>
+ </div>
+ <div class="status">Amp: A4 · Live edit ON · last auto-save 22:40 · panel change: GAIN 95 → 40</div>
+</div></div>
+
+<div class="opt"><h2>B — "Signal chain" layout, library on its own tab</h2>
+<p class="d">The sound is shown as the signal path (guitar → booster → mod → amp → FX → delay → reverb), in the order the amp actually processes it. Click a block → its parameters below. Editor and Library are separate tabs, so the editor gets the full width.</p>
+<div class="win">
+ <div class="top">
+  <span class="conn">● KATANA3 connected</span>
+  <div class="chans"><span class="ch">PANEL</span><span class="ch">A1</span><span class="ch">A2</span><span class="ch">A3</span><span class="ch on">A4</span><span class="ch">B1</span><span class="ch">B2</span><span class="ch">B3</span><span class="ch">B4</span></div>
+  <span class="sep"></span>
+  <span class="pname">Bloom Crunch</span><span class="dirty">● unsaved</span>
+  <span class="tog">Live edit<b></b></span>
+  <span class="btn">Quick save</span><span class="btn">Save</span><span class="btn">Save as…</span><span class="btn">Load to amp</span><span class="btn hot">Store to channel…</span>
+ </div>
+ <div class="tabs"><span class="tab on">Editor</span><span class="tab">Library</span><span class="tab">Tone Central</span></div>
+ <div class="main">
+  <div class="sect"><h3>SIGNAL CHAIN</h3><div class="chain">
+   <span class="arrow">🎸 →</span>
+   <div class="blk sel"><span class="pw">ON</span><div class="n">BOOSTER</div><div class="ty">BLUES DRIVE</div><span class="led G on"></span><span class="led R"></span><span class="led O"></span></div><span class="arrow">→</span>
+   <div class="blk"><span class="pw off">OFF</span><div class="n">MOD</div><div class="ty">CHORUS</div><span class="led G"></span><span class="led R on"></span><span class="led O"></span></div><span class="arrow">→</span>
+   <div class="blk"><span class="pw">ON</span><div class="n">AMP</div><div class="ty">CRUNCH</div></div><span class="arrow">→</span>
+   <div class="blk"><span class="pw off">OFF</span><div class="n">FX</div><div class="ty">T.WAH</div><span class="led G"></span><span class="led R"></span><span class="led O on"></span></div><span class="arrow">→</span>
+   <div class="blk"><span class="pw">ON</span><div class="n">DELAY</div><div class="ty">ANALOG</div><span class="led G"></span><span class="led R on"></span><span class="led O"></span></div><span class="arrow">→</span>
+   <div class="blk"><span class="pw">ON</span><div class="n">REVERB</div><div class="ty">PLATE</div><span class="led G on"></span><span class="led R"></span><span class="led O"></span></div>
+   <span class="arrow">→ 🔊</span>
+  </div></div>
+  <div class="sect"><h3>BOOSTER · GREEN variation · type BLUES DRIVE</h3><div class="detail">
+   <div class="k"><i></i>DRIVE<em>5</em></div><div class="k"><i></i>BOTTOM<em>10</em></div><div class="k"><i></i>TONE<em>0</em></div><div class="k"><i></i>SOLO LVL<em>50</em></div><div class="k"><i></i>EFFECT LVL<em>73</em></div><div class="k"><i></i>DIRECT<em>0</em></div>
+   <span class="btn">Type ▾</span>
+  </div></div>
+  <div class="sect"><h3>AMP (always visible strip)</h3><div class="knobs"><div class="k"><i></i>GAIN<em>60</em></div><div class="k"><i></i>VOLUME<em>50</em></div><div class="k"><i></i>BASS<em>48</em></div><div class="k"><i></i>MIDDLE<em>46</em></div><div class="k"><i></i>TREBLE<em>55</em></div><div class="k"><i></i>PRESENCE<em>48</em></div></div></div>
+ </div>
+ <div class="status">Amp: A4 · Live edit ON · last auto-save 22:40 · panel change: GAIN 95 → 40</div>
+</div></div>
+</body></html>
