@@ -157,3 +157,16 @@ the colour button. `set` targets the underlying parameters.
 3. The official app's own RQ1/DT1 sequence (connect handshake, write chunking) — not yet captured with usbmon; our block list is derived from its address table and verified against the amp.
 4. ~~Whether DT1 to the current patch is applied audibly~~ — yes (resolved 2026-10-22, by ear, amp in PANEL mode: `katana-cli dump`, knobs changed, `katana-cli load` restored the dumped sound). Still open: whether the amp accepts >128-byte DT1 (we never send one).
 5. ~~Slot ↔ channel mapping~~ — resolved, see "Channels" below.
+
+## Value names
+
+From the official app's panel labels (`js/businesslogic/bts/effect_controller.js`
+`panelAmpTypeInfo`, `panelContourTypeInfo`) and resource tables (`js/config/resource.js`).
+
+| Parameter | Values | Hardware check |
+|---|---|---|
+| `amp-type` | 0 ACOUSTIC, 1 CLEAN, 2 PUSHED, 3 CRUNCH, 4 LEAD, 5 BROWN | 6 panel positions = 0..5 in `100-watch-knobs.log`; `set amp-type 2` took effect |
+| `contour` | 0 OFF, 1, 2, 3 | button cycle 0→3→0 in `101-watch-contour.log`; `set contour 2` took effect |
+| `cab-resonance` | 0 VINTAGE, 1 MODERN, 2 DEEP | 3 positions in log |
+| `booster-color` | 0 GREEN, 1 RED, 2 YELLOW | **order UNVERIFIED** (Katana convention; app has no table) |
+| `*-sw` | 0 OFF, 1 ON | toggled in log; `set reverb-sw 0` took effect |

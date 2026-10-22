@@ -38,7 +38,19 @@ const fn p(name: &'static str, a: [u8; 4], encoding: Encoding, min: u32, max: u3
     ParamDef { name, addr: addr(a), encoding, min, max, values: None }
 }
 
+const fn named(def: ParamDef, values: &'static [(u32, &'static str)]) -> ParamDef {
+    ParamDef { values: Some(values), ..def }
+}
+
 use Encoding::{Nibbles4, U7};
+
+// Value names: official app's panel labels / resource tables (see docs/protocol.md).
+const ON_OFF: &[(u32, &str)] = &[(0, "OFF"), (1, "ON")];
+const AMP_TYPES: &[(u32, &str)] =
+    &[(0, "ACOUSTIC"), (1, "CLEAN"), (2, "PUSHED"), (3, "CRUNCH"), (4, "LEAD"), (5, "BROWN")];
+const COLORS: &[(u32, &str)] = &[(0, "GREEN"), (1, "RED"), (2, "YELLOW")];
+const CAB_RESONANCE: &[(u32, &str)] = &[(0, "VINTAGE"), (1, "MODERN"), (2, "DEEP")];
+const CONTOUR: &[(u32, &str)] = &[(0, "OFF"), (1, "1"), (2, "2"), (3, "3")];
 
 /// Confirmed current-patch parameters. Evidence for every row:
 /// captures/100-watch-knobs.log (panel control moved, address changed on the
@@ -51,19 +63,19 @@ pub const PARAMS: &[ParamDef] = &[
     p("middle", [0x20, 0x00, 0x06, 0x03], U7, 0, 100),
     p("treble", [0x20, 0x00, 0x06, 0x04], U7, 0, 100),
     p("presence", [0x20, 0x00, 0x06, 0x05], U7, 0, 100),
-    p("amp-type", [0x20, 0x00, 0x06, 0x07], U7, 0, 5),
+    named(p("amp-type", [0x20, 0x00, 0x06, 0x07], U7, 0, 5), AMP_TYPES),
     // Effect on/off buttons
-    p("booster-sw", [0x20, 0x00, 0x08, 0x00], U7, 0, 1),
-    p("mod-sw", [0x20, 0x00, 0x08, 0x01], U7, 0, 1),
-    p("fx-sw", [0x20, 0x00, 0x08, 0x02], U7, 0, 1),
-    p("delay-sw", [0x20, 0x00, 0x08, 0x03], U7, 0, 1),
-    p("reverb-sw", [0x20, 0x00, 0x08, 0x05], U7, 0, 1),
-    p("solo-sw", [0x20, 0x00, 0x3A, 0x00], U7, 0, 1),
+    named(p("booster-sw", [0x20, 0x00, 0x08, 0x00], U7, 0, 1), ON_OFF),
+    named(p("mod-sw", [0x20, 0x00, 0x08, 0x01], U7, 0, 1), ON_OFF),
+    named(p("fx-sw", [0x20, 0x00, 0x08, 0x02], U7, 0, 1), ON_OFF),
+    named(p("delay-sw", [0x20, 0x00, 0x08, 0x03], U7, 0, 1), ON_OFF),
+    named(p("reverb-sw", [0x20, 0x00, 0x08, 0x05], U7, 0, 1), ON_OFF),
+    named(p("solo-sw", [0x20, 0x00, 0x3A, 0x00], U7, 0, 1), ON_OFF),
     // Variation colour (selects BOOSTER(1..3))
-    p("booster-color", [0x20, 0x00, 0x04, 0x00], U7, 0, 2),
-    p("cab-resonance", [0x20, 0x00, 0x02, 0x01], U7, 0, 2),
+    named(p("booster-color", [0x20, 0x00, 0x04, 0x00], U7, 0, 2), COLORS),
+    named(p("cab-resonance", [0x20, 0x00, 0x02, 0x01], U7, 0, 2), CAB_RESONANCE),
     // Contour button cycles 0..3 (captures/101-watch-contour.log)
-    p("contour", [0x20, 0x00, 0x40, 0x00], U7, 0, 3),
+    named(p("contour", [0x20, 0x00, 0x40, 0x00], U7, 0, 3), CONTOUR),
     // Per-variation blocks, as edited by the panel knobs
     p("booster1-drive", [0x20, 0x00, 0x0A, 0x01], U7, 0, 120),
     p("booster2-drive", [0x20, 0x00, 0x0C, 0x01], U7, 0, 120),

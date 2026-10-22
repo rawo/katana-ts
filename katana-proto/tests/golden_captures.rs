@@ -97,3 +97,19 @@ fn contour_button_cycles_0_to_3() {
     let p = katana_proto::find_param("contour").expect("contour param");
     assert_eq!((p.addr, p.min, p.max), (device::addr([0x20, 0x00, 0x40, 0x00]), 0, 3));
 }
+
+#[test]
+fn enumerated_params_have_value_names() {
+    let name = |p: &str, v: u32| {
+        katana_proto::find_param(p)
+            .and_then(|d| d.values)
+            .and_then(|vs| vs.iter().find(|(x, _)| *x == v))
+            .map(|(_, n)| *n)
+    };
+    assert_eq!(name("amp-type", 0), Some("ACOUSTIC"));
+    assert_eq!(name("amp-type", 5), Some("BROWN"));
+    assert_eq!(name("contour", 0), Some("OFF"));
+    assert_eq!(name("cab-resonance", 2), Some("DEEP"));
+    assert_eq!(name("booster-color", 0), Some("GREEN"));
+    assert_eq!(name("reverb-sw", 1), Some("ON"));
+}
