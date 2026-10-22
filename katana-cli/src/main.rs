@@ -1,3 +1,4 @@
+mod addrmap;
 mod cmd;
 
 use std::path::PathBuf;
@@ -42,6 +43,16 @@ enum Command {
     Set { name: String, value: String },
     /// List known parameters with their current values.
     Params,
+    /// Poll the current patch and print each parameter that changes, named
+    /// from the official app's address table when it is installed.
+    Watch {
+        /// Path to the official app's address_map.js (default: Wine prefix).
+        #[arg(long)]
+        map: Option<PathBuf>,
+        /// Milliseconds between reads.
+        #[arg(long, default_value_t = 300)]
+        interval_ms: u64,
+    },
 }
 
 fn main() -> anyhow::Result<()> {
@@ -58,5 +69,8 @@ fn main() -> anyhow::Result<()> {
         Command::Verify => cmd::verify::run(&cli.port),
         Command::Set { name, value } => cmd::set::run(&cli.port, &name, &value),
         Command::Params => cmd::params::run(&cli.port),
+        Command::Watch { map, interval_ms } => {
+            cmd::watch::run(&cli.port, map.as_deref(), std::time::Duration::from_millis(interval_ms))
+        }
     }
 }

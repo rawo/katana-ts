@@ -8,6 +8,7 @@ pub mod params;
 pub mod ports;
 pub mod set;
 pub mod verify;
+pub mod watch;
 
 use std::path::Path;
 
