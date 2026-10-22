@@ -160,6 +160,15 @@ solo off and on. Writing all of stored PATCH(1) into the current patch changed
 change solo-delay settings; `dump` still saves them. Whether stored slots
 accept SOLO_DELAY writes is untested.
 
+**Colour changes apply asynchronously** (VERIFIED 2026-10-22): writing a
+*different* variation colour (`20 00 04 00`…) makes the amp re-derive that
+effect's on/off from its knob byte (`20 01 1C 00`…, non-zero → on) some time
+after the DT1. An on/off written 20 ms later is overwritten (colour 2→1, then
+booster on/off 0: reads 1); 300 ms later it sticks (reads 0). Rewriting the
+same colour, or writing the knob byte alone, changes nothing. `write_patch`
+pauses 300 ms after the COLOR block (`device::SETTLE_AFTER`). With that,
+`verify` passes in PANEL mode against every stored slot PATCH(2)–(9).
+
 **Panel knob position overrides remote on/off on colour change** (observed
 2026-10-22, by the user): with the physical BOOSTER knob at its off position
 (`PATCH_KNOB_READONLY` booster byte `00`), `set booster-sw on` turns the booster

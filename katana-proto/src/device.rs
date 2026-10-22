@@ -28,6 +28,14 @@ pub const MAX_DT1_DATA: usize = 128 - 13;
 /// Pause between messages we send, as the official app does (S1 `interval`).
 pub const SEND_INTERVAL: std::time::Duration = std::time::Duration::from_millis(20);
 
+/// Blocks after which the amp needs time before the next write. A variation
+/// colour change is applied asynchronously and re-derives each effect's on/off
+/// from its knob byte, overwriting an on/off written 20 ms later.
+/// COLOR (`20 00 04 00`) — evidence: 2026-10-22, colour 2->1 then booster
+/// on/off 0: with a 20 ms gap reads back 1, with 300 ms reads back 0.
+pub const SETTLE_AFTER: &[(u32, std::time::Duration)] =
+    &[(addr([0x20, 0x00, 0x04, 0x00]), std::time::Duration::from_millis(300))];
+
 /// Current-patch ranges the amp accepts DT1 for but never changes (no error,
 /// value kept). Skipped by `write_patch`, excluded from write-back checks.
 /// SOLO_DELAY (`20 00 3E 00`, 14 bytes) — evidence: 2026-10-22 writes of

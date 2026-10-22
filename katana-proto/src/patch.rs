@@ -20,6 +20,11 @@ pub fn write_patch(t: &mut dyn Transport, p: &Patch) -> Result<(), ProtoError> {
     send_paced(t, &patch_messages(&writable(PATCH_BLOCKS), p)?, SEND_INTERVAL)
 }
 
+/// Extra pause owed after the last message of block `a` (`device::SETTLE_AFTER`).
+fn settle_after(a: u32) -> Duration {
+    device::SETTLE_AFTER.iter().find(|&&(b, _)| b == a).map_or(Duration::ZERO, |&(_, d)| d)
+}
+
 fn writable(blocks: &[(u32, u32)]) -> Vec<(u32, u32)> {
     blocks.iter().copied().filter(|&(a, _)| !device::is_write_protected(a)).collect()
 }
@@ -87,7 +92,8 @@ impl Patch {
 
     pub(crate) fn to_syx_blocks(&self, blocks: &[(u32, u32)]) -> Vec<u8> {
         // A Patch only ever holds full blocks, so encoding cannot fail.
-        write_syx(&patch_messages(blocks, self).expect("patch covers its blocks"))
+        let msgs = patch_messages(blocks, self).expect("patch covers its blocks");
+        write_syx(&msgs.into_iter().map(|(_, m)| m).collect::<Vec<_>>())
     }
 
     pub(crate) fn from_syx_blocks(bytes: &[u8], blocks: &[(u32, u32)]) -> Result<Patch, ProtoError> {
@@ -146,24 +152,27 @@ pub(crate) fn write_patch_blocks(t: &mut dyn Transport, blocks: &[(u32, u32)], p
     send_paced(t, &patch_messages(&writable(blocks), p)?, Duration::ZERO)
 }
 
-/// DT1 messages for every block, chunked at `MAX_DT1_DATA`.
-fn patch_messages(blocks: &[(u32, u32)], p: &Patch) -> Result<Vec<Vec<u8>>, ProtoError> {
+/// DT1 messages for every block, chunked at `MAX_DT1_DATA`, each paired with
+/// the pause owed after it (non-zero only on a settle block's last chunk).
+fn patch_messages(blocks: &[(u32, u32)], p: &Patch) -> Result<Vec<(Duration, Vec<u8>)>, ProtoError> {
     let h = device::header();
     let mut msgs = Vec::new();
     for &(a, s) in blocks {
         let data = p.mem.read(Address(a), s).ok_or(ProtoError::IncompletePatch { addr: Address(a) })?;
+        let chunks = data.chunks(MAX_DT1_DATA).count();
         for (i, chunk) in data.chunks(MAX_DT1_DATA).enumerate() {
             let addr = Address(a) + (i * MAX_DT1_DATA) as u32;
-            msgs.push(encode(&h, &Command::Dt1 { addr, data: chunk.to_vec() })?);
+            let pause = if i + 1 == chunks { settle_after(a) } else { Duration::ZERO };
+            msgs.push((pause, encode(&h, &Command::Dt1 { addr, data: chunk.to_vec() })?));
         }
     }
     Ok(msgs)
 }
 
-fn send_paced(t: &mut dyn Transport, msgs: &[Vec<u8>], interval: Duration) -> Result<(), ProtoError> {
-    for m in msgs {
+fn send_paced(t: &mut dyn Transport, msgs: &[(Duration, Vec<u8>)], interval: Duration) -> Result<(), ProtoError> {
+    for (pause, m) in msgs {
         t.send(m)?;
-        std::thread::sleep(interval);
+        std::thread::sleep(interval.max(*pause));
     }
     Ok(())
 }
@@ -250,6 +259,36 @@ mod tests {
                 );
             }
         }
+    }
+
+    /// Records when each message was sent.
+    struct Clock(Vec<(Instant, Vec<u8>)>);
+    impl Transport for Clock {
+        fn send(&mut self, msg: &[u8]) -> Result<(), ProtoError> {
+            self.0.push((Instant::now(), msg.to_vec()));
+            Ok(())
+        }
+        fn recv(&mut self, _: Duration) -> Result<Option<Vec<u8>>, ProtoError> {
+            Ok(None)
+        }
+    }
+
+    #[test]
+    fn write_patch_waits_for_amp_to_settle_after_colour_block() {
+        let mut src = slot_amp(false);
+        let p = read_patch(&mut src, Duration::from_millis(50)).unwrap();
+        let mut clock = Clock(Vec::new());
+        write_patch(&mut clock, &p).unwrap();
+        let colour = device::addr([0x20, 0x00, 0x04, 0x00]);
+        let i = clock
+            .0
+            .iter()
+            .position(
+                |(_, m)| matches!(decode(&device::header(), m), Ok(Command::Dt1 { addr, .. }) if addr.0 == colour),
+            )
+            .expect("colour block written");
+        let gap = clock.0[i + 1].0 - clock.0[i].0;
+        assert!(gap >= Duration::from_millis(300), "only {gap:?} after the colour block");
     }
 
     #[test]
