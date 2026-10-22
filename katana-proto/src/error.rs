@@ -18,4 +18,6 @@ pub enum ProtoError {
     UnknownCommand(u8),
     #[error("bad checksum: expected {expected:#04x}, got {got:#04x}")]
     BadChecksum { expected: u8, got: u8 },
+    #[error("malformed capture export at line {line}")]
+    BadExport { line: usize },
 }

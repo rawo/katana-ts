@@ -1,6 +1,7 @@
 //! Protocol library for the BOSS KATANA Gen 3 USB-MIDI SysEx interface.
 
 pub mod address;
+pub mod capture;
 pub mod checksum;
 pub mod error;
 
@@ -12,3 +13,4 @@ pub mod sysex;
 
 pub use identity::{parse_identity_reply, IdentityReply, IDENTITY_REQUEST};
 pub use sysex::{decode, encode, Command, Header};
+pub use capture::{extract_sysex, load_tshark_export, CapturedMessage, Direction};
