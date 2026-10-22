@@ -30,6 +30,8 @@ pub enum ProtoError {
     Timeout { addr: Address },
     #[error("patch data does not cover block {addr}")]
     IncompletePatch { addr: Address },
+    #[error("{name}: value {value} outside {min}..={max}")]
+    OutOfRange { name: &'static str, value: u32, min: u32, max: u32 },
     #[error("MIDI error: {0}")]
     Midi(String),
 }

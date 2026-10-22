@@ -38,6 +38,10 @@ enum Command {
     Load { file: PathBuf },
     /// Read the current patch, write it back, read again, and compare.
     Verify,
+    /// Set one parameter of the current patch.
+    Set { name: String, value: String },
+    /// List known parameters with their current values.
+    Params,
 }
 
 fn main() -> anyhow::Result<()> {
@@ -52,5 +56,7 @@ fn main() -> anyhow::Result<()> {
         Command::Dump { out } => cmd::dump::run(&cli.port, &out),
         Command::Load { file } => cmd::load::run(&cli.port, &file),
         Command::Verify => cmd::verify::run(&cli.port),
+        Command::Set { name, value } => cmd::set::run(&cli.port, &name, &value),
+        Command::Params => cmd::params::run(&cli.port),
     }
 }

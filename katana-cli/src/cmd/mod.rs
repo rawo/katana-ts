@@ -4,7 +4,9 @@ pub mod extract;
 pub mod identity;
 pub mod load;
 pub mod monitor;
+pub mod params;
 pub mod ports;
+pub mod set;
 pub mod verify;
 
 use std::path::Path;
