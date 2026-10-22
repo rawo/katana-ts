@@ -22,6 +22,8 @@ pub enum ProtoError {
     BadExport { line: usize },
     #[error("no MIDI port matching {wanted:?}; available: {available:?}")]
     PortNotFound { wanted: String, available: Vec<String> },
+    #[error("malformed .syx data at byte {offset}")]
+    BadSyx { offset: usize },
     #[error("MIDI error: {0}")]
     Midi(String),
 }

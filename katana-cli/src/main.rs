@@ -12,9 +12,9 @@ struct Cli {
     /// Substring of the MIDI port name to use.
     #[arg(long, global = true, default_value = DEFAULT_PORT)]
     port: String,
-    /// Model ID bytes as hex, used to decode captures (UNVERIFIED default from the official app).
-    #[arg(long, global = true, default_value = "010507")]
-    model_id: String,
+    /// Override the model ID (hex) used to decode messages.
+    #[arg(long, global = true)]
+    model_id: Option<String>,
     #[command(subcommand)]
     command: Command,
 }
@@ -28,7 +28,7 @@ enum Command {
     /// Print SysEx received from the amp. Only sees amp->host traffic;
     /// host->amp traffic needs a usbmon capture (captures/tools/capture.sh).
     Monitor,
-    /// Print the SysEx messages in a capture export (.tsv).
+    /// Print the SysEx messages in a capture export (.tsv) or .syx file.
     Extract { file: PathBuf },
     /// Show bytes that differ between the DT1 data in two files.
     Diff { a: PathBuf, b: PathBuf },
@@ -36,7 +36,7 @@ enum Command {
 
 fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
-    let header = cmd::header(&cli.model_id)?;
+    let header = cmd::header(cli.model_id.as_deref())?;
     match cli.command {
         Command::Ports => cmd::ports::run(),
         Command::Identity => cmd::identity::run(&cli.port),

@@ -5,7 +5,7 @@ use katana_proto::{decode, Header, MemoryMap};
 use super::load_messages;
 
 fn image(h: &Header, file: &Path) -> anyhow::Result<MemoryMap> {
-    let cmds: Vec<_> = load_messages(file)?.iter().filter_map(|m| decode(h, &m.bytes).ok()).collect();
+    let cmds: Vec<_> = load_messages(file)?.iter().filter_map(|(_, m)| decode(h, m).ok()).collect();
     Ok(MemoryMap::from_commands(&cmds))
 }
 

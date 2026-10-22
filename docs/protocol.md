@@ -14,7 +14,9 @@ capture in `captures/`) or **UNVERIFIED** (with its source). Code in
 
 ## Envelope
 
-UNVERIFIED (S1 `constant.js`, `product_setting.js`; consistent with S3):
+**VERIFIED** 2026-10-22 against the amp (firmware reply version `06 00 00 00`):
+the amp answers RQ1 sent with this framing — evidence `captures/02-patch-read-{rq1,dt1}.syx`,
+golden tests in `katana-proto/tests/golden_captures.rs`.
 
 ```
 F0 41 <dev> <model-id…> <cmd> <addr ×4> <data… | size ×4> <checksum> F7
@@ -22,26 +24,28 @@ F0 41 <dev> <model-id…> <cmd> <addr ×4> <data… | size ×4> <checksum> F7
 
 - `41` = Roland manufacturer ID.
 - `<dev>` = `10` (S1 `deviceId`).
-- `<model-id>` = `01 05 07` per S1 `modelId: '010507'` — **width unconfirmed**; older Katanas use a 4-byte model ID (`00 00 00 33`), so this may be `00 01 05 07` or similar on the wire. Must be read off a capture.
+- `<model-id>` = `01 05 07` — **3 bytes** on the wire (VERIFIED: an RQ1 with `00 01 05 07` got no reply; with `01 05 07` the amp answers). Older Katanas use 4 bytes (`00 00 00 33`).
 - `<cmd>`: `11` = RQ1 (data request), `12` = DT1 (data set).
 - Address and RQ1 size are 4 bytes each (S1 `lengthOfAddr: 4`, `lengthOfSize: 4`), every byte 7-bit.
-- Max SysEx length 128 bytes (S1 `SYSEX_MAXLEN`), so DT1 payloads are chunked.
+- Max SysEx length 128 bytes in the app (S1 `SYSEX_MAXLEN`). The amp's own replies exceed it: each RQ1 for a patch block (up to 225 bytes) is answered with exactly one DT1 (VERIFIED, `captures/02-patch-read-dt1.syx`). Whether the amp accepts >128-byte DT1 *input* is untested; we send ≤115-byte payloads.
 - App waits 20 ms between transmissions (S1 `interval`), RQ1 timeout 15 s (S1 `timeout`).
 
 ## Checksum
 
-UNVERIFIED: standard Roland — `(128 − (Σ addr+data bytes mod 128)) mod 128`.
-Must be checked bit-exact against ≥5 captured messages per direction (plan Task 6).
+**VERIFIED**: standard Roland — `(128 − (Σ addr+data bytes mod 128)) mod 128`.
+All 80 amp→host DT1 replies in `captures/02-patch-read-dt1.syx` carry checksums
+matching this formula, and the amp accepts RQ1s checksummed with it.
 
 ## Identity
 
-UNVERIFIED (S1 `address_const.js`): app sends Universal Identity Request
-`F0 7E 7F 06 01 F7` and checks the reply starts
-`F0 7E 10 06 02 41 07 05 …` (manufacturer 41, then last byte of model ID and a length-derived byte).
+**VERIFIED** (`captures/01-identity.txt`): Universal Identity Request
+`F0 7E 7F 06 01 F7` → `F0 7E 10 06 02 41 07 05 00 00 06 00 00 00 F7`
+(device 10, manufacturer 41, family `07 05`, member `00 00`, version `06 00 00 00`).
+Matches the app's check in S1 `address_const.js`.
 
 ## Address model
 
-UNVERIFIED (S1). Addresses in the S1 tables are written as 4 base-128 "digits"
+VERIFIED for the current-patch area (block reads at `20 00 7E 00` → `20 01 00 00` carry correctly). Addresses in the S1 tables are written as 4 base-128 "digits"
 packed into a 32-bit hex literal (e.g. `0x00010000` follows `0x00007E00`),
 i.e. each byte carries 7 bits and arithmetic must carry at `0x7F`. The S1 code
 converts them to linear values the same way our `Address` type does.
@@ -102,10 +106,12 @@ Only VERIFIED entries.
 
 | Address | Size | Name | Encoding | Range | Evidence |
 |---------|------|------|----------|-------|----------|
+| `20 00 00 00` | 16 | PATCH COM: patch name | ASCII, space-padded | — | `golden_captures.rs::captured_patch_name_reply_decodes` |
+| `20 00 00 00` … `20 01 1E 00` | 80 blocks, 2 649 bytes | Current patch blocks | see `device::PATCH_BLOCKS` | — | `captures/02-patch-read-{rq1,dt1}.syx` (each block answered in full) |
 
 ## Open questions
 
-1. Model ID width on the wire (3 vs 4 bytes) — needs capture.
-2. Does the amp require `EDITOR_COMMUNICATION_MODE = 01` before it answers RQ1 for the patch area? (S1 has an `IS_RQ1_ACCEPT` constant.)
-3. Exact RQ1 block list and DT1 chunking the app uses for a full current-patch read.
-4. Whether DT1 to `20 00 00 00` (current patch) is applied immediately / audibly.
+1. ~~Model ID width~~ — 3 bytes (resolved).
+2. ~~Editor communication mode needed for RQ1?~~ — no: the amp answers RQ1 for the patch area without it (resolved).
+3. The official app's own RQ1/DT1 sequence (connect handshake, write chunking) — not yet captured with usbmon; our block list is derived from its address table and verified against the amp.
+4. Whether DT1 to `20 00 00 00` (current patch) is applied immediately / audibly, and whether the amp accepts >128-byte DT1.

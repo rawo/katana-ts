@@ -1,0 +1,6 @@
+raw:          F0 7E 10 06 02 41 07 05 00 00 06 00 00 00 F7
+device id:    10
+manufacturer: 41
+family:       07 05
+member:       00 00
+version:      06 00 00 00

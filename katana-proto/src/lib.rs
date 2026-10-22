@@ -3,6 +3,7 @@
 pub mod address;
 pub mod capture;
 pub mod checksum;
+pub mod device;
 pub mod error;
 
 pub use address::{Address, Size};
@@ -10,6 +11,7 @@ pub use checksum::roland_checksum;
 pub use error::ProtoError;
 pub mod identity;
 pub mod sysex;
+pub mod syx;
 
 pub use identity::{parse_identity_reply, IdentityReply, IDENTITY_REQUEST};
 pub use sysex::{decode, encode, Command, Header};
@@ -28,3 +30,4 @@ pub use transport::Transport;
 pub use midi::{MidirTransport, DEFAULT_PORT};
 #[cfg(any(test, feature = "testing"))]
 pub use fake::FakeAmp;
+pub use syx::{read_syx, write_syx};

@@ -7,10 +7,14 @@ pub mod ports;
 use std::path::Path;
 
 use anyhow::{bail, Context};
-use katana_proto::{decode, load_tshark_export, CapturedMessage, Command, Header};
+use katana_proto::{decode, device, load_tshark_export, read_syx, Command, Direction, Header};
 
-pub fn header(model_id_hex: &str) -> anyhow::Result<Header> {
-    Ok(Header { device_id: 0x10, model_id: parse_hex(model_id_hex)?, addr_width: 4 })
+pub fn header(model_id_hex: Option<&str>) -> anyhow::Result<Header> {
+    let mut h = device::header();
+    if let Some(hex) = model_id_hex {
+        h.model_id = parse_hex(hex)?;
+    }
+    Ok(h)
 }
 
 pub fn parse_hex(s: &str) -> anyhow::Result<Vec<u8>> {
@@ -33,8 +37,12 @@ pub fn describe(h: &Header, msg: &[u8]) -> Option<String> {
     }
 }
 
-/// Loads the SysEx messages of a capture export.
-pub fn load_messages(path: &Path) -> anyhow::Result<Vec<CapturedMessage>> {
-    let text = std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
-    Ok(load_tshark_export(&text)?)
+/// Loads the SysEx messages of a `.syx` file (no direction) or a capture export.
+pub fn load_messages(path: &Path) -> anyhow::Result<Vec<(Option<Direction>, Vec<u8>)>> {
+    let bytes = std::fs::read(path).with_context(|| format!("reading {}", path.display()))?;
+    if path.extension().is_some_and(|e| e.eq_ignore_ascii_case("syx")) {
+        return Ok(read_syx(&bytes)?.into_iter().map(|m| (None, m)).collect());
+    }
+    let text = String::from_utf8(bytes).context("capture export is not UTF-8")?;
+    Ok(load_tshark_export(&text)?.into_iter().map(|m| (Some(m.dir), m.bytes)).collect())
 }
