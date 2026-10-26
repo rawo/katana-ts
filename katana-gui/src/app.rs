@@ -57,7 +57,7 @@ impl KatanaApp {
         });
         egui::Panel::bottom("status").show(ui, |ui| views::status(ui, self, &palette));
         egui::CentralPanel::default().show(ui, |ui| match self.tab {
-            Tab::Editor => {}
+            Tab::Editor => views::editor_tab(ui, self, &palette),
             Tab::Library => views::library(ui),
         });
     }
