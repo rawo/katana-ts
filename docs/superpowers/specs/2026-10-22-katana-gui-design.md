@@ -69,6 +69,8 @@ to the original, not a copy.
 - Rust; builds on the phase 1 crates `katana-proto` (protocol) and `katana-cli`.
 - GUI toolkit: **egui** (eframe). Decided.
 - Linux, amp on USB as class-compliant MIDI (`KATANA3`, via `midir`/ALSA).
+- Development also happens on macOS; code stays portable (no OS-specific code),
+  Linux remains the only target.
 - Target window 1920×1080; main editor fits without scrolling.
 - Clean-room rule from phase 1 stays: data/constant tables from the official app may
   be *read* as facts, no logic is copied, and nothing is trusted until checked on the

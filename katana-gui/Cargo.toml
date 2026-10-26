@@ -1,0 +1,12 @@
+[package]
+name = "katana-gui"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+katana-proto = { path = "../katana-proto" }
+eframe = "0.37"
+rfd = "0.17"
+
+[dev-dependencies]
+egui_kittest = "0.37"
