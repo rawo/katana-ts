@@ -4,3 +4,4 @@ pub mod app;
 pub mod editor;
 pub mod theme;
 mod views;
+pub mod widgets;
