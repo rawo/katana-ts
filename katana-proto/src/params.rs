@@ -114,6 +114,13 @@ impl Patch {
             Encoding::Nibbles4 => Some(bytes.iter().fold(0, |v, &b| (v << 4) | (b & 0x0F) as u32)),
         }
     }
+
+    /// Same range check as `encode_param`; the patch is unchanged on error.
+    pub fn set(&mut self, p: &ParamDef, value: u32) -> Result<(), ProtoError> {
+        let data = encode_param(p, value)?;
+        self.mem.apply(Address(p.addr), &data);
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -158,6 +165,22 @@ mod tests {
         let mut mem = MemoryMap::default();
         mem.apply(Address(0x20), &encode_param(&NIB, 489).unwrap());
         assert_eq!(Patch { mem }.get(&NIB), Some(489));
+    }
+
+    #[test]
+    fn patch_set_then_get_round_trips() {
+        let mut p = Patch::default_preset();
+        let gain = find_param("gain").unwrap();
+        p.set(gain, 77).unwrap();
+        assert_eq!(p.get(gain), Some(77));
+    }
+
+    #[test]
+    fn patch_set_rejects_out_of_range_and_keeps_value() {
+        let mut p = Patch::default_preset();
+        let gain = find_param("gain").unwrap();
+        assert!(matches!(p.set(gain, 101), Err(ProtoError::OutOfRange { .. })));
+        assert_eq!(p.get(gain), Some(0));
     }
 
     #[test]

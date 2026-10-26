@@ -79,7 +79,32 @@ fn mismatch(expected: &Patch, got: &Patch) -> Option<ProtoError> {
     )
 }
 
+/// PATCH COM: the patch name, 16 ASCII bytes, space-padded.
+const NAME: (u32, u32) = (device::addr([0x20, 0x00, 0x00, 0x00]), 16);
+
 impl Patch {
+    /// The editor's starting point: every byte zero, each known parameter at
+    /// its minimum, amp type CLEAN, named "DEFAULT".
+    pub fn default_preset() -> Patch {
+        let mut p = Patch::default();
+        for &(a, s) in PATCH_BLOCKS {
+            p.mem.apply(Address(a), &vec![0; s as usize]);
+        }
+        for def in crate::PARAMS {
+            p.set(def, def.min).expect("min is in range");
+        }
+        p.set(crate::find_param("amp-type").expect("amp-type is a param"), 1).expect("CLEAN is in range");
+        p.mem.apply(Address(NAME.0), format!("{:<16}", "DEFAULT").as_bytes());
+        p
+    }
+
+    /// Trailing spaces trimmed; non-printable bytes shown as `?`.
+    pub fn name(&self) -> String {
+        let Some(bytes) = self.mem.read(Address(NAME.0), NAME.1) else { return String::new() };
+        let s: String = bytes.iter().map(|&b| if (0x20..=0x7E).contains(&b) { b as char } else { '?' }).collect();
+        s.trim_end().to_string()
+    }
+
     /// The DT1 messages `write_patch` sends, as a `.syx` file.
     pub fn to_syx(&self) -> Vec<u8> {
         self.to_syx_blocks(PATCH_BLOCKS)
@@ -189,6 +214,23 @@ mod tests {
             amp.mem.apply(Address(a + slot_offset(3)), &vec![0x02; s as usize]);
         }
         amp
+    }
+
+    #[test]
+    fn default_preset_covers_all_blocks_and_is_clean() {
+        let p = Patch::default_preset();
+        assert!(Patch::from_syx(&p.to_syx()).is_ok());
+        assert_eq!(p.get(crate::find_param("amp-type").unwrap()), Some(1));
+        assert_eq!(p.get(crate::find_param("booster-sw").unwrap()), Some(0));
+        assert_eq!(p.get(crate::find_param("delay2-time").unwrap()), Some(1));
+        assert_eq!(p.name(), "DEFAULT");
+    }
+
+    #[test]
+    fn name_trims_padding_and_masks_non_ascii() {
+        let mut p = Patch::default_preset();
+        p.mem.apply(Address(PATCH_BLOCKS[0].0), b"Bloom\x01Crunch    ");
+        assert_eq!(p.name(), "Bloom?Crunch");
     }
 
     #[test]
