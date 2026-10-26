@@ -19,6 +19,7 @@ pub use sysex::{decode, encode, Command, Header};
 
 #[cfg(any(test, feature = "testing"))]
 pub mod fake;
+pub mod layout;
 pub mod memmap;
 #[cfg(feature = "midi")]
 pub mod midi;
