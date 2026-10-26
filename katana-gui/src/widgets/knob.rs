@@ -80,7 +80,11 @@ impl egui::Widget for Knob<'_> {
             });
             let trackpad = (st.scroll / SCROLL_PX_PER_STEP).trunc();
             st.scroll -= trackpad * SCROLL_PX_PER_STEP;
-            *value = wheel_value(*value, notches + trackpad as i32, min, max);
+            let steps = notches + trackpad as i32;
+            // Only actual wheel movement may change (and so clamp) the value.
+            if steps != 0 {
+                *value = wheel_value(*value, steps, min, max);
+            }
             // The wheel turns the knob; it must not also scroll the page.
             ui.input_mut(|i| i.smooth_scroll_delta = Vec2::ZERO);
         }

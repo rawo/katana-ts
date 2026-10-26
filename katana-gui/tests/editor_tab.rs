@@ -94,3 +94,16 @@ fn editor_renders_in_small_window() {
     let h = harness_sized([1280.0, 720.0], KatanaApp::new());
     h.get_by_label("PRESENCE");
 }
+
+#[test]
+fn hovering_out_of_range_knob_changes_nothing() {
+    let mut p = Patch::default_preset();
+    p.mem.apply(Address(find_param("booster1-drive").unwrap().addr), &[127]);
+    let mut app = KatanaApp::new();
+    app.editor.open_bytes(&p.to_syx(), "odd.syx".into()).unwrap();
+    let mut h = harness_sized([1600.0, 960.0], app);
+    h.get_by_label("DRIVE").hover();
+    h.run();
+    assert_eq!(get(&h, "booster1-drive"), Some(127));
+    assert!(!h.state().editor.is_dirty());
+}

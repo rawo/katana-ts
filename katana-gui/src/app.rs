@@ -70,8 +70,16 @@ impl KatanaApp {
         self.error = result.err().map(|e| format!("Couldn't open {}: {e}", file_name(path)));
     }
 
-    /// Writes the editor to `path`; it stays dirty if the write fails.
+    /// Writes the editor to `path` (adding `.syx` if missing); it stays dirty if the write fails.
     pub fn save_to(&mut self, path: PathBuf) {
+        // A file without the extension would be hidden by the Open dialog's filter.
+        let path = if path.extension().is_some_and(|e| e.eq_ignore_ascii_case("syx")) {
+            path
+        } else {
+            let mut name = path.into_os_string();
+            name.push(".syx");
+            PathBuf::from(name)
+        };
         match std::fs::write(&path, self.editor.patch().to_syx()) {
             Ok(()) => {
                 self.editor.saved_to(path);

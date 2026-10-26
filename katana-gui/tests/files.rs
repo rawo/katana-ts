@@ -126,3 +126,12 @@ fn close_while_dirty_is_cancelled() {
 fn default_file_name_is_safe() {
     assert_eq!(katana_gui::app::default_file_name("Bloom Crunch/v2"), "Bloom_Crunch_v2.syx");
 }
+
+#[test]
+fn save_adds_missing_extension() {
+    let d = tmp("save-ext");
+    let mut h = harness();
+    h.state_mut().save_to(d.join("mine"));
+    assert!(d.join("mine.syx").exists());
+    assert_eq!(h.state().editor.path(), Some(d.join("mine.syx").as_path()));
+}
