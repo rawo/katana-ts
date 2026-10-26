@@ -20,8 +20,18 @@ pub fn top_bar(ui: &mut egui::Ui, app: &mut KatanaApp, p: &Palette) {
             for label in ["Save as…", "Save", "Quick save"] {
                 ui.add_enabled(false, Button::new(label)).on_disabled_hover_text(NEEDS_LIBRARY);
             }
-            let _ = ui.button("Save .syx…"); // wired in a later task
-            let _ = ui.button("Open .syx…");
+            if ui.button("Save .syx…").clicked() {
+                let file = crate::app::default_file_name(&app.editor.name());
+                if let Some(path) = rfd::FileDialog::new().add_filter("SysEx", &["syx"]).set_file_name(file).save_file()
+                {
+                    app.save_to(path);
+                }
+            }
+            if ui.button("Open .syx…").clicked() {
+                if let Some(path) = rfd::FileDialog::new().add_filter("SysEx", &["syx"]).pick_file() {
+                    app.request_open(path);
+                }
+            }
             ui.add_enabled(false, egui::Checkbox::new(&mut false, "Live edit")).on_disabled_hover_text(NEEDS_AMP);
             if app.editor.is_dirty() {
                 super::dot_label(ui, p.accent, "unsaved");
