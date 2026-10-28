@@ -1,6 +1,6 @@
 use egui_kittest::kittest::{NodeT, Queryable};
 use egui_kittest::Harness;
-use katana_gui::app::KatanaApp;
+use katana_gui::app::{KatanaApp, MIN_WINDOW};
 use katana_proto::{find_param, Address, Patch};
 
 fn harness_sized(size: [f32; 2], app: KatanaApp) -> Harness<'static, KatanaApp> {
@@ -106,4 +106,73 @@ fn hovering_out_of_range_knob_changes_nothing() {
     h.run();
     assert_eq!(get(&h, "booster1-drive"), Some(127));
     assert!(!h.state().editor.is_dirty());
+}
+
+const TOP_ITEMS: [&str; 18] = [
+    "not connected",
+    "PANEL",
+    "A1",
+    "A2",
+    "A3",
+    "A4",
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "Live edit",
+    "Open .syx…",
+    "Save .syx…",
+    "Quick save",
+    "Save",
+    "Save as…",
+    "Load to amp",
+    "Store to channel…",
+];
+
+fn assert_no_overlap(h: &Harness<KatanaApp>, labels: &[&str]) {
+    let rects: Vec<_> = labels.iter().map(|l| (l, h.get_by_label(l).rect())).collect();
+    for (i, (a, ra)) in rects.iter().enumerate() {
+        assert!(ra.right() <= MIN_WINDOW[0], "{a} ends at {} past the window", ra.right());
+        for (b, rb) in &rects[i + 1..] {
+            assert!(!ra.intersects(*rb), "{a} {ra:?} overlaps {b} {rb:?}");
+        }
+    }
+}
+
+#[test]
+fn top_bar_fits_minimum_width() {
+    let h = harness_sized(MIN_WINDOW, KatanaApp::new());
+    let mut labels = TOP_ITEMS.to_vec();
+    labels.push("DEFAULT");
+    assert_no_overlap(&h, &labels);
+}
+
+#[test]
+fn top_bar_fits_longest_name() {
+    let mut p = Patch::default_preset();
+    p.mem.apply(Address(katana_proto::device::addr([0x20, 0, 0, 0])), b"WWWWWWWWWWWWWWWW");
+    let mut app = KatanaApp::new();
+    app.editor.open_bytes(&p.to_syx(), "wide.syx".into()).unwrap();
+    app.editor.set(find_param("gain").unwrap(), 1).unwrap(); // shows "unsaved" too
+    let h = harness_sized(MIN_WINDOW, app);
+    let mut labels = TOP_ITEMS.to_vec();
+    labels.extend(["WWWWWWWWWWWWWWWW", "unsaved"]);
+    assert_no_overlap(&h, &labels);
+}
+
+#[test]
+fn chain_fits_minimum_width() {
+    let h = harness_sized(MIN_WINDOW, KatanaApp::new());
+    assert!(h.get_by_label("OUT").rect().right() <= MIN_WINDOW[0]);
+}
+
+#[test]
+fn long_error_leaves_theme_picker_visible() {
+    let mut app = KatanaApp::new();
+    app.error = Some(format!("Couldn't save {}.syx: Permission denied", "x".repeat(200)));
+    let h = harness_sized(MIN_WINDOW, app);
+    let theme = h.get_by_label("Theme").rect();
+    let error = h.get_by_label_contains("Couldn't save").rect();
+    assert!(theme.right() <= MIN_WINDOW[0]);
+    assert!(error.right() <= theme.left(), "error {error:?} runs into Theme {theme:?}");
 }

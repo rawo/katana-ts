@@ -20,6 +20,9 @@ enum Pending {
     Close,
 }
 
+/// Smallest window the layout fits (the signal chain needs about 1165 px).
+pub const MIN_WINDOW: [f32; 2] = [1200.0, 720.0];
+
 pub struct KatanaApp {
     pub editor: Editor,
     pub tab: Tab,
@@ -139,12 +142,7 @@ impl KatanaApp {
         }
         let palette = self.theme.palette();
         egui::Panel::top("top_bar").show(ui, |ui| views::top_bar(ui, self, &palette));
-        egui::Panel::top("tabs").show(ui, |ui| {
-            ui.horizontal(|ui| {
-                ui.selectable_value(&mut self.tab, Tab::Editor, "Editor");
-                ui.selectable_value(&mut self.tab, Tab::Library, "Library");
-            });
-        });
+        egui::Panel::top("tabs").show(ui, |ui| views::action_bar(ui, self, &palette));
         egui::Panel::bottom("status").show(ui, |ui| views::status(ui, self, &palette));
         egui::CentralPanel::default().show(ui, |ui| match self.tab {
             Tab::Editor => views::editor_tab(ui, self, &palette),

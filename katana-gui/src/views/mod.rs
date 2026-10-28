@@ -1,5 +1,6 @@
 //! The parts of the main window.
 
+mod action_bar;
 mod amp_strip;
 mod chain;
 mod detail;
@@ -12,6 +13,7 @@ use katana_proto::layout::CHAIN;
 use crate::app::KatanaApp;
 use crate::theme::Palette;
 
+pub use action_bar::action_bar;
 pub use library::library;
 pub use status::status;
 pub use top_bar::top_bar;
