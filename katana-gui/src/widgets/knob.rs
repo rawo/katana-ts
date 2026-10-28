@@ -9,6 +9,33 @@ pub const DRAG_PX_FULL_RANGE: f32 = 200.0;
 /// Trackpad scrolling this far is one step.
 const SCROLL_PX_PER_STEP: f32 = 20.0;
 
+/// While the page has scrolled this recently (seconds), knobs let the wheel through.
+pub const WHEEL_LATCH_S: f64 = 0.5;
+
+/// When the page last got wheel input that no knob took (`ctx.input` time).
+fn page_wheel_id() -> egui::Id {
+    egui::Id::NULL.with("knob-page-wheel-at")
+}
+
+/// The pass in which a knob last took the wheel.
+fn knob_wheel_id() -> egui::Id {
+    egui::Id::NULL.with("knob-wheel-pass")
+}
+
+fn has_wheel(i: &egui::InputState) -> bool {
+    i.events.iter().any(|e| matches!(e, egui::Event::MouseWheel { .. }))
+}
+
+/// Call once at the end of each frame: wheel input no knob took scrolled the
+/// page, so for the next `WHEEL_LATCH_S` knobs leave the wheel to the page.
+pub fn track_page_wheel(ctx: &egui::Context) {
+    let (wheel, now) = ctx.input(|i| (has_wheel(i), i.time));
+    let taken = ctx.data(|d| d.get_temp::<u64>(knob_wheel_id())) == Some(ctx.cumulative_pass_nr());
+    if wheel && !taken {
+        ctx.data_mut(|d| d.insert_temp(page_wheel_id(), now));
+    }
+}
+
 /// The value after dragging `dy` points from `start` (down is negative).
 pub fn drag_value(start: u32, dy: f32, min: u32, max: u32) -> u32 {
     let span = (max - min) as f32;
@@ -65,7 +92,14 @@ impl egui::Widget for Knob<'_> {
             st.drag = None;
         }
 
-        if response.hovered() {
+        let now = ui.input(|i| i.time);
+        let page_wheel_at = ui.data(|d| d.get_temp::<f64>(page_wheel_id()));
+        let page_scrolling = page_wheel_at.is_some_and(|t| now - t < WHEEL_LATCH_S);
+        if response.hovered() && !page_scrolling {
+            if ui.input(has_wheel) {
+                let pass = ui.ctx().cumulative_pass_nr();
+                ui.data_mut(|d| d.insert_temp(knob_wheel_id(), pass));
+            }
             let notches = ui.input(|i| {
                 let mut n = 0;
                 for e in &i.events {

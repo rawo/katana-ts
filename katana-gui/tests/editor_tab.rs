@@ -1,3 +1,4 @@
+use eframe::egui;
 use egui_kittest::kittest::{NodeT, Queryable};
 use egui_kittest::Harness;
 use katana_gui::app::{KatanaApp, MIN_WINDOW};
@@ -188,4 +189,46 @@ fn unknown_switch_value_shows_as_unknown() {
     h.run();
     assert_eq!(get(&h, "reverb-sw"), Some(1));
     h.get_by_label("REVERB ON");
+}
+
+fn wheel(h: &mut Harness<KatanaApp>, at: egui::Pos2) {
+    h.hover_at(at);
+    h.event(egui::Event::MouseWheel {
+        unit: egui::MouseWheelUnit::Line,
+        delta: egui::vec2(0.0, 1.0),
+        phase: egui::TouchPhase::Move,
+        source: egui::MouseWheelSource::Wheel,
+        modifiers: egui::Modifiers::NONE,
+    });
+    h.step();
+}
+
+fn stepped(app: KatanaApp) -> Harness<'static, KatanaApp> {
+    Harness::builder()
+        .with_size([1600.0, 960.0])
+        .with_step_dt(0.05)
+        .build_ui_state(|ui, app: &mut KatanaApp| app.show(ui), app)
+}
+
+#[test]
+fn wheel_scrolling_page_passes_over_knob() {
+    let mut h = stepped(KatanaApp::new());
+    let empty = egui::pos2(1400.0, 800.0);
+    let drive = h.get_by_label("DRIVE").rect().center();
+    wheel(&mut h, empty);
+    wheel(&mut h, drive);
+    assert_eq!(get(&h, "booster1-drive"), Some(0));
+}
+
+#[test]
+fn wheel_after_pause_turns_knob() {
+    let mut h = stepped(KatanaApp::new());
+    let empty = egui::pos2(1400.0, 800.0);
+    let drive = h.get_by_label("DRIVE").rect().center();
+    wheel(&mut h, empty);
+    for _ in 0..12 {
+        h.step(); // 0.6 s
+    }
+    wheel(&mut h, drive);
+    assert_eq!(get(&h, "booster1-drive"), Some(1));
 }

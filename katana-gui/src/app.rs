@@ -153,6 +153,7 @@ impl KatanaApp {
             Tab::Library => views::library(ui),
         });
         self.discard_prompt(&ctx);
+        crate::widgets::track_page_wheel(&ctx);
     }
 }
 
