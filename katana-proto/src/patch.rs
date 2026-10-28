@@ -105,6 +105,15 @@ impl Patch {
         s.trim_end().to_string()
     }
 
+    /// Writes the patch name: printable ASCII kept, anything else `?`, cut to
+    /// 16 characters, space-padded.
+    pub fn set_name(&mut self, name: &str) {
+        let mut bytes: Vec<u8> =
+            name.chars().take(NAME.1 as usize).map(|c| if (' '..='~').contains(&c) { c as u8 } else { b'?' }).collect();
+        bytes.resize(NAME.1 as usize, b' ');
+        self.mem.apply(Address(NAME.0), &bytes);
+    }
+
     /// The DT1 messages `write_patch` sends, as a `.syx` file.
     pub fn to_syx(&self) -> Vec<u8> {
         self.to_syx_blocks(PATCH_BLOCKS)
@@ -231,6 +240,17 @@ mod tests {
         let mut p = Patch::default_preset();
         p.mem.apply(Address(PATCH_BLOCKS[0].0), b"Bloom\x01Crunch    ");
         assert_eq!(p.name(), "Bloom?Crunch");
+    }
+
+    #[test]
+    fn set_name_pads_cuts_and_masks() {
+        let mut p = Patch::default_preset();
+        p.set_name("Iron Man");
+        assert_eq!(p.name(), "Iron Man");
+        p.set_name("A very long patch name");
+        assert_eq!(p.name(), "A very long patc");
+        p.set_name("Café");
+        assert_eq!(p.name(), "Caf?");
     }
 
     #[test]

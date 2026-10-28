@@ -133,3 +133,105 @@ pub const PATCH_BLOCKS: &[(u32 /* addr */, u32 /* size */)] = &[
     (addr([0x20, 0x01, 0x1C, 0x00]), 5),   // PATCH_KNOB_READONLY
     (addr([0x20, 0x01, 0x1E, 0x00]), 1),   // PATCH_KNOB_SOLO_DELAY_READONLY
 ];
+
+/// The official app's name for each block of `PATCH_BLOCKS`, same order. Tone
+/// Exchange `.tsl` files key blocks as `PATCH%<name>`.
+pub const PATCH_BLOCK_NAMES: [&str; 80] = [
+    "COM",
+    "OTHER",
+    "COLOR",
+    "AMP",
+    "SW",
+    "BOOSTER(1)",
+    "BOOSTER(2)",
+    "BOOSTER(3)",
+    "FX(1)",
+    "FX(2)",
+    "FX(3)",
+    "FX(4)",
+    "FX(5)",
+    "FX(6)",
+    "FX_DETAIL(1)",
+    "FX_DETAIL(2)",
+    "FX_DETAIL(3)",
+    "FX_DETAIL(4)",
+    "FX_DETAIL(5)",
+    "FX_DETAIL(6)",
+    "DELAY(1)",
+    "DELAY(2)",
+    "DELAY(3)",
+    "DELAY(4)",
+    "DELAY(5)",
+    "DELAY(6)",
+    "REVERB(1)",
+    "REVERB(2)",
+    "REVERB(3)",
+    "SOLO_COM",
+    "SOLO_EQ",
+    "SOLO_DELAY",
+    "CONTOUR_COM",
+    "CONTOUR(1)",
+    "CONTOUR(2)",
+    "CONTOUR(3)",
+    "PEDALFX_COM",
+    "PEDALFX",
+    "EQ_EACH(1)",
+    "EQ_EACH(2)",
+    "EQ_PEQ(1)",
+    "EQ_PEQ(2)",
+    "EQ_GE10(1)",
+    "EQ_GE10(2)",
+    "NS",
+    "SENDRETURN",
+    "ASSIGN_KNOBS",
+    "ASSIGN_EXPPDL_FUNC",
+    "ASSIGN_EXPPDL_DETAIL",
+    "ASSIGN_EXPPDL_MIN",
+    "ASSIGN_EXPPDL_MAX",
+    "ASSIGN_FS",
+    "ASSIGN_GAFCFS(1)",
+    "ASSIGN_GAFCFS(2)",
+    "ASSIGN_GAFCEXPPDL1_FUNC(1)",
+    "ASSIGN_GAFCEXPPDL1_FUNC(2)",
+    "ASSIGN_GAFCEXPPDL1_DETAIL(1)",
+    "ASSIGN_GAFCEXPPDL1_DETAIL(2)",
+    "ASSIGN_GAFCEXPPDL1_MIN(1)",
+    "ASSIGN_GAFCEXPPDL1_MIN(2)",
+    "ASSIGN_GAFCEXPPDL1_MAX(1)",
+    "ASSIGN_GAFCEXPPDL1_MAX(2)",
+    "ASSIGN_GAFCEXPPDL2_FUNC(1)",
+    "ASSIGN_GAFCEXPPDL2_FUNC(2)",
+    "ASSIGN_GAFCEXPPDL2_DETAIL(1)",
+    "ASSIGN_GAFCEXPPDL2_DETAIL(2)",
+    "ASSIGN_GAFCEXPPDL2_MIN(1)",
+    "ASSIGN_GAFCEXPPDL2_MIN(2)",
+    "ASSIGN_GAFCEXPPDL2_MAX(1)",
+    "ASSIGN_GAFCEXPPDL2_MAX(2)",
+    "ASSIGN_GAFCEXPPDL3_FUNC(1)",
+    "ASSIGN_GAFCEXPPDL3_FUNC(2)",
+    "ASSIGN_GAFCEXPPDL3_DETAIL(1)",
+    "ASSIGN_GAFCEXPPDL3_DETAIL(2)",
+    "ASSIGN_GAFCEXPPDL3_MIN(1)",
+    "ASSIGN_GAFCEXPPDL3_MIN(2)",
+    "ASSIGN_GAFCEXPPDL3_MAX(1)",
+    "ASSIGN_GAFCEXPPDL3_MAX(2)",
+    "PATCH_KNOB_READONLY",
+    "PATCH_KNOB_SOLO_DELAY_READONLY",
+];
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn block_names_line_up_with_blocks() {
+        assert_eq!(PATCH_BLOCK_NAMES.len(), PATCH_BLOCKS.len());
+        assert_eq!(PATCH_BLOCK_NAMES[0], "COM");
+        assert_eq!(PATCH_BLOCK_NAMES[3], "AMP");
+        assert_eq!(PATCH_BLOCK_NAMES[79], "PATCH_KNOB_SOLO_DELAY_READONLY");
+        let mut sorted = PATCH_BLOCK_NAMES.to_vec();
+        sorted.sort();
+        sorted.dedup();
+        assert_eq!(sorted.len(), 80, "names are unique");
+    }
+}
