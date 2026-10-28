@@ -26,6 +26,7 @@ pub mod midi;
 pub mod params;
 pub mod patch;
 pub mod transport;
+pub mod tsl;
 
 #[cfg(any(test, feature = "testing"))]
 pub use fake::FakeAmp;

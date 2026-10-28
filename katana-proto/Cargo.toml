@@ -11,4 +11,5 @@ hardware-tests = ["midi"]
 
 [dependencies]
 thiserror = "2"
+serde_json = "1"
 midir = { version = "0.10", optional = true }
