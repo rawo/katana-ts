@@ -182,3 +182,23 @@ fn save_overwrites_and_leaves_no_temp_file() {
     let names: Vec<_> = std::fs::read_dir(&d).unwrap().map(|e| e.unwrap().file_name()).collect();
     assert_eq!(names, ["out.syx"]);
 }
+
+#[cfg(unix)]
+#[test]
+fn save_through_symlink_writes_the_real_file() {
+    use std::os::unix::fs::PermissionsExt;
+    let d = tmp("save-link");
+    let real = d.join("real.syx");
+    std::fs::write(&real, b"old").unwrap();
+    std::fs::set_permissions(&real, std::fs::Permissions::from_mode(0o600)).unwrap();
+    let link = d.join("link.syx");
+    std::os::unix::fs::symlink(&real, &link).unwrap();
+    let mut h = harness();
+    set_gain(&mut h, 7);
+    h.state_mut().save_to(link.clone());
+    assert!(h.state().error.is_none());
+    assert!(std::fs::symlink_metadata(&link).unwrap().file_type().is_symlink(), "link was replaced");
+    let saved = Patch::from_syx(&std::fs::read(&real).unwrap()).unwrap();
+    assert_eq!(saved.get(find_param("gain").unwrap()), Some(7));
+    assert_eq!(std::fs::metadata(&real).unwrap().permissions().mode() & 0o777, 0o600);
+}

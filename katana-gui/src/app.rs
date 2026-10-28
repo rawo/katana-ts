@@ -159,13 +159,20 @@ impl KatanaApp {
 
 /// Writes `<file name>.tmp` next to `path`, then renames it over `path`, so a
 /// failed save never leaves a half-written file in place of the old one.
+/// A symlink is followed (the file it points to is replaced, not the link), and
+/// an existing file keeps its permissions.
 fn write_atomic(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
-    let mut tmp = path.as_os_str().to_owned();
+    let target = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+    let mut tmp = target.as_os_str().to_owned();
     tmp.push(".tmp");
     let tmp = PathBuf::from(tmp);
-    std::fs::write(&tmp, bytes).and_then(|()| std::fs::rename(&tmp, path)).inspect_err(|_| {
-        let _ = std::fs::remove_file(&tmp);
-    })
+    let old_permissions = std::fs::metadata(&target).map(|m| m.permissions()).ok();
+    std::fs::write(&tmp, bytes)
+        .and_then(|()| old_permissions.map_or(Ok(()), |p| std::fs::set_permissions(&tmp, p)))
+        .and_then(|()| std::fs::rename(&tmp, &target))
+        .inspect_err(|_| {
+            let _ = std::fs::remove_file(&tmp);
+        })
 }
 
 fn file_name(path: &Path) -> String {
