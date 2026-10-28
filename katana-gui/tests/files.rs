@@ -154,3 +154,31 @@ fn escape_cancels_discard_prompt() {
     h.run();
     h.get_by_label("Discard unsaved changes to DEFAULT?");
 }
+
+#[test]
+fn failed_save_keeps_existing_file() {
+    let d = tmp("save-keep");
+    let out = d.join("out.syx");
+    std::fs::write(&out, b"old").unwrap();
+    std::fs::create_dir(d.join("out.syx.tmp")).unwrap(); // the temp file can't be written
+    let mut h = harness();
+    set_gain(&mut h, 7);
+    h.state_mut().save_to(out.clone());
+    assert_eq!(std::fs::read(&out).unwrap(), b"old");
+    assert!(h.state().editor.is_dirty());
+    assert!(h.state().error.as_deref().unwrap().starts_with("Couldn't save out.syx"));
+}
+
+#[test]
+fn save_overwrites_and_leaves_no_temp_file() {
+    let d = tmp("save-over");
+    let out = d.join("out.syx");
+    std::fs::write(&out, b"old").unwrap();
+    let mut h = harness();
+    set_gain(&mut h, 7);
+    h.state_mut().save_to(out.clone());
+    let saved = Patch::from_syx(&std::fs::read(&out).unwrap()).unwrap();
+    assert_eq!(saved.get(find_param("gain").unwrap()), Some(7));
+    let names: Vec<_> = std::fs::read_dir(&d).unwrap().map(|e| e.unwrap().file_name()).collect();
+    assert_eq!(names, ["out.syx"]);
+}

@@ -83,7 +83,7 @@ impl KatanaApp {
             name.push(".syx");
             PathBuf::from(name)
         };
-        match std::fs::write(&path, self.editor.patch().to_syx()) {
+        match write_atomic(&path, &self.editor.patch().to_syx()) {
             Ok(()) => {
                 self.editor.saved_to(path);
                 self.error = None;
@@ -154,6 +154,17 @@ impl KatanaApp {
         });
         self.discard_prompt(&ctx);
     }
+}
+
+/// Writes `<file name>.tmp` next to `path`, then renames it over `path`, so a
+/// failed save never leaves a half-written file in place of the old one.
+fn write_atomic(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
+    let mut tmp = path.as_os_str().to_owned();
+    tmp.push(".tmp");
+    let tmp = PathBuf::from(tmp);
+    std::fs::write(&tmp, bytes).and_then(|()| std::fs::rename(&tmp, path)).inspect_err(|_| {
+        let _ = std::fs::remove_file(&tmp);
+    })
 }
 
 fn file_name(path: &Path) -> String {

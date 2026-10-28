@@ -61,12 +61,10 @@ impl Editor {
         Ok(())
     }
 
-    /// The `.syx` bytes to write. Call only once the write has succeeded:
-    /// this marks the editor clean.
-    pub fn saved_to(&mut self, path: PathBuf) -> Vec<u8> {
+    /// Records a successful save to `path`: the editor is clean again.
+    pub fn saved_to(&mut self, path: PathBuf) {
         self.baseline = self.patch.clone();
         self.path = Some(path);
-        self.patch.to_syx()
     }
 }
 
@@ -112,7 +110,8 @@ mod tests {
         assert!(!e.is_dirty());
         assert_eq!(e.get(gain), Some(60));
         e.set(gain, 61).unwrap();
-        let bytes = e.saved_to("b.syx".into());
+        e.saved_to("b.syx".into());
+        let bytes = e.patch().to_syx();
         assert!(!e.is_dirty());
         assert_eq!(e.path(), Some(std::path::Path::new("b.syx")));
         assert_eq!(Patch::from_syx(&bytes).unwrap().get(gain), Some(61));
