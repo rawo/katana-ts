@@ -21,7 +21,8 @@ sync() {
 }
 
 # The desktop session's environment, so the app opens on the VM's screen.
-desktop_env='uid=$(id -u); export XDG_RUNTIME_DIR=/run/user/$uid WAYLAND_DISPLAY=wayland-0 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$uid/bus'
+# Software GL: with VirtualBox's VMSVGA adapter the window otherwise stays see-through.
+desktop_env='uid=$(id -u); export XDG_RUNTIME_DIR=/run/user/$uid WAYLAND_DISPLAY=wayland-0 LIBGL_ALWAYS_SOFTWARE=1 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$uid/bus'
 
 case ${1:-} in
   sync) sync ;;
