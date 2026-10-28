@@ -119,14 +119,19 @@ cargo clippy --workspace --all-targets
 
 `katana-gui` opens with a default preset: everything off or 0, amp type CLEAN.
 
-- **Top bar:**
-  - Connection state and channel tabs (PANEL, A1–A4, B1–B4), plus the preset name
-    with an "unsaved" marker when it has changed.
+- **Top bar, first row:** connection state and channel tabs (PANEL, A1–A4, B1–B4)
+  on the left; the preset name, an "unsaved" marker when it has changed, and Live
+  edit on the right.
+- **Top bar, second row:** the Editor and Library tabs on the left; the actions on
+  the right.
   - **Open .syx…** / **Save .syx…** read and write patch files (the same format as
     `katana-cli dump`). Opening a file, or closing the window, with unsaved changes
-    asks first. Save adds `.syx` if you leave it off.
+    asks first; Escape or a click outside the question cancels. Save adds `.syx` if
+    you leave it off, and writes a temporary file first, so a failed save leaves the
+    old file as it was.
   - Live edit, Quick save, Save, Save as…, Load to amp and Store to channel… are
     greyed out until amp control (stage 1) and the preset library (stage 3) exist.
+- **Window:** at least 1200×720, so the whole signal chain fits.
 - **Editor tab:**
   - The signal chain IN → BOOSTER → MOD → AMP → FX → DELAY → REVERB → OUT. Each
     block shows its on/off switch (click to toggle) and, where known, its type and
@@ -135,7 +140,9 @@ cargo clippy --workspace --all-targets
   - The amp knobs (GAIN … PRESENCE) are always visible.
 - **Knobs:** drag up or down (200 px sweeps the full range); the mouse wheel moves
   one step; double-click to type a value, Enter to accept, Escape to cancel.
-  Switches are toggles; named values are dropdowns.
+  While you scroll the page, the wheel keeps scrolling past knobs; rest on a knob
+  for half a second and the wheel turns it. Switches are toggles; named values are
+  dropdowns. A switch byte that is neither 0 nor 1 shows as `? (n)`.
 - **Library tab:** placeholder until stage 3.
 - **Status line:** amp state, last error, and the **Theme** picker (Dark or Light).
 
