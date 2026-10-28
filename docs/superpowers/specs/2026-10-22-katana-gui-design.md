@@ -106,6 +106,8 @@ Each stage ends working and verified on the user's amp before the next starts.
    through the portal; closing with unsaved changes asks first. Still to confirm on
    the Linux machine itself with its real GPU.
 3. **Preset library**: quick save, auto-save, save, save as, read-only, search, sort.
+   *Done 2026-10-28* — see `docs/superpowers/specs/2026-10-28-katana-preset-library-design.md`
+   (refines "Presets on disk"); checked in the Linux VM.
 4. **Tone Central** (nice to have).
 
 ### Layout B — "signal chain" with tabs (chosen by the user)
