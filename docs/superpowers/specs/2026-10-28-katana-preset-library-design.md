@@ -1,7 +1,7 @@
 # KATANA Tone Studio — Stage 3: Preset Library Design
 
 Date: 2026-10-28
-Status: Draft — awaiting user approval
+Status: Approved by the user, 2026-10-28
 Builds on: `docs/superpowers/specs/2026-10-22-katana-gui-design.md` (the GUI design;
 its "Presets on disk" section is refined and partly replaced here), and the GUI
 shell and polish now on `main`.
