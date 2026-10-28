@@ -187,7 +187,7 @@ fn import_refuses_wrong_device_and_other_files() {
 #[test]
 fn pick_creates_numbered_patch_and_records_source() {
     let iron = patch("Iron Man", 33);
-    let (root, mut lib, set) = lib_with_set("lib-pick", "Black Sabbath", &[iron.clone()]);
+    let (root, mut lib, set) = lib_with_set("lib-pick", "Black Sabbath", std::slice::from_ref(&iron));
     let before = std::fs::read(&set).unwrap();
     let (p1, got) = lib.pick(&set, 0).unwrap();
     assert_eq!(got, iron);
