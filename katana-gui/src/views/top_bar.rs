@@ -21,7 +21,8 @@ pub fn top_bar(ui: &mut egui::Ui, app: &mut KatanaApp, p: &Palette) {
             if app.editor.is_dirty() {
                 super::dot_label(ui, p.accent, "unsaved");
             }
-            let name = ui.label(RichText::new(app.editor.name()).strong());
+            // A file name can be long; it gives way to the channel tabs.
+            let name = ui.add(egui::Label::new(RichText::new(app.editor.display_name()).strong()).truncate());
             if let Some(path) = app.editor.path() {
                 name.on_hover_text(path.display().to_string());
             }

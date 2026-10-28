@@ -121,8 +121,8 @@ const TOP_ITEMS: [&str; 18] = [
     "B3",
     "B4",
     "Live edit",
-    "Open .syx…",
-    "Save .syx…",
+    "Import…",
+    "Export .syx…",
     "Quick save",
     "Save",
     "Save as…",
@@ -150,14 +150,14 @@ fn top_bar_fits_minimum_width() {
 
 #[test]
 fn top_bar_fits_longest_name() {
-    let mut p = Patch::default_preset();
-    p.mem.apply(Address(katana_proto::device::addr([0x20, 0, 0, 0])), b"WWWWWWWWWWWWWWWW");
+    // The top bar shows the file name, which can be much longer than a patch name.
+    let wide = "W".repeat(60);
     let mut app = KatanaApp::new();
-    app.editor.open_bytes(&p.to_syx(), "wide.syx".into()).unwrap();
+    app.editor.open_bytes(&Patch::default_preset().to_syx(), format!("{wide}.syx").into()).unwrap();
     app.editor.set(find_param("gain").unwrap(), 1).unwrap(); // shows "unsaved" too
     let h = harness_sized(MIN_WINDOW, app);
     let mut labels = TOP_ITEMS.to_vec();
-    labels.extend(["WWWWWWWWWWWWWWWW", "unsaved"]);
+    labels.extend([wide.as_str(), "unsaved"]);
     assert_no_overlap(&h, &labels);
 }
 

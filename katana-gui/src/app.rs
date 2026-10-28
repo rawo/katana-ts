@@ -3,8 +3,10 @@
 use std::path::{Path, PathBuf};
 
 use eframe::egui;
+use katana_proto::Patch;
 
-use crate::editor::Editor;
+use crate::editor::{Editor, Origin};
+use crate::library::{self, Kind, Library};
 use crate::theme::{self, ThemeId};
 use crate::views;
 
@@ -17,6 +19,8 @@ pub enum Tab {
 /// An action waiting for the user to confirm discarding unsaved changes.
 enum Pending {
     Open(PathBuf),
+    /// A patch of a downloaded set; its file is created only after Discard.
+    Pick(PathBuf, usize),
     Close,
 }
 
@@ -25,6 +29,7 @@ pub const MIN_WINDOW: [f32; 2] = [1200.0, 720.0];
 
 pub struct KatanaApp {
     pub editor: Editor,
+    pub library: Library,
     pub tab: Tab,
     pub theme: ThemeId,
     /// `layout::BlockDef::id` of the block shown in the detail panel.
@@ -33,6 +38,8 @@ pub struct KatanaApp {
     pub error: Option<String>,
     applied_theme: Option<ThemeId>,
     pending: Option<Pending>,
+    /// The Save as… prompt's name while it is open.
+    save_as_name: Option<String>,
     /// The user chose to discard changes and close.
     close_confirmed: bool,
 }
@@ -44,15 +51,24 @@ impl Default for KatanaApp {
 }
 
 impl KatanaApp {
+    /// An app without a library folder (every library action fails).
     pub fn new() -> KatanaApp {
+        KatanaApp::with_library(Library::detached())
+    }
+
+    /// Problems found while reading the library go to the status line.
+    pub fn with_library(mut library: Library) -> KatanaApp {
+        let problems = std::mem::take(&mut library.problems);
         KatanaApp {
             editor: Editor::new(),
+            library,
             tab: Tab::Editor,
             theme: ThemeId::Dark,
             selected_block: "booster",
-            error: None,
+            error: (!problems.is_empty()).then(|| problems.join("; ")),
             applied_theme: None,
             pending: None,
+            save_as_name: None,
             close_confirmed: false,
         }
     }
@@ -66,16 +82,51 @@ impl KatanaApp {
         }
     }
 
+    /// Loads a file into the editor. A library file becomes the editor's
+    /// origin; a file from elsewhere has none (Save then asks for a name).
     fn open(&mut self, path: &Path) {
-        let result = std::fs::read(path)
-            .map_err(|e| e.to_string())
-            .and_then(|bytes| self.editor.open_bytes(&bytes, path.to_path_buf()).map_err(|e| e.to_string()));
-        self.error = result.err().map(|e| format!("Couldn't open {}: {e}", file_name(path)));
+        let origin = match self.library.kind_of(path) {
+            Some(Kind::Patch) => Origin::Patch(path.to_path_buf()),
+            Some(Kind::QuickSave) => Origin::QuickSave(path.to_path_buf()),
+            None => Origin::None,
+        };
+        match self.library.load(path) {
+            Ok(patch) => {
+                self.editor.load(patch, origin);
+                self.error = None;
+            }
+            Err(e) => self.error = Some(e),
+        }
     }
 
-    /// Writes the editor to `path` (adding `.syx` if missing); it stays dirty if the write fails.
-    pub fn save_to(&mut self, path: PathBuf) {
-        // A file without the extension would be hidden by the Open dialog's filter.
+    /// Picks patch `index` of a downloaded set into My patches and opens it;
+    /// asks first if the editor has unsaved changes.
+    pub fn request_pick(&mut self, set: PathBuf, index: usize) {
+        if self.editor.is_dirty() {
+            self.pending = Some(Pending::Pick(set, index));
+        } else {
+            self.pick(&set, index);
+        }
+    }
+
+    fn pick(&mut self, set: &Path, index: usize) {
+        match self.library.pick(set, index) {
+            Ok((path, patch)) => {
+                self.editor.load(patch, Origin::Patch(path));
+                self.error = None;
+            }
+            Err(e) => self.error = Some(e),
+        }
+    }
+
+    /// Copies a `.syx` or `.tsl` into the library; the editor is untouched.
+    pub fn import(&mut self, from: PathBuf) {
+        self.error = self.library.import(&from).err();
+    }
+
+    /// Writes a copy of the editor's patch to `path` (adding `.syx` if missing).
+    pub fn export_to(&mut self, path: PathBuf) {
+        // A file without the extension would be hidden by the Import dialog's filter.
         let path = if path.extension().is_some_and(|e| e.eq_ignore_ascii_case("syx")) {
             path
         } else {
@@ -83,12 +134,95 @@ impl KatanaApp {
             name.push(".syx");
             PathBuf::from(name)
         };
-        match crate::library::write_atomic(&path, &self.editor.patch().to_syx()) {
-            Ok(()) => {
-                self.editor.saved_to(path);
+        self.error = library::write_atomic(&path, &self.editor.patch().to_syx())
+            .err()
+            .map(|e| format!("Couldn't save {}: {e}", file_name(&path)));
+    }
+
+    /// Overwrites the quick save the editor came from, unless it is locked;
+    /// otherwise creates a new quick save. Never overwrites a named patch.
+    pub fn quick_save(&mut self, now: chrono::NaiveDateTime) {
+        let patch = self.editor.patch().clone();
+        let result = match self.editor.origin().clone() {
+            Origin::QuickSave(path) if !self.library.is_read_only(&path) => {
+                self.library.overwrite(&path, &patch).map(|()| path)
+            }
+            _ => self.library.new_quick_save(&patch, now),
+        };
+        self.finish_save(result.map(|path| (patch, Origin::QuickSave(path))));
+    }
+
+    /// Overwrites the file the editor came from; with no origin, asks for a name.
+    pub fn save(&mut self) {
+        let origin = self.editor.origin().clone();
+        let Some(path) = origin.path() else {
+            self.open_save_as();
+            return;
+        };
+        let patch = self.editor.patch().clone();
+        let result = self.library.overwrite(path, &patch);
+        self.finish_save(result.map(|()| (patch, origin.clone())));
+    }
+
+    /// Saves a new named patch in My patches; the name is also written into the patch.
+    pub fn save_as(&mut self, name: &str) {
+        let mut patch = self.editor.patch().clone();
+        patch.set_name(name.trim());
+        let result = self.library.save_as(name, &patch);
+        self.finish_save(result.map(|path| (patch, Origin::Patch(path))));
+    }
+
+    fn finish_save(&mut self, result: Result<(Patch, Origin), String>) {
+        match result {
+            Ok((patch, origin)) => {
+                self.editor.saved_as(patch, origin);
                 self.error = None;
             }
-            Err(e) => self.error = Some(format!("Couldn't save {}: {e}", file_name(&path))),
+            Err(e) => self.error = Some(e),
+        }
+    }
+
+    /// False while the file the editor came from is read-only (Save as… still works).
+    pub fn can_save(&self) -> bool {
+        self.editor.path().is_none_or(|p| !self.library.is_read_only(p))
+    }
+
+    /// Opens the Save as… prompt, prefilled with the current name.
+    pub fn open_save_as(&mut self) {
+        self.save_as_name = Some(self.editor.display_name());
+    }
+
+    fn save_as_prompt(&mut self, ctx: &egui::Context) {
+        let Some(mut name) = self.save_as_name.take() else { return };
+        let mut choice = None;
+        let modal = egui::Modal::new(egui::Id::NULL.with("save_as")).show(ctx, |ui| {
+            ui.label("Save as a new patch in My patches.");
+            ui.add_space(8.0);
+            ui.horizontal(|ui| {
+                let label = ui.label("Name");
+                let edit = ui.add(egui::TextEdit::singleline(&mut name).desired_width(240.0)).labelled_by(label.id);
+                if edit.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) && !name.trim().is_empty() {
+                    choice = Some(true);
+                }
+            });
+            ui.add_space(8.0);
+            ui.horizontal(|ui| {
+                if ui.add_enabled(!name.trim().is_empty(), egui::Button::new("Save")).clicked() {
+                    choice = Some(true);
+                }
+                if ui.button("Cancel").clicked() {
+                    choice = Some(false);
+                }
+            });
+        });
+        // Escape or a click outside the prompt means Cancel.
+        if choice.is_none() && modal.should_close() {
+            choice = Some(false);
+        }
+        match choice {
+            Some(true) => self.save_as(&name),
+            Some(false) => {}
+            None => self.save_as_name = Some(name),
         }
     }
 
@@ -105,7 +239,7 @@ impl KatanaApp {
         if self.pending.is_none() {
             return;
         }
-        let question = format!("Discard unsaved changes to {}?", self.editor.name());
+        let question = format!("Discard unsaved changes to {}?", self.editor.display_name());
         let mut choice = None;
         let modal = egui::Modal::new(egui::Id::NULL.with("discard")).show(ctx, |ui| {
             ui.label(question);
@@ -125,6 +259,7 @@ impl KatanaApp {
         }
         match (choice, self.pending.take()) {
             (Some(true), Some(Pending::Open(path))) => self.open(&path),
+            (Some(true), Some(Pending::Pick(set, index))) => self.pick(&set, index),
             (Some(true), Some(Pending::Close)) => {
                 self.close_confirmed = true;
                 ctx.send_viewport_cmd(egui::ViewportCommand::Close);
@@ -153,6 +288,7 @@ impl KatanaApp {
             Tab::Library => views::library(ui),
         });
         self.discard_prompt(&ctx);
+        self.save_as_prompt(&ctx);
         crate::widgets::track_page_wheel(&ctx);
     }
 }

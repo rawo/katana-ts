@@ -33,7 +33,6 @@ pub fn dot_label(ui: &mut egui::Ui, color: Color32, text: &str) -> egui::Respons
 
 /// Tooltips for actions that later stages bring.
 pub const NEEDS_AMP: &str = "Needs amp control (stage 1)";
-pub const NEEDS_LIBRARY: &str = "Preset library (stage 3)";
 
 /// The Editor tab: signal chain, detail panel and amp strip, scrolling when
 /// the window is too small.

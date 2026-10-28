@@ -4,11 +4,29 @@ use std::path::{Path, PathBuf};
 
 use katana_proto::{ParamDef, Patch, ProtoError};
 
+/// The library file the editor's patch came from; Save and Quick save write there.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Origin {
+    /// The default preset, or a file from outside the library.
+    None,
+    Patch(PathBuf),
+    QuickSave(PathBuf),
+}
+
+impl Origin {
+    pub fn path(&self) -> Option<&Path> {
+        match self {
+            Origin::None => None,
+            Origin::Patch(p) | Origin::QuickSave(p) => Some(p),
+        }
+    }
+}
+
 pub struct Editor {
     patch: Patch,
     /// What was last opened or saved; the editor is dirty while it differs.
     baseline: Patch,
-    path: Option<PathBuf>,
+    origin: Origin,
 }
 
 impl Default for Editor {
@@ -20,7 +38,7 @@ impl Default for Editor {
 impl Editor {
     pub fn new() -> Editor {
         let patch = Patch::default_preset();
-        Editor { baseline: patch.clone(), patch, path: None }
+        Editor { baseline: patch.clone(), patch, origin: Origin::None }
     }
 
     pub fn patch(&self) -> &Patch {
@@ -48,23 +66,45 @@ impl Editor {
         }
     }
 
+    /// The name the user sees: the origin's file name without `.syx`, else
+    /// the name stored in the patch.
+    pub fn display_name(&self) -> String {
+        match self.origin.path().and_then(Path::file_stem) {
+            Some(stem) => stem.to_string_lossy().into_owned(),
+            None => self.name(),
+        }
+    }
+
+    pub fn origin(&self) -> &Origin {
+        &self.origin
+    }
+
     pub fn path(&self) -> Option<&Path> {
-        self.path.as_deref()
+        self.origin.path()
+    }
+
+    /// The patch that was last opened or saved.
+    pub fn baseline(&self) -> &Patch {
+        &self.baseline
+    }
+
+    /// Replaces the editor's patch; it is clean afterwards.
+    pub fn load(&mut self, patch: Patch, origin: Origin) {
+        self.baseline = patch.clone();
+        self.patch = patch;
+        self.origin = origin;
     }
 
     /// Replaces the editor's patch with a `.syx` file's; nothing changes on error.
     pub fn open_bytes(&mut self, bytes: &[u8], path: PathBuf) -> Result<(), ProtoError> {
-        let patch = Patch::from_syx(bytes)?;
-        self.baseline = patch.clone();
-        self.patch = patch;
-        self.path = Some(path);
+        self.load(Patch::from_syx(bytes)?, Origin::Patch(path));
         Ok(())
     }
 
-    /// Records a successful save to `path`: the editor is clean again.
-    pub fn saved_to(&mut self, path: PathBuf) {
-        self.baseline = self.patch.clone();
-        self.path = Some(path);
+    /// Records a successful save of `patch` (the editor's patch as written,
+    /// e.g. renamed by Save as…): the editor holds it and is clean again.
+    pub fn saved_as(&mut self, patch: Patch, origin: Origin) {
+        self.load(patch, origin);
     }
 }
 
@@ -110,7 +150,7 @@ mod tests {
         assert!(!e.is_dirty());
         assert_eq!(e.get(gain), Some(60));
         e.set(gain, 61).unwrap();
-        e.saved_to("b.syx".into());
+        e.saved_as(e.patch().clone(), Origin::Patch("b.syx".into()));
         let bytes = e.patch().to_syx();
         assert!(!e.is_dirty());
         assert_eq!(e.path(), Some(std::path::Path::new("b.syx")));

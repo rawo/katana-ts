@@ -1,6 +1,6 @@
 use eframe::egui::{self, Align, Button, Layout};
 
-use super::{NEEDS_AMP, NEEDS_LIBRARY};
+use super::NEEDS_AMP;
 use crate::app::{KatanaApp, Tab};
 use crate::theme::Palette;
 
@@ -14,20 +14,32 @@ pub fn action_bar(ui: &mut egui::Ui, app: &mut KatanaApp, _p: &Palette) {
             ui.add_enabled(false, Button::new("Store to channel…")).on_disabled_hover_text(NEEDS_AMP);
             ui.add_enabled(false, Button::new("Load to amp")).on_disabled_hover_text(NEEDS_AMP);
             ui.add_space(8.0);
-            for label in ["Save as…", "Save", "Quick save"] {
-                ui.add_enabled(false, Button::new(label)).on_disabled_hover_text(NEEDS_LIBRARY);
+            if ui.button("Save as…").clicked() {
+                app.open_save_as();
+            }
+            let save = ui.add_enabled(app.can_save(), Button::new("Save"));
+            if save.on_disabled_hover_text("This patch is read-only; use Save as…").clicked() {
+                app.save();
+            }
+            if ui.button("Quick save").clicked() {
+                app.quick_save(chrono::Local::now().naive_local());
             }
             ui.add_space(8.0);
-            if ui.button("Save .syx…").clicked() {
-                let file = crate::app::default_file_name(&app.editor.name());
+            if ui.button("Export .syx…").clicked() {
+                let file = crate::app::default_file_name(&app.editor.display_name());
                 if let Some(path) = rfd::FileDialog::new().add_filter("SysEx", &["syx"]).set_file_name(file).save_file()
                 {
-                    app.save_to(path);
+                    app.export_to(path);
                 }
             }
-            if ui.button("Open .syx…").clicked() {
-                if let Some(path) = rfd::FileDialog::new().add_filter("SysEx", &["syx"]).pick_file() {
-                    app.request_open(path);
+            if ui.button("Import…").clicked() {
+                let picked = rfd::FileDialog::new()
+                    .add_filter("Patch or Tone Exchange set", &["syx", "tsl"])
+                    .add_filter("SysEx patch", &["syx"])
+                    .add_filter("Tone Exchange set", &["tsl"])
+                    .pick_file();
+                if let Some(path) = picked {
+                    app.import(path);
                 }
             }
         });

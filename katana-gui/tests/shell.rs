@@ -11,7 +11,7 @@ fn harness() -> Harness<'static, KatanaApp> {
 #[test]
 fn shell_shows_offline_state() {
     let h = harness();
-    for label in ["Editor", "Library", "not connected", "DEFAULT", "Open .syx…", "Save .syx…"] {
+    for label in ["Editor", "Library", "not connected", "DEFAULT", "Import…", "Export .syx…"] {
         h.get_by_label(label);
     }
     assert!(h.query_by_label("unsaved").is_none());
@@ -20,9 +20,7 @@ fn shell_shows_offline_state() {
 #[test]
 fn amp_actions_are_disabled() {
     let h = harness();
-    for label in
-        ["Store to channel…", "Load to amp", "Quick save", "Save", "Save as…", "PANEL", "A1", "B4", "Live edit"]
-    {
+    for label in ["Store to channel…", "Load to amp", "PANEL", "A1", "B4", "Live edit"] {
         assert!(h.get_by_label(label).accesskit_node().is_disabled(), "{label} should be disabled");
     }
 }

@@ -1,5 +1,6 @@
 use eframe::egui;
 use katana_gui::app::{KatanaApp, MIN_WINDOW};
+use katana_gui::library::Library;
 
 fn main() -> eframe::Result {
     let options = eframe::NativeOptions {
@@ -9,5 +10,13 @@ fn main() -> eframe::Result {
             .with_title("KATANA Tone Studio"),
         ..Default::default()
     };
-    eframe::run_native("KATANA Tone Studio", options, Box::new(|_cc| Ok(Box::new(KatanaApp::new()))))
+    let app = match Library::default_root() {
+        Some(root) => KatanaApp::with_library(Library::open(root)),
+        None => {
+            let mut app = KatanaApp::new();
+            app.error = Some("No home folder found; the library is unavailable".into());
+            app
+        }
+    };
+    eframe::run_native("KATANA Tone Studio", options, Box::new(|_cc| Ok(Box::new(app))))
 }
