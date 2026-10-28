@@ -173,6 +173,114 @@ impl Library {
         Ok(())
     }
 
+    /// Copies a `.syx` into My patches or a `.tsl` into Downloaded sets
+    /// (numbered name if taken), after checking it. The source is unchanged.
+    pub fn import(&mut self, from: &Path) -> Result<PathBuf, String> {
+        let cant = |e: String| format!("Can't import {}: {e}", file_name(from));
+        let ext = from.extension().map(|e| e.to_string_lossy().to_lowercase());
+        let dir = match ext.as_deref() {
+            Some("syx") => PATCHES,
+            Some("tsl") => SETS,
+            _ => return Err(cant("not a .syx or .tsl".into())),
+        };
+        let bytes = std::fs::read(from).map_err(|e| cant(e.to_string()))?;
+        if dir == PATCHES {
+            check_syx(&bytes).map_err(cant)?;
+        } else {
+            ToneSet::parse(&bytes).map_err(|e| cant(e.to_string()))?;
+        }
+        let ext = if dir == PATCHES { "syx" } else { "tsl" };
+        self.write_new(dir, &stem(from), ext, &bytes)
+    }
+
+    /// Saves patch `index` of a downloaded set as a new patch in My patches,
+    /// named after it, and returns it. The set file is never changed.
+    pub fn pick(&mut self, set: &Path, index: usize) -> Result<(PathBuf, Patch), String> {
+        let bytes = std::fs::read(set).map_err(|e| format!("Couldn't read {}: {e}", file_name(set)))?;
+        let tone_set = ToneSet::parse(&bytes).map_err(|e| format!("Couldn't read {}: {e}", file_name(set)))?;
+        let entry = tone_set
+            .patches
+            .into_iter()
+            .nth(index)
+            .ok_or_else(|| format!("{} has no patch {}", tone_set.name, index + 1))?;
+        let patch = entry.patch.map_err(|e| format!("Can't use {} from {}: {e}", entry.name, tone_set.name))?;
+        let path = self.write_new(PATCHES, &safe_stem(&entry.name), "syx", &patch.to_syx())?;
+        if let Some(key) = self.key(&path) {
+            let mut index = self.index.clone();
+            index.source.insert(key, Source { set: tone_set.name, patch: entry.name });
+            // Only metadata: the patch itself is saved either way.
+            let _ = self.save_index(index);
+        }
+        Ok((path, patch))
+    }
+
+    /// A new named patch in My patches; the name is also written into the patch.
+    pub fn save_as(&mut self, name: &str, patch: &Patch) -> Result<PathBuf, String> {
+        let mut p = patch.clone();
+        p.set_name(name.trim());
+        self.write_new(PATCHES, &safe_stem(name), "syx", &p.to_syx())
+    }
+
+    /// A new `quick-save_<local time>.syx` in Quick saves.
+    pub fn new_quick_save(&mut self, patch: &Patch, now: chrono::NaiveDateTime) -> Result<PathBuf, String> {
+        let stem = format!("quick-save_{}", now.format("%Y-%m-%d_%H-%M-%S"));
+        self.write_new(QUICK_SAVES, &stem, "syx", &patch.to_syx())
+    }
+
+    /// Replaces a library patch; refused while it is read-only.
+    pub fn overwrite(&mut self, path: &Path, patch: &Patch) -> Result<(), String> {
+        if self.is_read_only(path) {
+            return Err(format!("{} is read-only", stem(path)));
+        }
+        write_atomic(path, &patch.to_syx()).map_err(|e| format!("Couldn't save {}: {e}", file_name(path)))?;
+        self.refresh();
+        Ok(())
+    }
+
+    /// Deletes a patch, quick save or set; refused while it is read-only.
+    pub fn delete(&mut self, path: &Path) -> Result<(), String> {
+        if self.is_read_only(path) {
+            return Err(format!("{} is read-only", stem(path)));
+        }
+        std::fs::remove_file(path).map_err(|e| format!("Couldn't delete {}: {e}", file_name(path)))?;
+        if let Some(key) = self.key(path) {
+            let mut index = self.index.clone();
+            index.read_only.remove(&key);
+            if index.source.remove(&key).is_some() {
+                let _ = self.save_index(index);
+            }
+        }
+        self.refresh();
+        Ok(())
+    }
+
+    pub fn load(&self, path: &Path) -> Result<Patch, String> {
+        let bytes = std::fs::read(path).map_err(|e| format!("Couldn't open {}: {e}", file_name(path)))?;
+        Patch::from_syx(&bytes).map_err(|e| format!("Couldn't open {}: {e}", file_name(path)))
+    }
+
+    /// Which list a library file belongs to, by its folder.
+    pub fn kind_of(&self, path: &Path) -> Option<Kind> {
+        let root = self.root.as_ref()?;
+        let parent = path.parent()?;
+        if parent == root.join(PATCHES) {
+            Some(Kind::Patch)
+        } else if parent == root.join(QUICK_SAVES) {
+            Some(Kind::QuickSave)
+        } else {
+            None
+        }
+    }
+
+    /// Writes `bytes` to a free `<stem>.<ext>` in subfolder `dir`.
+    fn write_new(&mut self, dir: &str, stem: &str, ext: &str, bytes: &[u8]) -> Result<PathBuf, String> {
+        let root = self.root.as_ref().ok_or("No library folder")?;
+        let path = free_path(&root.join(dir), stem, ext);
+        write_atomic(&path, bytes).map_err(|e| format!("Couldn't save {}: {e}", file_name(&path)))?;
+        self.refresh();
+        Ok(path)
+    }
+
     /// `path` relative to the root, as stored in the index.
     fn key(&self, path: &Path) -> Option<String> {
         let rel = path.strip_prefix(self.root.as_ref()?).ok()?;
@@ -261,8 +369,8 @@ pub fn matches(query: &str, name: &str) -> bool {
 
 pub fn sort_entries(v: &mut [Entry], sort: Sort) {
     match sort {
-        Sort::NewestFirst => v.sort_by(|a, b| b.modified.cmp(&a.modified)),
-        Sort::OldestFirst => v.sort_by(|a, b| a.modified.cmp(&b.modified)),
+        Sort::NewestFirst => v.sort_by_key(|e| std::cmp::Reverse(e.modified)),
+        Sort::OldestFirst => v.sort_by_key(|e| e.modified),
         Sort::NameAz => v.sort_by_key(|e| e.name.to_lowercase()),
         Sort::NameZa => v.sort_by_key(|e| std::cmp::Reverse(e.name.to_lowercase())),
     }
