@@ -3,5 +3,5 @@
 mod control;
 pub mod knob;
 
-pub use control::param_control;
+pub use control::{on_off_text, param_control};
 pub use knob::Knob;

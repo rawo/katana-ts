@@ -6,6 +6,7 @@ use katana_proto::layout::{BlockDef, CHAIN};
 
 use crate::app::KatanaApp;
 use crate::theme::Palette;
+use crate::widgets::on_off_text;
 
 pub fn chain(ui: &mut egui::Ui, app: &mut KatanaApp, p: &Palette) {
     // Fixed row height, so the IN label and arrows centre on the cards.
@@ -62,18 +63,16 @@ fn card(ui: &mut egui::Ui, app: &mut KatanaApp, block: &'static BlockDef, p: &Pa
 /// The block's on/off switch.
 fn pill(ui: &mut egui::Ui, app: &mut KatanaApp, title: &str, param: &str, p: &Palette) {
     let Some(def) = find_param(param) else { return };
-    let on = app.editor.get(def) == Some(1);
-    let (rect, response) = ui.allocate_exact_size(Vec2::new(34.0, 16.0), Sense::click());
+    let value = app.editor.get(def);
+    let on = value == Some(1);
+    let label = value.map_or_else(|| "—".to_string(), on_off_text);
     let (fill, text) = if on { (p.green, Color32::BLACK) } else { (p.line, p.dim) };
+    let galley = ui.painter().layout_no_wrap(label.clone(), egui::FontId::proportional(10.0), text);
+    let width = (galley.size().x + 8.0).max(34.0);
+    let (rect, response) = ui.allocate_exact_size(Vec2::new(width, 16.0), Sense::click());
     ui.painter().rect_filled(rect, CornerRadius::same(3), fill);
-    ui.painter().text(
-        rect.center(),
-        egui::Align2::CENTER_CENTER,
-        if on { "ON" } else { "OFF" },
-        egui::FontId::proportional(10.0),
-        text,
-    );
-    let name = format!("{title} {}", if on { "ON" } else { "OFF" });
+    ui.painter().galley(rect.center() - galley.size() / 2.0, galley, text);
+    let name = format!("{title} {label}");
     response.widget_info(|| WidgetInfo::labeled(Role::Button, true, &name));
     if response.clicked() {
         let r = app.editor.set(def, u32::from(!on));

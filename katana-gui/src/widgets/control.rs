@@ -9,6 +9,15 @@ use crate::theme::Palette;
 
 const ON_OFF: &[(u32, &str)] = &[(0, "OFF"), (1, "ON")];
 
+/// "OFF", "ON", or "? (n)" for a raw value that is neither (e.g. from an odd `.syx`).
+pub fn on_off_text(value: u32) -> String {
+    match value {
+        0 => "OFF".to_string(),
+        1 => "ON".to_string(),
+        n => format!("? ({n})"),
+    }
+}
+
 /// Draws the right widget for `def` and writes changes into the editor:
 /// on/off → toggle, named values → dropdown, anything else → knob.
 pub fn param_control(
@@ -32,7 +41,7 @@ pub fn param_control(
             ui.vertical(|ui| {
                 let caption = ui.label(RichText::new(label).small().color(p.dim));
                 let on = value == 1;
-                let r = ui.add(Button::selectable(on, if on { "ON" } else { "OFF" })).labelled_by(caption.id);
+                let r = ui.add(Button::selectable(on, on_off_text(value))).labelled_by(caption.id);
                 if r.clicked() {
                     new = u32::from(!on);
                 }
@@ -62,4 +71,16 @@ pub fn param_control(
         debug_assert!(r.is_ok(), "{} = {new}: {r:?}", def.name);
     }
     response
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn on_off_text_names_unknown_values() {
+        assert_eq!(on_off_text(0), "OFF");
+        assert_eq!(on_off_text(1), "ON");
+        assert_eq!(on_off_text(5), "? (5)");
+    }
 }

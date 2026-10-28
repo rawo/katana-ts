@@ -176,3 +176,16 @@ fn long_error_leaves_theme_picker_visible() {
     assert!(theme.right() <= MIN_WINDOW[0]);
     assert!(error.right() <= theme.left(), "error {error:?} runs into Theme {theme:?}");
 }
+
+#[test]
+fn unknown_switch_value_shows_as_unknown() {
+    let mut p = Patch::default_preset();
+    p.mem.apply(Address(find_param("reverb-sw").unwrap().addr), &[5]);
+    let mut app = KatanaApp::new();
+    app.editor.open_bytes(&p.to_syx(), "odd.syx".into()).unwrap();
+    let mut h = harness_sized([1600.0, 960.0], app);
+    h.get_by_label("REVERB ? (5)").click();
+    h.run();
+    assert_eq!(get(&h, "reverb-sw"), Some(1));
+    h.get_by_label("REVERB ON");
+}
