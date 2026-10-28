@@ -117,20 +117,32 @@ cargo clippy --workspace --all-targets
 
 ## GUI
 
-`katana-gui` opens with a default preset: everything off or 0, amp type CLEAN.
+`katana-gui` opens where you left it: the patch you were editing when you last
+quit, with its unsaved changes (see Auto-save below). The first time, it opens a
+default preset: everything off or 0, amp type CLEAN.
 
 - **Top bar, first row:** connection state and channel tabs (PANEL, A1–A4, B1–B4)
-  on the left; the preset name, an "unsaved" marker when it has changed, and Live
-  edit on the right.
+  on the left; the patch name (its file name in the library), an "unsaved" marker
+  when it has changed, and Live edit on the right.
 - **Top bar, second row:** the Editor and Library tabs on the left; the actions on
   the right.
-  - **Open .syx…** / **Save .syx…** read and write patch files (the same format as
-    `katana-cli dump`). Opening a file, or closing the window, with unsaved changes
-    asks first; Escape or a click outside the question cancels. Save adds `.syx` if
-    you leave it off, and writes a temporary file first, so a failed save leaves the
-    old file as it was.
-  - Live edit, Quick save, Save, Save as…, Load to amp and Store to channel… are
-    greyed out until amp control (stage 1) and the preset library (stage 3) exist.
+  - **Import…** copies a `.syx` patch into My patches, or a Tone Exchange `.tsl`
+    set into Downloaded sets (the file is kept as it is). A name that is taken gets
+    a number: `Iron Man (2)`.
+  - **Export .syx…** writes a copy of the patch anywhere, e.g. to share it (the
+    same format as `katana-cli dump`; `.syx` is added if you leave it off).
+  - **Quick save** saves to the Quick saves group as
+    `quick-save_2026-10-28_15-04-12.syx`. If the patch came from a quick save, it
+    overwrites that one; it never overwrites a named patch.
+  - **Save** overwrites the file the patch came from (greyed out when that patch is
+    read-only). With no file yet, it works like Save as….
+  - **Save as…** asks for a name and saves a new patch in My patches; the name is
+    also written into the patch (cut to 16 characters).
+  - Live edit, Load to amp and Store to channel… are greyed out until amp control
+    (stage 1) exists.
+  - Opening a patch, or closing the window, with unsaved changes asks first; Escape
+    or a click outside the question cancels. Every save writes a temporary file
+    first, so a failed save leaves the old file as it was.
 - **Window:** at least 1200×720, so the whole signal chain fits.
 - **Editor tab:**
   - The signal chain IN → BOOSTER → MOD → AMP → FX → DELAY → REVERB → OUT. Each
@@ -143,18 +155,48 @@ cargo clippy --workspace --all-targets
   While you scroll the page, the wheel keeps scrolling past knobs; rest on a knob
   for half a second and the wheel turns it. Switches are toggles; named values are
   dropdowns. A switch byte that is neither 0 nor 1 shows as `? (n)`.
-- **Library tab:** placeholder until stage 3.
-- **Status line:** amp state, last error, and the **Theme** picker (Dark or Light).
+- **Library tab:** **Search** (shows names containing any of the words), **Sort**
+  (newest or oldest first, name A–Z or Z–A) and **Import…** on top, then two lists:
+  - **My patches** — your patches, with the **Quick saves** group below them. Click
+    a name to open it in the editor. **read-only** locks a patch (Save and Delete
+    are then refused); **Delete** asks first.
+  - **Downloaded sets** — imported Tone Exchange sets, by set name. Open a set to
+    see its patches; **Open** saves that patch as a new file in My patches (named
+    after the patch, numbered if taken) and loads it into the editor. **Delete set**
+    asks first and keeps the patches you already took from it. A patch that can't
+    be mapped completely onto a KATANA Gen 3 patch is refused with a message.
+- **Auto-save:** about every 5 minutes while the patch keeps changing, after every
+  Save, Save as… and Quick save, and when the window closes, the patch is saved to
+  a hidden folder (the last 10 are kept). The next start reopens it, together with
+  the file it came from. If you choose Discard when closing, the next start opens
+  that file as it was saved.
+- **Status line:** amp state, time of the last auto-save, last error (including
+  library files that couldn't be read and were skipped), and the **Theme** picker
+  (Dark or Light).
 
 Only parameters verified on the amp appear (see the table below). Blocks with none
 yet say so.
 
-A typical offline round trip:
+### Library folder
+
+The library lives in `~/.local/share/katana-ts/` (on macOS, during development:
+`~/Library/Application Support/katana-ts/`):
+
+| Path | Holds |
+|---|---|
+| `patches/` | My patches (`.syx`, the `katana-cli dump` format) |
+| `quick-saves/` | Quick saves |
+| `sets/` | Downloaded Tone Exchange sets (`.tsl`, unchanged) |
+| `autosave/` | The last 10 auto-saves and `state.json` |
+| `index.json` | Read-only flags and which set each picked patch came from |
+
+Library patches are plain `.syx` files, so the CLI works on them directly. A typical
+offline round trip:
 
 ```bash
 katana-cli dump mine.syx       # amp → file
-cargo run -p katana-gui        # Open .syx… mine.syx, edit, Save .syx…
-katana-cli load mine.syx       # file → amp (current patch)
+cargo run -p katana-gui        # Import… mine.syx, edit, Save
+katana-cli load ~/.local/share/katana-ts/patches/mine.syx   # file → amp (current patch)
 ```
 
 ## CLI
