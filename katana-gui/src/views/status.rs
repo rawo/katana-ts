@@ -12,10 +12,13 @@ pub fn status(ui: &mut egui::Ui, app: &mut KatanaApp, p: &Palette) {
             }
         });
         ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
+            let autosave = app.last_autosave.map_or("—".to_string(), |t| t.format("%H:%M").to_string());
             ui.label(
-                RichText::new("Amp: not connected · Live edit off · last auto-save — · panel change —")
-                    .color(p.dim)
-                    .small(),
+                RichText::new(format!(
+                    "Amp: not connected · Live edit off · last auto-save {autosave} · panel change —"
+                ))
+                .color(p.dim)
+                .small(),
             );
             if let Some(e) = &app.error {
                 ui.add(Label::new(RichText::new(e).color(p.red).small()).truncate()).on_hover_text(e);

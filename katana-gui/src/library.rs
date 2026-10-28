@@ -8,6 +8,8 @@ use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
 use katana_proto::tsl::ToneSet;
+
+use crate::editor::Origin;
 use katana_proto::Patch;
 use serde::{Deserialize, Serialize};
 
@@ -16,6 +18,9 @@ pub const QUICK_SAVES: &str = "quick-saves";
 pub const SETS: &str = "sets";
 pub const AUTOSAVE: &str = "autosave";
 const INDEX: &str = "index.json";
+const AUTOSAVE_STATE: &str = "state.json";
+/// Auto-saves kept; older ones are deleted.
+pub const AUTOSAVE_KEEP: usize = 10;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Kind {
@@ -58,6 +63,20 @@ pub enum Sort {
 struct Source {
     set: String,
     patch: String,
+}
+
+/// `autosave/state.json`: the newest auto-save and the file the editor came from.
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+struct AutosaveState {
+    latest: String,
+    origin: Option<SavedOrigin>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct SavedOrigin {
+    kind: String,
+    /// Relative to the library root.
+    path: String,
 }
 
 /// `index.json`; paths are relative to the library root, with `/`.
@@ -281,6 +300,57 @@ impl Library {
         Ok(path)
     }
 
+    /// Writes the editor's state to `autosave/autosave_<local time>.syx`,
+    /// records it and its origin in `autosave/state.json`, and deletes all but
+    /// the newest `AUTOSAVE_KEEP`.
+    pub fn autosave(&mut self, patch: &Patch, origin: &Origin, now: chrono::NaiveDateTime) -> Result<(), String> {
+        let dir = self.root.as_ref().ok_or("No library folder")?.join(AUTOSAVE);
+        let fail = |e: std::io::Error| format!("Auto-save failed: {e}");
+        std::fs::create_dir_all(&dir).map_err(fail)?;
+        // Numbered above every auto-save of the same second (never a freed lower
+        // number), so the name order stays the age order used for pruning.
+        let base = format!("autosave_{}", now.format("%Y-%m-%d_%H-%M-%S"));
+        let mut all: Vec<PathBuf> = files(&dir, "syx").into_iter().map(|(p, _)| p).collect();
+        let n = all.iter().map(|p| autosave_order(&stem(p))).filter(|(b, _)| *b == base).map(|(_, n)| n).max();
+        let path = match n {
+            None => dir.join(format!("{base}.syx")),
+            Some(n) => dir.join(format!("{base} ({}).syx", n + 1)),
+        };
+        write_atomic(&path, &patch.to_syx()).map_err(fail)?;
+        all.push(path.clone());
+        let origin = match origin {
+            Origin::None => None,
+            Origin::Patch(p) => self.key(p).map(|path| SavedOrigin { kind: "patch".into(), path }),
+            Origin::QuickSave(p) => self.key(p).map(|path| SavedOrigin { kind: "quick-save".into(), path }),
+        };
+        let state = AutosaveState { latest: file_name(&path), origin };
+        let text = serde_json::to_string_pretty(&state).map_err(|e| e.to_string())?;
+        write_atomic(&dir.join(AUTOSAVE_STATE), text.as_bytes()).map_err(fail)?;
+        all.sort_by_key(|p| autosave_order(&stem(p)));
+        for old in all.iter().take(all.len().saturating_sub(AUTOSAVE_KEEP)) {
+            let _ = std::fs::remove_file(old);
+        }
+        Ok(())
+    }
+
+    /// The newest auto-save and its origin; `None` when there is none or it
+    /// can't be read (then a problem says so).
+    pub fn last_autosave(&mut self) -> Option<(Patch, Origin)> {
+        let dir = self.root.as_ref()?.join(AUTOSAVE);
+        let text = std::fs::read(dir.join(AUTOSAVE_STATE)).ok()?;
+        let restored = serde_json::from_slice::<AutosaveState>(&text).map_err(|e| e.to_string()).and_then(|state| {
+            let patch = self.load(&dir.join(&state.latest))?;
+            let root = self.root.as_ref().expect("checked above");
+            let origin = match state.origin {
+                None => Origin::None,
+                Some(o) if o.kind == "quick-save" => Origin::QuickSave(root.join(o.path)),
+                Some(o) => Origin::Patch(root.join(o.path)),
+            };
+            Ok((patch, origin))
+        });
+        restored.map_err(|e| self.problems.push(format!("The last auto-save couldn't be restored: {e}"))).ok()
+    }
+
     /// `path` relative to the root, as stored in the index.
     fn key(&self, path: &Path) -> Option<String> {
         let rel = path.strip_prefix(self.root.as_ref()?).ok()?;
@@ -307,6 +377,17 @@ fn read_index(root: &Path, problems: &mut Vec<String>) -> Index {
             Index::default()
         }
     }
+}
+
+/// Sort key putting auto-saves oldest first: by time, then by the ` (n)`
+/// added when two fall in the same second.
+fn autosave_order(stem: &str) -> (String, u32) {
+    if let Some((base, n)) = stem.strip_suffix(')').and_then(|s| s.rsplit_once(" (")) {
+        if let Ok(n) = n.parse() {
+            return (base.to_string(), n);
+        }
+    }
+    (stem.to_string(), 1)
 }
 
 fn check_syx(bytes: &[u8]) -> Result<(), String> {

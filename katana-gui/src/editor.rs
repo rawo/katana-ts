@@ -101,6 +101,14 @@ impl Editor {
         Ok(())
     }
 
+    /// Puts back an auto-saved state: `patch` being edited, `baseline` what
+    /// its origin holds on disk.
+    pub fn restore(&mut self, patch: Patch, baseline: Patch, origin: Origin) {
+        self.patch = patch;
+        self.baseline = baseline;
+        self.origin = origin;
+    }
+
     /// The origin file is gone: keep the patch, with no file behind it.
     pub fn forget_origin(&mut self) {
         self.origin = Origin::None;

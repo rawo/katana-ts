@@ -24,6 +24,9 @@ enum Pending {
     Close,
 }
 
+/// Seconds between auto-saves while the editor keeps changing.
+pub const AUTOSAVE_SECS: f64 = 300.0;
+
 /// Smallest window the layout fits (the signal chain needs about 1165 px).
 pub const MIN_WINDOW: [f32; 2] = [1200.0, 720.0];
 
@@ -43,6 +46,12 @@ pub struct KatanaApp {
     pub sort: library::Sort,
     /// A library file waiting for the user to confirm its deletion, with its name.
     pending_delete: Option<(PathBuf, String)>,
+    /// The editor's patch and origin as last auto-saved (or as at start).
+    autosaved: (Patch, Origin),
+    /// `egui` time of the last timed auto-save.
+    autosaved_at: Option<f64>,
+    /// Local time of the last auto-save, for the status line.
+    pub last_autosave: Option<chrono::NaiveDateTime>,
     /// The Save as… prompt's name while it is open.
     save_as_name: Option<String>,
     /// The user chose to discard changes and close.
@@ -64,8 +73,12 @@ impl KatanaApp {
     /// Problems found while reading the library go to the status line.
     pub fn with_library(mut library: Library) -> KatanaApp {
         let problems = std::mem::take(&mut library.problems);
+        let editor = Editor::new();
         KatanaApp {
-            editor: Editor::new(),
+            autosaved: (editor.patch().clone(), Origin::None),
+            autosaved_at: None,
+            last_autosave: None,
+            editor,
             library,
             tab: Tab::Editor,
             theme: ThemeId::Dark,
@@ -87,6 +100,65 @@ impl KatanaApp {
             self.pending = Some(Pending::Open(path));
         } else {
             self.open(&path);
+        }
+    }
+
+    /// `with_library`, then back to the state at the last quit: the newest
+    /// auto-save, with the file it came from. A missing origin file leaves the
+    /// patch without one, and says so.
+    pub fn start(library: Library) -> KatanaApp {
+        let mut app = KatanaApp::with_library(library);
+        let Some((patch, origin)) = app.library.last_autosave() else {
+            app.take_library_problems();
+            return app;
+        };
+        let (baseline, origin) = match origin.path().map(|p| (p, app.library.load(p))) {
+            None => (Patch::default_preset(), origin),
+            Some((_, Ok(baseline))) => (baseline, origin),
+            Some((path, Err(_))) => {
+                app.library.problems.push(format!("{} no longer exists", library::file_name(path)));
+                (Patch::default_preset(), Origin::None)
+            }
+        };
+        app.editor.restore(patch, baseline, origin);
+        app.autosaved = (app.editor.patch().clone(), app.editor.origin().clone());
+        app.take_library_problems();
+        app
+    }
+
+    fn take_library_problems(&mut self) {
+        let mut all: Vec<String> = self.error.take().into_iter().collect();
+        all.append(&mut self.library.problems);
+        self.error = (!all.is_empty()).then(|| all.join("; "));
+    }
+
+    /// Auto-saves when `AUTOSAVE_SECS` have passed since the last timed one
+    /// (`now_secs` in egui time) and the editor changed since the last auto-save.
+    pub fn autosave_tick(&mut self, now_secs: f64, now: chrono::NaiveDateTime) {
+        if self.autosaved_at.is_some_and(|t| now_secs - t < AUTOSAVE_SECS) {
+            return;
+        }
+        if self.autosave(now) {
+            self.autosaved_at = Some(now_secs);
+        }
+    }
+
+    /// Auto-saves the editor's state if it changed since the last one; true if written.
+    fn autosave(&mut self, now: chrono::NaiveDateTime) -> bool {
+        let state = (self.editor.patch().clone(), self.editor.origin().clone());
+        if state == self.autosaved || self.library.root().is_none() {
+            return false;
+        }
+        match self.library.autosave(&state.0, &state.1, now) {
+            Ok(()) => {
+                self.autosaved = state;
+                self.last_autosave = Some(now);
+                true
+            }
+            Err(e) => {
+                self.error = Some(e);
+                false
+            }
         }
     }
 
@@ -185,6 +257,8 @@ impl KatanaApp {
             Ok((patch, origin)) => {
                 self.editor.saved_as(patch, origin);
                 self.error = None;
+                // The newest auto-save is never older than the last save.
+                self.autosave(chrono::Local::now().naive_local());
             }
             Err(e) => self.error = Some(e),
         }
@@ -275,6 +349,7 @@ impl KatanaApp {
     /// The window asks to close. true = close now; false = asking first.
     pub fn on_close_requested(&mut self) -> bool {
         if self.close_confirmed || !self.editor.is_dirty() {
+            self.autosave(chrono::Local::now().naive_local());
             return true;
         }
         self.pending = Some(Pending::Close);
@@ -307,6 +382,10 @@ impl KatanaApp {
             (Some(true), Some(Pending::Open(path))) => self.open(&path),
             (Some(true), Some(Pending::Pick(set, index))) => self.pick(&set, index),
             (Some(true), Some(Pending::Close)) => {
+                // The state at quit is the file the editor came from, not the discarded edits.
+                let (baseline, origin) = (self.editor.baseline().clone(), self.editor.origin().clone());
+                self.editor.load(baseline, origin);
+                self.autosave(chrono::Local::now().naive_local());
                 self.close_confirmed = true;
                 ctx.send_viewport_cmd(egui::ViewportCommand::Close);
             }
@@ -336,6 +415,10 @@ impl KatanaApp {
         self.discard_prompt(&ctx);
         self.save_as_prompt(&ctx);
         self.delete_prompt(&ctx);
+        let now_secs = ctx.input(|i| i.time);
+        self.autosave_tick(now_secs, chrono::Local::now().naive_local());
+        // Wake up for the next auto-save even when nothing else happens.
+        ctx.request_repaint_after(std::time::Duration::from_secs_f64(AUTOSAVE_SECS));
         crate::widgets::track_page_wheel(&ctx);
     }
 }

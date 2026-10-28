@@ -11,7 +11,7 @@ fn main() -> eframe::Result {
         ..Default::default()
     };
     let app = match Library::default_root() {
-        Some(root) => KatanaApp::with_library(Library::open(root)),
+        Some(root) => KatanaApp::start(Library::open(root)),
         None => {
             let mut app = KatanaApp::new();
             app.error = Some("No home folder found; the library is unavailable".into());
