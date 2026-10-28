@@ -107,7 +107,7 @@ impl KatanaApp {
         }
         let question = format!("Discard unsaved changes to {}?", self.editor.name());
         let mut choice = None;
-        egui::Modal::new(egui::Id::NULL.with("discard")).show(ctx, |ui| {
+        let modal = egui::Modal::new(egui::Id::NULL.with("discard")).show(ctx, |ui| {
             ui.label(question);
             ui.add_space(8.0);
             ui.horizontal(|ui| {
@@ -119,6 +119,10 @@ impl KatanaApp {
                 }
             });
         });
+        // Escape or a click outside the prompt means Cancel.
+        if choice.is_none() && modal.should_close() {
+            choice = Some(false);
+        }
         match (choice, self.pending.take()) {
             (Some(true), Some(Pending::Open(path))) => self.open(&path),
             (Some(true), Some(Pending::Close)) => {

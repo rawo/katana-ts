@@ -135,3 +135,22 @@ fn save_adds_missing_extension() {
     assert!(d.join("mine.syx").exists());
     assert_eq!(h.state().editor.path(), Some(d.join("mine.syx").as_path()));
 }
+
+#[test]
+fn escape_cancels_discard_prompt() {
+    let d = tmp("escape");
+    let path = patch_file(&d);
+    let mut h = harness();
+    set_gain(&mut h, 5);
+    h.state_mut().request_open(path.clone());
+    h.run();
+    h.get_by_label("Discard unsaved changes to DEFAULT?");
+    h.key_press(eframe::egui::Key::Escape);
+    h.run();
+    assert!(h.query_by_label("Discard unsaved changes to DEFAULT?").is_none());
+    assert_eq!(gain(&h), Some(5));
+    // Nothing is left pending: asking again shows the prompt again.
+    h.state_mut().request_open(path);
+    h.run();
+    h.get_by_label("Discard unsaved changes to DEFAULT?");
+}
