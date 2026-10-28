@@ -104,11 +104,12 @@ impl KatanaApp {
     }
 
     /// `with_library`, then back to the state at the last quit: the newest
-    /// auto-save, with the file it came from. A missing origin file leaves the
-    /// patch without one, and says so.
+    /// auto-save, with the file it came from (or that file as it is now, if
+    /// there were no unsaved changes). A missing origin file leaves the patch
+    /// without one, and says so.
     pub fn start(library: Library) -> KatanaApp {
         let mut app = KatanaApp::with_library(library);
-        let Some((patch, origin)) = app.library.last_autosave() else {
+        let Some((patch, origin, dirty)) = app.library.last_autosave() else {
             app.take_library_problems();
             return app;
         };
@@ -120,6 +121,8 @@ impl KatanaApp {
                 (Patch::default_preset(), Origin::None)
             }
         };
+        // Clean at quit: the origin file is the truth, even if it changed since.
+        let patch = if dirty || origin == Origin::None { patch } else { baseline.clone() };
         app.editor.restore(patch, baseline, origin);
         app.autosaved = (app.editor.patch().clone(), app.editor.origin().clone());
         app.take_library_problems();
@@ -149,7 +152,7 @@ impl KatanaApp {
         if state == self.autosaved || self.library.root().is_none() {
             return false;
         }
-        match self.library.autosave(&state.0, &state.1, now) {
+        match self.library.autosave(&state.0, &state.1, self.editor.is_dirty(), now) {
             Ok(()) => {
                 self.autosaved = state;
                 self.last_autosave = Some(now);

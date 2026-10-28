@@ -70,6 +70,17 @@ struct Source {
 struct AutosaveState {
     latest: String,
     origin: Option<SavedOrigin>,
+    /// The editor differed from its origin file when this was written.
+    #[serde(default = "yes")]
+    dirty: bool,
+    /// Auto-save files in the order they were written, oldest first. Pruning
+    /// follows this, not the time in the names, which can go back (DST, clock fixes).
+    #[serde(default)]
+    files: Vec<String>,
+}
+
+fn yes() -> bool {
+    true
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -303,39 +314,53 @@ impl Library {
     /// Writes the editor's state to `autosave/autosave_<local time>.syx`,
     /// records it and its origin in `autosave/state.json`, and deletes all but
     /// the newest `AUTOSAVE_KEEP`.
-    pub fn autosave(&mut self, patch: &Patch, origin: &Origin, now: chrono::NaiveDateTime) -> Result<(), String> {
+    pub fn autosave(
+        &mut self,
+        patch: &Patch,
+        origin: &Origin,
+        dirty: bool,
+        now: chrono::NaiveDateTime,
+    ) -> Result<(), String> {
         let dir = self.root.as_ref().ok_or("No library folder")?.join(AUTOSAVE);
         let fail = |e: std::io::Error| format!("Auto-save failed: {e}");
         std::fs::create_dir_all(&dir).map_err(fail)?;
-        // Numbered above every auto-save of the same second (never a freed lower
-        // number), so the name order stays the age order used for pruning.
+        // Numbered above every auto-save of the same second, so a name is never reused.
         let base = format!("autosave_{}", now.format("%Y-%m-%d_%H-%M-%S"));
-        let mut all: Vec<PathBuf> = files(&dir, "syx").into_iter().map(|(p, _)| p).collect();
-        let n = all.iter().map(|p| autosave_order(&stem(p))).filter(|(b, _)| *b == base).map(|(_, n)| n).max();
+        let on_disk: Vec<PathBuf> = files(&dir, "syx").into_iter().map(|(p, _)| p).collect();
+        let n = on_disk.iter().map(|p| autosave_order(&stem(p))).filter(|(b, _)| *b == base).map(|(_, n)| n).max();
         let path = match n {
             None => dir.join(format!("{base}.syx")),
             Some(n) => dir.join(format!("{base} ({}).syx", n + 1)),
         };
         write_atomic(&path, &patch.to_syx()).map_err(fail)?;
-        all.push(path.clone());
+        let mut written = self.autosave_state().map(|s| s.files).unwrap_or_default();
+        written.retain(|f| dir.join(f).exists());
+        written.push(file_name(&path));
+        let keep = written.split_off(written.len().saturating_sub(AUTOSAVE_KEEP));
         let origin = match origin {
             Origin::None => None,
             Origin::Patch(p) => self.key(p).map(|path| SavedOrigin { kind: "patch".into(), path }),
             Origin::QuickSave(p) => self.key(p).map(|path| SavedOrigin { kind: "quick-save".into(), path }),
         };
-        let state = AutosaveState { latest: file_name(&path), origin };
+        let state = AutosaveState { latest: file_name(&path), origin, dirty, files: keep.clone() };
         let text = serde_json::to_string_pretty(&state).map_err(|e| e.to_string())?;
         write_atomic(&dir.join(AUTOSAVE_STATE), text.as_bytes()).map_err(fail)?;
-        all.sort_by_key(|p| autosave_order(&stem(p)));
-        for old in all.iter().take(all.len().saturating_sub(AUTOSAVE_KEEP)) {
+        // Everything not among the newest written goes, including files the state doesn't know.
+        for old in on_disk.iter().filter(|p| !keep.contains(&file_name(p))) {
             let _ = std::fs::remove_file(old);
         }
         Ok(())
     }
 
-    /// The newest auto-save and its origin; `None` when there is none or it
-    /// can't be read (then a problem says so).
-    pub fn last_autosave(&mut self) -> Option<(Patch, Origin)> {
+    fn autosave_state(&self) -> Option<AutosaveState> {
+        let text = std::fs::read(self.root.as_ref()?.join(AUTOSAVE).join(AUTOSAVE_STATE)).ok()?;
+        serde_json::from_slice(&text).ok()
+    }
+
+    /// The newest auto-save, its origin, and whether it differed from the
+    /// origin file; `None` when there is none or it can't be read (then a
+    /// problem says so).
+    pub fn last_autosave(&mut self) -> Option<(Patch, Origin, bool)> {
         let dir = self.root.as_ref()?.join(AUTOSAVE);
         let text = std::fs::read(dir.join(AUTOSAVE_STATE)).ok()?;
         let restored = serde_json::from_slice::<AutosaveState>(&text).map_err(|e| e.to_string()).and_then(|state| {
@@ -346,7 +371,7 @@ impl Library {
                 Some(o) if o.kind == "quick-save" => Origin::QuickSave(root.join(o.path)),
                 Some(o) => Origin::Patch(root.join(o.path)),
             };
-            Ok((patch, origin))
+            Ok((patch, origin, state.dirty))
         });
         restored.map_err(|e| self.problems.push(format!("The last auto-save couldn't be restored: {e}"))).ok()
     }

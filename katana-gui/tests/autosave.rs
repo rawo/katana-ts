@@ -38,12 +38,12 @@ fn autosave_keeps_last_ten() {
     let d = tmp("auto-ten");
     let mut lib = Library::open(d.clone());
     for i in 0..12 {
-        lib.autosave(&patch("X", i), &Origin::None, at(0, i)).unwrap();
+        lib.autosave(&patch("X", i), &Origin::None, true, at(0, i)).unwrap();
     }
     let files = autosaves(&d);
     assert_eq!(files.len(), AUTOSAVE_KEEP);
     assert_eq!(files[0], "autosave_2026-10-28_15-00-02.syx");
-    let (p, origin) = lib.last_autosave().unwrap();
+    let (p, origin, _) = lib.last_autosave().unwrap();
     assert_eq!(gain_of(&p), Some(11));
     assert_eq!(origin, Origin::None);
 }
@@ -53,7 +53,7 @@ fn autosaves_in_the_same_second_keep_their_order() {
     let d = tmp("auto-same");
     let mut lib = Library::open(d.clone());
     for i in 0..12 {
-        lib.autosave(&patch("X", i), &Origin::None, at(0, 0)).unwrap();
+        lib.autosave(&patch("X", i), &Origin::None, true, at(0, 0)).unwrap();
     }
     assert_eq!(autosaves(&d).len(), AUTOSAVE_KEEP);
     assert_eq!(gain_of(&lib.last_autosave().unwrap().0), Some(11));
@@ -61,6 +61,21 @@ fn autosaves_in_the_same_second_keep_their_order() {
     assert!(!d.join("autosave/autosave_2026-10-28_15-00-00.syx").exists());
     assert!(!d.join("autosave/autosave_2026-10-28_15-00-00 (2).syx").exists());
     assert!(d.join("autosave/autosave_2026-10-28_15-00-00 (3).syx").exists());
+}
+
+#[test]
+fn clock_going_back_keeps_the_newest_autosave() {
+    // Ten auto-saves at 02:00, then the clock steps back an hour (DST ends).
+    let d = tmp("auto-clock-back");
+    let mut lib = Library::open(d.clone());
+    let two = |s| chrono::NaiveDate::from_ymd_opt(2026, 10, 25).unwrap().and_hms_opt(2, 0, s).unwrap();
+    for i in 0..10 {
+        lib.autosave(&patch("X", i), &Origin::None, true, two(i)).unwrap();
+    }
+    lib.autosave(&patch("X", 99), &Origin::None, true, two(0) - chrono::Duration::hours(1)).unwrap();
+    assert_eq!(autosaves(&d).len(), AUTOSAVE_KEEP);
+    assert_eq!(gain_of(&lib.last_autosave().unwrap().0), Some(99));
+    assert!(!d.join("autosave/autosave_2026-10-25_02-00-00.syx").exists(), "the oldest written goes");
 }
 
 #[test]
@@ -200,4 +215,23 @@ fn status_line_shows_last_autosave_time() {
     app.autosave_tick(0.0, at(4, 12));
     let h = Harness::builder().with_size([1600.0, 960.0]).build_ui_state(|ui, app: &mut KatanaApp| app.show(ui), app);
     h.get_by_label_contains("last auto-save 15:04");
+}
+
+#[test]
+fn clean_quit_then_outside_change_opens_the_newer_file() {
+    let d = tmp("auto-outside");
+    let a = lib_patch(&d, "A", 10);
+    let mut app = KatanaApp::with_library(Library::open(d.clone()));
+    app.request_open(a.clone());
+    set_gain(&mut app, 40);
+    app.save();
+    assert!(app.on_close_requested());
+    // e.g. `katana-cli dump` into the library file while the app is closed
+    std::fs::write(&a, patch("A", 77).to_syx()).unwrap();
+
+    let mut app = KatanaApp::start(Library::open(d.clone()));
+    assert_eq!(gain(&app), Some(77));
+    assert!(!app.editor.is_dirty());
+    app.save();
+    assert_eq!(gain_of(&app.library.load(&a).unwrap()), Some(77));
 }
