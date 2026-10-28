@@ -1,3 +1,5 @@
 /target
 /.superpowers/
 /**/*.[pP][dD][fF]
+.DS_Store
+/**/*.[tT][sS][lL]
