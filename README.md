@@ -66,6 +66,47 @@ cargo test -p katana-proto --features hardware-tests
 `katana-proto` features: `midi` (default; the `midir` transport), `testing` (exports
 the `FakeAmp` test double), `hardware-tests` (the tests above).
 
+## Testing on Linux from a Mac (VM)
+
+`scripts/vm.sh` builds, tests and runs the workspace in a Linux VM over SSH, so the
+GUI can be checked on Linux without switching machines. It copies the source into
+the VM with `rsync` (leaving out `target/`, `.git/`, `.idea/`, `backups/`,
+`.superpowers/`) and starts the GUI on the VM's Wayland desktop.
+
+```bash
+scripts/vm.sh sync          # copy the source to ~/katana-ts in the VM
+scripts/vm.sh test          # sync, then cargo test --workspace in the VM
+scripts/vm.sh build         # sync, then build katana-gui --release
+scripts/vm.sh run           # sync, build, (re)start katana-gui on the VM desktop
+scripts/vm.sh stop          # stop katana-gui
+scripts/vm.sh log           # last 50 lines of the GUI's output
+scripts/vm.sh shot [FILE]   # screenshot of the VM screen (default target/vm-shot.png)
+scripts/vm.sh ssh [CMD…]    # run a command in the VM (no CMD: interactive shell)
+```
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `VM_HOST` | `vboxuser@127.0.0.1` | SSH user and host. |
+| `VM_PORT` | `2222` | SSH port. |
+| `VM_NAME` | `ubuntu` | VirtualBox VM name (for `shot`). |
+| `VM_DIR` | `katana-ts` | Folder in the VM user's home. |
+
+One-time setup (VirtualBox, Ubuntu with a GNOME Wayland desktop):
+
+```bash
+# in the VM
+sudo apt install -y openssh-server pkg-config libasound2-dev build-essential rsync
+wget -qO- https://sh.rustup.rs | sh -s -- -y --profile minimal
+gsettings set org.gnome.desktop.session idle-delay 0   # a locked screen screenshots black
+# on the Mac
+VBoxManage controlvm ubuntu natpf1 "ssh,tcp,127.0.0.1,2222,,22"
+ssh-copy-id -p 2222 vboxuser@127.0.0.1
+```
+
+The VM can't reach the amp (no USB passthrough by default), so amp work still needs
+the Linux machine. A VM on an ARM Mac builds arm64 binaries; build on the target
+machine itself.
+
 ## Lint and format
 
 ```bash
