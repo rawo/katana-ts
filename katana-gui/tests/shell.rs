@@ -26,14 +26,6 @@ fn amp_actions_are_disabled() {
 }
 
 #[test]
-fn library_tab_shows_placeholder() {
-    let mut h = harness();
-    h.get_by_label("Library").click();
-    h.run();
-    h.get_by_label("Preset library comes in stage 3.");
-}
-
-#[test]
 fn theme_switch_changes_visuals() {
     let mut h = harness();
     assert!(h.ctx.global_style().visuals.dark_mode);

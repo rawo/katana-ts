@@ -49,6 +49,15 @@ pub fn editor_tab(ui: &mut egui::Ui, app: &mut KatanaApp, p: &Palette) {
     });
 }
 
+/// The Import… file picker: `.syx` patches and Tone Exchange `.tsl` sets.
+pub fn pick_import_file() -> Option<std::path::PathBuf> {
+    rfd::FileDialog::new()
+        .add_filter("Patch or Tone Exchange set", &["syx", "tsl"])
+        .add_filter("SysEx patch", &["syx"])
+        .add_filter("Tone Exchange set", &["tsl"])
+        .pick_file()
+}
+
 fn section(ui: &mut egui::Ui, p: &Palette, add: impl FnOnce(&mut egui::Ui)) {
     egui::Frame::new()
         .fill(p.panel)

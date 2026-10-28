@@ -33,12 +33,7 @@ pub fn action_bar(ui: &mut egui::Ui, app: &mut KatanaApp, _p: &Palette) {
                 }
             }
             if ui.button("Import…").clicked() {
-                let picked = rfd::FileDialog::new()
-                    .add_filter("Patch or Tone Exchange set", &["syx", "tsl"])
-                    .add_filter("SysEx patch", &["syx"])
-                    .add_filter("Tone Exchange set", &["tsl"])
-                    .pick_file();
-                if let Some(path) = picked {
+                if let Some(path) = super::pick_import_file() {
                     app.import(path);
                 }
             }

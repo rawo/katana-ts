@@ -101,6 +101,11 @@ impl Editor {
         Ok(())
     }
 
+    /// The origin file is gone: keep the patch, with no file behind it.
+    pub fn forget_origin(&mut self) {
+        self.origin = Origin::None;
+    }
+
     /// Records a successful save of `patch` (the editor's patch as written,
     /// e.g. renamed by Save as…): the editor holds it and is clean again.
     pub fn saved_as(&mut self, patch: Patch, origin: Origin) {

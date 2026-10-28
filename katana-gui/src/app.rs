@@ -38,6 +38,11 @@ pub struct KatanaApp {
     pub error: Option<String>,
     applied_theme: Option<ThemeId>,
     pending: Option<Pending>,
+    /// Library tab: search words and sort order.
+    pub search: String,
+    pub sort: library::Sort,
+    /// A library file waiting for the user to confirm its deletion, with its name.
+    pending_delete: Option<(PathBuf, String)>,
     /// The Save as… prompt's name while it is open.
     save_as_name: Option<String>,
     /// The user chose to discard changes and close.
@@ -68,6 +73,9 @@ impl KatanaApp {
             error: (!problems.is_empty()).then(|| problems.join("; ")),
             applied_theme: None,
             pending: None,
+            search: String::new(),
+            sort: library::Sort::default(),
+            pending_delete: None,
             save_as_name: None,
             close_confirmed: false,
         }
@@ -192,6 +200,44 @@ impl KatanaApp {
         self.save_as_name = Some(self.editor.display_name());
     }
 
+    /// Asks before deleting a patch, quick save or set; `name` is what the user sees.
+    pub fn request_delete(&mut self, path: PathBuf, name: String) {
+        self.pending_delete = Some((path, name));
+    }
+
+    fn delete_prompt(&mut self, ctx: &egui::Context) {
+        let Some((path, name)) = self.pending_delete.take() else { return };
+        let mut choice = None;
+        let modal = egui::Modal::new(egui::Id::NULL.with("delete")).show(ctx, |ui| {
+            ui.label(format!("Delete {name}?"));
+            ui.add_space(8.0);
+            ui.horizontal(|ui| {
+                if ui.button("Delete").clicked() {
+                    choice = Some(true);
+                }
+                if ui.button("Cancel").clicked() {
+                    choice = Some(false);
+                }
+            });
+        });
+        if choice.is_none() && modal.should_close() {
+            choice = Some(false);
+        }
+        match choice {
+            Some(true) => match self.library.delete(&path) {
+                Ok(()) => {
+                    if self.editor.path() == Some(path.as_path()) {
+                        self.editor.forget_origin();
+                    }
+                    self.error = None;
+                }
+                Err(e) => self.error = Some(e),
+            },
+            Some(false) => {}
+            None => self.pending_delete = Some((path, name)),
+        }
+    }
+
     fn save_as_prompt(&mut self, ctx: &egui::Context) {
         let Some(mut name) = self.save_as_name.take() else { return };
         let mut choice = None;
@@ -285,10 +331,11 @@ impl KatanaApp {
         egui::Panel::bottom("status").show(ui, |ui| views::status(ui, self, &palette));
         egui::CentralPanel::default().show(ui, |ui| match self.tab {
             Tab::Editor => views::editor_tab(ui, self, &palette),
-            Tab::Library => views::library(ui),
+            Tab::Library => views::library(ui, self, &palette),
         });
         self.discard_prompt(&ctx);
         self.save_as_prompt(&ctx);
+        self.delete_prompt(&ctx);
         crate::widgets::track_page_wheel(&ctx);
     }
 }
