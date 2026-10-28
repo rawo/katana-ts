@@ -7,6 +7,10 @@ edition = "2021"
 katana-proto = { path = "../katana-proto" }
 eframe = "0.37"
 rfd = "0.17"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+directories = "6"
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
 
 [dev-dependencies]
 egui_kittest = "0.37"
