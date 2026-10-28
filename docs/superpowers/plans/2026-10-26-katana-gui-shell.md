@@ -482,10 +482,10 @@ git commit -m "feat(gui): open and save .syx with unsaved-changes guard"
 
 No code unless something breaks. Run on the user's Linux machine (the target).
 
-- [ ] **Step 1:** Run `cargo test --workspace` on Linux. Expected: everything passes.
-- [ ] **Step 2:** Run `cargo run -p katana-gui --release` on the 1920×1080 screen with the window maximised. Expected: the whole Editor tab (chain, detail, amp strip) is visible with no scrollbar. File dialogs open through the portal. The dark theme matches the mockup.
-- [ ] **Step 3:** Repeat Task 6 Step 5 on Linux.
-- [ ] **Step 4:** Note what was confirmed and where in the spec's stage list ("Stage 2 shell: verified on Linux <date>"), then commit:
+- [x] **Step 1:** Run `cargo test --workspace` on Linux. Expected: everything passes.
+- [x] **Step 2:** Run `cargo run -p katana-gui --release` on the 1920×1080 screen with the window maximised. Expected: the whole Editor tab (chain, detail, amp strip) is visible with no scrollbar. File dialogs open through the portal. The dark theme matches the mockup.
+- [x] **Step 3:** Repeat Task 6 Step 5 on Linux.
+- [x] **Step 4:** Note what was confirmed and where in the spec's stage list ("Stage 2 shell: verified on Linux <date>"), then commit:
 
 ```bash
 git add docs/superpowers/specs/2026-10-22-katana-gui-design.md

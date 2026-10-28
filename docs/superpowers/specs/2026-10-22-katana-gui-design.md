@@ -100,6 +100,11 @@ Each stage ends working and verified on the user's amp before the next starts.
    backups (see "Solo delay").
 2. **Editor GUI (layout B) + live sync**, with basic **Open .syx / Save .syx** so no
    work is lost before the library exists.
+   *Stage 2 shell (offline, no amp I/O): verified on Linux 2026-10-28* — in a
+   VirtualBox VM (Ubuntu 26.04 arm64, GNOME Wayland, 1920×1080, software GL): all
+   tests pass; the Editor tab fits without scrolling; Open/Save .syx dialogs work
+   through the portal; closing with unsaved changes asks first. Still to confirm on
+   the Linux machine itself with its real GPU.
 3. **Preset library**: quick save, auto-save, save, save as, read-only, search, sort.
 4. **Tone Central** (nice to have).
 
