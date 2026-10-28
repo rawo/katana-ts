@@ -1,6 +1,9 @@
 //! Colour themes. Dark is the default; colours follow the layout mockup.
 
-use eframe::egui::{self, Color32, Stroke};
+use eframe::egui::{self, Color32, FontId, Stroke, TextStyle};
+
+/// Size of `TextStyle::Small` (section headings, status line); egui's 9 pt is too small.
+pub const SMALL_TEXT: f32 = 11.0;
 
 pub struct Palette {
     pub dark: bool,
@@ -82,6 +85,9 @@ pub fn apply(ctx: &egui::Context, p: &Palette) {
     v.widgets.hovered.bg_stroke = Stroke::new(1.0, p.accent);
     ctx.set_theme(theme);
     ctx.set_visuals(v);
+    ctx.all_styles_mut(|s| {
+        s.text_styles.insert(TextStyle::Small, FontId::proportional(SMALL_TEXT));
+    });
 }
 
 #[cfg(test)]

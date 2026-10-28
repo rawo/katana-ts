@@ -45,3 +45,23 @@ fn theme_switch_changes_visuals() {
     h.run();
     assert!(!h.ctx.global_style().visuals.dark_mode);
 }
+
+fn small_size(h: &Harness<KatanaApp>) -> f32 {
+    h.ctx.global_style().text_styles[&eframe::egui::TextStyle::Small].size
+}
+
+#[test]
+fn small_text_is_readable() {
+    let h = harness();
+    assert_eq!(small_size(&h), katana_gui::theme::SMALL_TEXT);
+}
+
+#[test]
+fn light_theme_keeps_text_sizes() {
+    let mut h = harness();
+    h.get_by_label("Theme").click();
+    h.run();
+    h.get_by_label("Light").click();
+    h.run();
+    assert_eq!(small_size(&h), katana_gui::theme::SMALL_TEXT);
+}
