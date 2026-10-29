@@ -96,6 +96,45 @@ pub fn write_slot_block(t: &mut dyn Transport, ch: Channel, block: (u32, u32), p
     Ok(())
 }
 
+/// What `store_patch` could do beyond the checked bytes.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StoreReport {
+    /// False when the amp can't take SOLO_DELAY: the channel keeps its own.
+    pub solo_delay_stored: bool,
+    /// Whether the amp confirmed the store by itself.
+    pub echo_seen: bool,
+}
+
+/// Stores `p` into channel `ch` and reads the channel back. The amp ends on
+/// `ch`. It is switched there first, so a channel keeps its own solo delay
+/// when the amp can't take `p`'s (`device::SLOT_SOLO_DELAY_WRITABLE`).
+pub fn store_patch(
+    t: &mut dyn Transport,
+    ch: Channel,
+    p: &Patch,
+    timeout: Duration,
+) -> Result<StoreReport, ProtoError> {
+    let solo_delay = device::WRITE_PROTECTED[0];
+    let mut s = EditorSession::enter(t)?;
+    select_channel(&mut s, ch, timeout)?;
+    crate::write_patch(s.t, p)?;
+    let echo_seen = store_current(&mut s, ch, timeout)?;
+    if device::SLOT_SOLO_DELAY_WRITABLE {
+        write_slot_block(s.t, ch, solo_delay, p)?;
+    }
+    let got = crate::read_slot(s.t, ch.slot(), timeout)?;
+    let skip: Vec<(u32, u32)> = device::NOT_STORED
+        .iter()
+        .copied()
+        .filter(|&r| !(device::SLOT_SOLO_DELAY_WRITABLE && r == solo_delay))
+        .collect();
+    if let Some((addr, expected, got)) = crate::patch::mismatch_skipping(p, &got, &skip) {
+        return Err(ProtoError::StoreMismatch { channel: ch.to_string(), addr, expected, got });
+    }
+    s.close()?;
+    Ok(StoreReport { solo_delay_stored: device::SLOT_SOLO_DELAY_WRITABLE, echo_seen })
+}
+
 /// A message the amp sent by itself (while editor mode is on).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Notification {
@@ -103,7 +142,10 @@ pub enum Notification {
     Selector(u8),
     /// The current patch was stored into this selector's channel.
     PatchWritten(u8),
-    Other { addr: Address, data: Vec<u8> },
+    Other {
+        addr: Address,
+        data: Vec<u8>,
+    },
 }
 
 pub fn notification(h: &Header, msg: &[u8]) -> Option<Notification> {
@@ -212,6 +254,71 @@ mod tests {
         let off = slot_offset(9);
         assert_eq!(changed, (a + off..a + off + s).collect::<Vec<_>>());
         assert_eq!(amp.mem.read(Address(a + off), s).unwrap(), vec![0x77; s as usize]);
+    }
+
+    fn named(name: &str) -> Patch {
+        let mut p = Patch::default_preset();
+        p.set_name(name);
+        p
+    }
+
+    fn skipping_solo_delay(p: &Patch) -> Patch {
+        let mut p = p.clone();
+        let (a, s) = WRITE_PROTECTED[0];
+        p.mem.0.retain(|&k, _| !(a..a + s).contains(&k));
+        p
+    }
+
+    #[test]
+    fn store_patch_stores_and_ends_on_channel() {
+        let mut amp = amp();
+        let p = named("Iron Man");
+        store_patch(&mut amp, Channel::B3, &p, T).unwrap();
+        assert_eq!(read_selector(&mut amp, T).unwrap(), 7);
+        let got = read_slot(&mut amp, Channel::B3.slot(), T).unwrap();
+        assert_eq!(skipping_solo_delay(&got), skipping_solo_delay(&p));
+        assert!(!amp.editor);
+    }
+
+    #[test]
+    fn store_patch_keeps_channel_solo_delay() {
+        let mut amp = amp();
+        let (a, s) = WRITE_PROTECTED[0];
+        amp.read_only.push((a, s));
+        amp.mem.apply(Address(a), &vec![0x66; s as usize]);
+        amp.mem.apply(Address(a + slot_offset(8)), &vec![0x55; s as usize]);
+        let mut p = named("Iron Man");
+        p.mem.apply(Address(a), &vec![0x77; s as usize]);
+        let report = store_patch(&mut amp, Channel::B3, &p, T).unwrap();
+        assert!(!report.solo_delay_stored);
+        assert_eq!(amp.mem.read(Address(a + slot_offset(8)), s).unwrap(), vec![0x55; s as usize]);
+    }
+
+    #[test]
+    fn store_patch_detects_write_that_did_not_land() {
+        let mut amp = amp();
+        // The AMP block of the current patch ignores writes, so the store copies the old one.
+        amp.read_only.push(PATCH_BLOCKS[3]);
+        let r = store_patch(&mut amp, Channel::B3, &named("Iron Man"), T);
+        assert!(matches!(r, Err(ProtoError::StoreMismatch { .. })), "{r:?}");
+        assert!(!amp.editor);
+    }
+
+    #[test]
+    fn store_patch_leaves_editor_mode_on_error() {
+        let mut amp = amp();
+        amp.ignore_dt1 = true;
+        assert!(store_patch(&mut amp, Channel::B3, &named("x"), T).is_err());
+        assert_eq!(amp.sent.last().unwrap(), &dt1(device::EDITOR_MODE, &[0]));
+    }
+
+    #[test]
+    fn store_patch_without_echo_still_verifies() {
+        let mut amp = amp();
+        amp.echo = false;
+        let report = store_patch(&mut amp, Channel::A4, &named("Quiet"), T).unwrap();
+        assert!(!report.echo_seen);
+        assert_eq!(read_slot(&mut amp, Channel::A4.slot(), T).unwrap().name(), "Quiet");
     }
 
     #[test]

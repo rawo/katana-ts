@@ -34,6 +34,8 @@ pub enum ProtoError {
     OutOfRange { name: &'static str, value: u32, min: u32, max: u32 },
     #[error("write-back check failed at {addr}: expected {expected:#04x}, read {got:?}")]
     WriteBackMismatch { addr: Address, expected: u8, got: Option<u8> },
+    #[error("channel {channel} differs after storing at {addr}: expected {expected:#04x}, read {got:?}")]
+    StoreMismatch { channel: String, addr: Address, expected: u8, got: Option<u8> },
     #[error("scratch patch equals the current patch, so a write-back check would prove nothing")]
     ScratchEqualsCurrent,
     #[error("MIDI error: {0}")]

@@ -64,6 +64,16 @@ pub const PATCH_WRITE: u32 = addr([0x7F, 0x00, 0x01, 0x04]);
 /// Starting value, not yet measured.
 pub const SELECT_SETTLE: std::time::Duration = std::time::Duration::from_millis(300);
 
+/// Current-patch ranges the amp doesn't store from our writes; left out when a
+/// stored channel is compared with what was stored into it. SOLO_DELAY: see
+/// `WRITE_PROTECTED` (stored channels keep their own unless
+/// `SLOT_SOLO_DELAY_WRITABLE`).
+pub const NOT_STORED: &[(u32, u32)] = WRITE_PROTECTED;
+
+/// Whether SOLO_DELAY can be written straight into a stored channel. Not yet
+/// tested on the amp, so assumed not.
+pub const SLOT_SOLO_DELAY_WRITABLE: bool = false;
+
 pub fn is_write_protected(linear: u32) -> bool {
     WRITE_PROTECTED.iter().any(|&(a, n)| (a..a + n).contains(&linear))
 }

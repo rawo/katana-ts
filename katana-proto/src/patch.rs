@@ -74,9 +74,22 @@ pub fn verify_write_back(t: &mut dyn Transport, scratch: &Patch, timeout: Durati
 }
 
 fn mismatch(expected: &Patch, got: &Patch) -> Option<ProtoError> {
-    expected.mem.0.iter().find(|(k, b)| !device::is_write_protected(**k) && got.mem.0.get(k) != Some(b)).map(
-        |(&k, &b)| ProtoError::WriteBackMismatch { addr: Address(k), expected: b, got: got.mem.0.get(&k).copied() },
-    )
+    mismatch_skipping(expected, got, device::WRITE_PROTECTED)
+        .map(|(addr, expected, got)| ProtoError::WriteBackMismatch { addr, expected, got })
+}
+
+/// First byte of `expected` that `got` lacks or differs in, outside `skip`.
+pub(crate) fn mismatch_skipping(
+    expected: &Patch,
+    got: &Patch,
+    skip: &[(u32, u32)],
+) -> Option<(Address, u8, Option<u8>)> {
+    expected
+        .mem
+        .0
+        .iter()
+        .find(|(k, b)| !skip.iter().any(|&(a, n)| (a..a + n).contains(*k)) && got.mem.0.get(k) != Some(b))
+        .map(|(&k, &b)| (Address(k), b, got.mem.0.get(&k).copied()))
 }
 
 /// PATCH COM: the patch name, 16 ASCII bytes, space-padded.
