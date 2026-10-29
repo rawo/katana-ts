@@ -55,7 +55,9 @@ built and verified there.
 3. **Alongside:** parameter coverage (~350 settings) with an automatic
    write/read-back verification tool (spec, "Parameter coverage and
    verification").
-4. Look at the GUI on the real GPU at 1920×1080 (the VM check used software GL).
+4. ~~Look at the GUI on the real GPU~~ — done 2026-10-29 on the Linux machine
+   (COSMIC Wayland, GTX 1080 Ti, 2560×1440, no amp): runs without software GL,
+   layout fits, auto-save works; the user's check: "works perfect".
 
 How we have worked so far: brainstorm → written spec in `docs/superpowers/specs/`
 → plan in `docs/superpowers/plans/` → execution (the user prefers **native**
