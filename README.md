@@ -6,7 +6,7 @@ STUDIO doesn't run):
 | Crate | What it is |
 |---|---|
 | `katana-proto` | Protocol library: Roland SysEx (RQ1/DT1), patch read/write, verified parameters. |
-| `katana-cli` | Command-line tool: dump/load patches, set parameters, watch the amp, analyse captures. |
+| `katana-cli` | Command-line tool: store patches into channels, dump channels to `.syx`/`.tsl`, set parameters, watch the amp, analyse captures. |
 | `katana-gui` | Desktop editor (egui). Works offline on `.syx` files; amp control comes in later stages. |
 
 Linux is the only target. The code also builds on macOS for development.
@@ -224,6 +224,9 @@ Global options (they work with every command):
 | `extract <FILE>` | no | Prints the SysEx messages in a capture export (`.tsv`) or a `.syx` file, decoded. |
 | `diff <A> <B>` | no | Shows the bytes that differ between the DT1 data in two files (`.syx` or `.tsv`). |
 | `dump <OUT>` | yes | Reads the amp's current patch into a `.syx` file. |
+| `dump <CHANNEL> <FILE> [--yes]` | yes | Reads stored channel `A1`–`A4`, `B1`–`B4` (any case) into a whole file; `.syx` or `.tsl` (a one-patch Tone Exchange set) is picked by the extension. Asks before overwriting an existing file; `--yes` doesn't ask. The amp doesn't switch channel. |
+| `store <FILE> <CHANNEL> [--patch <N>] [--yes]` | yes | Stores a `.syx` patch, or patch `N` of a `.tsl` set (`--patch` is required for a set, even with one patch), into a channel. First backs up the channel and the amp's current sound to the backup folder (below) and prints both paths, then asks `A3 currently '…' → replace with '…'? [y/N]`; `--yes` doesn't ask. Reads the channel back to check, and leaves the amp on that channel. Prints "solo delay not stored" when the amp can't take it (the channel keeps its own). |
+| `tsl-list <FILE>` | no | Lists a `.tsl` set's patches, numbered for `store --patch`. |
 | `load <FILE>` | yes | Writes a `.syx` patch (from `dump`) into the amp's current patch. The whole file is checked first; nothing is sent if it isn't a complete Gen 3 patch. SOLO_DELAY settings can't be written (the amp ignores them). |
 | `set <NAME> <VALUE>` | yes | Sets one parameter of the current patch. `VALUE` is a number or a value name (case-insensitive), e.g. `set amp-type crunch`. Out-of-range values are rejected before anything is sent. |
 | `params` | yes | Lists the known parameters with range and current value. |
@@ -237,6 +240,15 @@ Global options (they work with every command):
 | `--map <PATH>` | `$WINEPREFIX` (or `~/.wine`)`/drive_c/users/$USER/AppData/Local/Roland/BOSS TONE STUDIO for KATANA Gen 3/html/js/config/address_map.js` | The official app's address table, used to name the changed bytes. Without it, only addresses are printed. |
 | `--interval-ms <MS>` | `300` | Milliseconds between reads. |
 
+Questions default to No. Without a terminal (e.g. in a script) `dump` and
+`store` refuse to overwrite unless given `--yes`. Ctrl-C during `store`'s talk
+with the amp waits until it is finished, so the amp is never left in editor
+mode.
+
+Backups made by `store` go to `~/.local/share/katana-ts/backups/`, named
+`<date>_<time>_<channel or current>_<patch name>.syx`; put one back with
+`katana-cli store <backup>.syx <channel>`.
+
 Channels and stored slots: PANEL = PATCH(1), A1–A4 = PATCH(2)–(5), B1–B4 =
 PATCH(6)–(9), PATCH(10) = the app's preview buffer (see `docs/protocol.md`).
 
@@ -247,6 +259,11 @@ katana-cli ports
 katana-cli identity
 katana-cli dump backup.syx
 katana-cli load backup.syx
+katana-cli tsl-list "Black Sabbath.tsl"
+katana-cli store "Black Sabbath.tsl" A3 --patch 4
+katana-cli store mine.syx B4
+katana-cli dump A3 crunch.tsl
+katana-cli dump A3 crunch.syx
 katana-cli params
 katana-cli set gain 60
 katana-cli set booster-sw on

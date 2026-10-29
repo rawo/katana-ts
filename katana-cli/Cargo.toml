@@ -8,6 +8,7 @@ katana-proto = { path = "../katana-proto" }
 clap = { version = "4", features = ["derive"] }
 anyhow = "1"
 directories = "6"
+ctrlc = "3"
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 
 [dev-dependencies]
