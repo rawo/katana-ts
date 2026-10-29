@@ -2,11 +2,13 @@
 
 pub mod address;
 pub mod capture;
+pub mod channel;
 pub mod checksum;
 pub mod device;
 pub mod error;
 
 pub use address::{Address, Size};
+pub use channel::Channel;
 pub use checksum::roland_checksum;
 pub use error::ProtoError;
 pub mod identity;
