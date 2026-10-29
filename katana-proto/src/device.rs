@@ -44,6 +44,26 @@ pub const SETTLE_AFTER: &[(u32, std::time::Duration)] =
 /// this block. See docs/protocol.md.
 pub const WRITE_PROTECTED: &[(u32, u32)] = &[(addr([0x20, 0x00, 0x3E, 0x00]), 14)];
 
+/// `SETUP PATCH_NUMBER`: the selected channel, 2 bytes INTEGER2x4 (value =
+/// `b0 << 4 | b1`); 0 = PANEL, 1–8 = A1–B4. Readable with RQ1 at any time; a
+/// DT1 to it is ignored. While editor mode is on, the amp sends a DT1 of it by
+/// itself after a channel change. Evidence: docs/protocol.md, "Channels" and
+/// "Amp control" (2026-10-22).
+pub const SELECTOR: u32 = addr([0x00, 0x00, 0x00, 0x00]);
+/// `EDITOR_COMMUNICATION_MODE`: DT1 `01` on, `00` off. Evidence: docs/protocol.md, "Amp control".
+pub const EDITOR_MODE: u32 = addr([0x7F, 0x00, 0x00, 0x01]);
+/// DT1 `00 <selector>` selects a channel, only while editor mode is on.
+/// Evidence: docs/protocol.md, "Amp control".
+pub const PATCH_SELECT: u32 = addr([0x7F, 0x00, 0x01, 0x00]);
+/// DT1 `00 <selector>` stores the current patch into that channel, only while
+/// editor mode is on; the amp echoes it. Evidence: docs/protocol.md, "Amp
+/// control" (A:CH4 store and restore, 2026-10-22).
+pub const PATCH_WRITE: u32 = addr([0x7F, 0x00, 0x01, 0x04]);
+/// Pause after the selector shows a new channel, before writing the current
+/// patch, so the amp's own load of the channel can't overwrite our writes.
+/// Starting value, not yet measured.
+pub const SELECT_SETTLE: std::time::Duration = std::time::Duration::from_millis(300);
+
 pub fn is_write_protected(linear: u32) -> bool {
     WRITE_PROTECTED.iter().any(|&(a, n)| (a..a + n).contains(&linear))
 }

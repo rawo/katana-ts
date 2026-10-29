@@ -1,6 +1,7 @@
 //! Protocol library for the BOSS KATANA Gen 3 USB-MIDI SysEx interface.
 
 pub mod address;
+pub mod amp;
 pub mod capture;
 pub mod channel;
 pub mod checksum;

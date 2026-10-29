@@ -3,7 +3,9 @@
 use std::collections::VecDeque;
 use std::time::Duration;
 
-use crate::{decode, encode, Command, Header, MemoryMap, ProtoError, Transport};
+use crate::device::{self, PATCH_BLOCKS};
+use crate::patch::slot_offset;
+use crate::{decode, encode, Address, Command, Header, MemoryMap, ProtoError, Transport};
 
 pub struct FakeAmp {
     pub header: Header,
@@ -20,6 +22,10 @@ pub struct FakeAmp {
     pub ignore_dt1: bool,
     /// (addr, len) ranges whose DT1 bytes are accepted but not applied.
     pub read_only: Vec<(u32, u32)>,
+    /// Editor mode (`device::EDITOR_MODE`); channel select and store need it.
+    pub editor: bool,
+    /// Send the amp's own messages after a channel select or a store.
+    pub echo: bool,
     pending: VecDeque<Vec<u8>>,
 }
 
@@ -34,8 +40,52 @@ impl FakeAmp {
             noise: Vec::new(),
             ignore_dt1: false,
             read_only: Vec::new(),
+            editor: false,
+            echo: true,
             pending: VecDeque::new(),
         }
+    }
+}
+
+/// Command area and selector: never stored as patch data.
+fn is_control(a: u32) -> bool {
+    a == device::SELECTOR || a >> 21 == 0x7F
+}
+
+impl FakeAmp {
+    fn control(&mut self, a: u32, data: &[u8]) -> Result<(), ProtoError> {
+        match (a, data) {
+            (device::EDITOR_MODE, &[on]) => self.editor = on == 1,
+            (device::PATCH_SELECT, &[0, n]) if self.editor => {
+                self.mem.apply(Address(device::SELECTOR), &[0, n]);
+                self.copy_patch(slot_offset(n + 1), 0);
+                self.notify(device::SELECTOR, &[0, n])?;
+            }
+            (device::PATCH_WRITE, &[0, n]) if self.editor => {
+                self.copy_patch(0, slot_offset(n + 1));
+                self.notify(device::PATCH_WRITE, &[0, n])?;
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+
+    /// Copies every patch block from offset `from` to offset `to` (0 = current patch).
+    fn copy_patch(&mut self, from: u32, to: u32) {
+        for &(a, s) in PATCH_BLOCKS {
+            for k in a..a + s {
+                if let Some(&b) = self.mem.0.get(&(k + from)) {
+                    self.mem.0.insert(k + to, b);
+                }
+            }
+        }
+    }
+
+    fn notify(&mut self, a: u32, data: &[u8]) -> Result<(), ProtoError> {
+        if self.echo {
+            self.pending.push_back(encode(&self.header, &Command::Dt1 { addr: Address(a), data: data.to_vec() })?);
+        }
+        Ok(())
     }
 }
 
@@ -43,6 +93,9 @@ impl Transport for FakeAmp {
     fn send(&mut self, msg: &[u8]) -> Result<(), ProtoError> {
         self.sent.push(msg.to_vec());
         match decode(&self.header, msg) {
+            Ok(Command::Dt1 { addr, data }) if !self.ignore_dt1 && is_control(addr.0) => {
+                self.control(addr.0, &data)?;
+            }
             Ok(Command::Dt1 { addr, data }) if !self.ignore_dt1 => {
                 for (i, &b) in data.iter().enumerate() {
                     let k = addr.0 + i as u32;
