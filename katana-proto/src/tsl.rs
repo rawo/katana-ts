@@ -4,7 +4,7 @@
 
 use serde_json::{Map, Value};
 
-use crate::device::{PATCH_BLOCKS, PATCH_BLOCK_NAMES};
+use crate::device::{PATCH_BLOCKS, PATCH_BLOCK_NAMES, TSL_BLOCK_ORDER};
 use crate::{Address, Patch};
 
 /// The only `device` value accepted.
@@ -77,6 +77,26 @@ impl ToneSet {
             .collect();
         Ok(ToneSet { name, patches })
     }
+}
+
+/// A one-patch set holding `p`, named after it, shaped like Tone Exchange
+/// downloads (key order, upper-case hex bytes).
+pub fn write_tsl(p: &Patch) -> Vec<u8> {
+    let mut params = Map::new();
+    for &i in &TSL_BLOCK_ORDER {
+        let (a, s) = PATCH_BLOCKS[i];
+        let bytes = p.mem.read(Address(a), s).expect("a Patch holds every block");
+        params.insert(format!("PATCH%{}", PATCH_BLOCK_NAMES[i]), bytes.iter().map(|b| format!("{b:02X}")).collect());
+    }
+    let mut doc = Map::new();
+    doc.insert("name".into(), p.name().into());
+    doc.insert("formatRev".into(), "0000".into());
+    doc.insert("device".into(), DEVICE.into());
+    let mut entry = Map::new();
+    entry.insert("memo".into(), "".into());
+    entry.insert("paramSet".into(), Value::Object(params));
+    doc.insert("data".into(), Value::Array(vec![Value::Array(vec![Value::Object(entry)])]));
+    serde_json::to_vec(&Value::Object(doc)).expect("JSON of strings")
 }
 
 fn to_patch(set: &Map<String, Value>) -> Result<Patch, TslError> {
@@ -239,6 +259,33 @@ mod tests {
         ps.insert("PATCH%NEW_THING".into(), Value::Array(vec![]));
         let set = ToneSet::parse(doc("S", "KATANA Gen3", vec![ps]).as_bytes()).unwrap();
         assert_eq!(set.patches[0].patch, Err(TslError::UnknownBlock("PATCH%NEW_THING".into())));
+    }
+
+    #[test]
+    fn write_tsl_round_trips() {
+        let mut p = Patch::default_preset();
+        p.set_name("Iron Man");
+        p.set(crate::find_param("gain").unwrap(), 70).unwrap();
+        let set = ToneSet::parse(&write_tsl(&p)).unwrap();
+        assert_eq!(set.name, "Iron Man");
+        assert_eq!(set.patches.len(), 1);
+        assert_eq!(set.patches[0].patch.as_ref().unwrap(), &p);
+    }
+
+    #[test]
+    fn write_tsl_matches_real_key_order() {
+        let doc: Value = serde_json::from_slice(&write_tsl(&Patch::default_preset())).unwrap();
+        let top: Vec<&String> = doc.as_object().unwrap().keys().collect();
+        assert_eq!(top, ["name", "formatRev", "device", "data"]);
+        let keys =
+            |d: &Value| -> Vec<String> { d["data"][0][0]["paramSet"].as_object().unwrap().keys().cloned().collect() };
+        let written = keys(&doc);
+        assert_eq!(written.len(), 80);
+        assert_eq!(written[3], "PATCH%PATCH_KNOB_READONLY");
+        let real = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../samples/Black_Sabbath.tsl");
+        if let Ok(bytes) = std::fs::read(real) {
+            assert_eq!(written, keys(&serde_json::from_slice(&bytes).unwrap()));
+        }
     }
 
     #[test]

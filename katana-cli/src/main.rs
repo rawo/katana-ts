@@ -1,5 +1,8 @@
 mod addrmap;
+mod ask;
+mod backup;
 mod cmd;
+mod files;
 
 use std::path::PathBuf;
 

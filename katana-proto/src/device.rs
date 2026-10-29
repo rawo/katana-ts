@@ -249,6 +249,24 @@ pub const PATCH_BLOCK_NAMES: [&str; 80] = [
     "PATCH_KNOB_SOLO_DELAY_READONLY",
 ];
 
+/// `PATCH_BLOCK_NAMES` indexes in the order real Tone Exchange files list
+/// their blocks: the two `*_READONLY` blocks right after COLOR, the rest as
+/// read. Evidence: all 21 patches in samples/*.tsl share this order.
+pub const TSL_BLOCK_ORDER: [usize; 80] = {
+    let mut order = [0; 80];
+    let mut i = 0;
+    while i < 80 {
+        order[i] = match i {
+            0..=2 => i,
+            3 => 78,
+            4 => 79,
+            _ => i - 2,
+        };
+        i += 1;
+    }
+    order
+};
+
 #[cfg(test)]
 mod tests {
     use super::*;
