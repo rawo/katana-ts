@@ -209,7 +209,7 @@ and checked with the hardware tests in `katana-proto/tests/hardware.rs`
   `store_patch_round_trip_on_b4 --nocapture`):
   - nothing within 1 s of turning editor mode on;
   - after `PATCH_SELECT` B4: an echo of it (`7F 00 01 00` ← `00 08`), the selector
-    (`00 00 00 00` ← `00 08`, sent twice, about a second apart), and the
+    (`00 00 00 00` ← `00 08`, seen twice), and the
     `7F 01 01 01`–`05` status stream (seen: `02 03 03 00 00`, repeating);
   - after `PATCH_WRITE` B4: its echo (`7F 00 01 04` ← `00 08`, seen twice), then the
     same status stream.
