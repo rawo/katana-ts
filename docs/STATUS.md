@@ -13,7 +13,7 @@ All on `main` (pushed to `origin`):
 | Phase 2, stage 2 shell: offline egui editor | done; checked on Linux in a VM | `docs/superpowers/specs/2026-10-22-katana-gui-design.md` | `docs/superpowers/plans/2026-10-26-katana-gui-shell.md` |
 | GUI polish (review minors, text size, 2-row top bar) | done | same | `docs/superpowers/plans/2026-10-28-katana-gui-polish.md` |
 | Stage 3: preset library | done; hands-on check in the Linux VM passed 2026-10-28 | `docs/superpowers/specs/2026-10-28-katana-preset-library-design.md` | `docs/superpowers/plans/2026-10-28-katana-preset-library.md` |
-| Stage 1: amp control (library + CLI) | verified on the amp 2026-10-31; branch `feature/amp-control`, pending review and the user's check | `docs/superpowers/specs/2026-10-29-katana-amp-control-design.md` | `docs/superpowers/plans/2026-10-29-katana-amp-control.md` |
+| Stage 1: amp control (library + CLI) | done, verified on the amp; final review clean; user's hands-on check passed 2026-10-31 (incl. B1 and the Led Zeppelin Collection set) | `docs/superpowers/specs/2026-10-29-katana-amp-control-design.md` | `docs/superpowers/plans/2026-10-29-katana-amp-control.md` |
 
 - 225 tests pass on the Linux machine (`cargo test --workspace`, 2026-10-31); hardware
   tests: `cargo test -p katana-proto --features hardware-tests` (amp needed).
@@ -35,7 +35,7 @@ The user's decision (2026-10-28): stage 1 and the rest of stage 2 are developed
 directly on the Linux machine with the amp connected. Every real amp action is
 built and verified there.
 
-1. **Stage 1, amp control groundwork** — done on `feature/amp-control`, verified on
+1. **Stage 1, amp control groundwork** — done (merged to `main`), verified on
    the amp 2026-10-31 (docs/protocol.md, "Amp control"):
    - `katana-proto::amp`: editor mode, channel select, `store_patch` (select, write,
      store, read back), notifications; `tsl::write_tsl`.
@@ -47,6 +47,12 @@ built and verified there.
    - Still open: which panel actions the amp reports in editor mode (needs the user
      at the amp); the `7F 01 01 xx` status messages are not decoded; `--no-cs`
      deferred.
+   - Deferred minors from the final review: no test for a store failing after the
+     patch write or after `PATCH_WRITE`, nor for the backup paths in the error text;
+     the failure message lists the backups unlabelled and doesn't say the live sound
+     was replaced (`katana-cli load <current-sound backup>` gets it back); `ctrlc`
+     without its `termination` feature, so SIGTERM/SIGHUP mid-store can leave editor
+     mode on until the amp is power-cycled.
 2. **Rest of stage 2, editor ↔ amp** (spec, "Editor ↔ amp model" and
    "Channel tabs"):
    - MIDI I/O off the UI thread (no blocking, no polling storms);
