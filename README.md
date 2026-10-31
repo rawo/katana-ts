@@ -220,7 +220,7 @@ Global options (they work with every command):
 |---|---|---|
 | `ports` | no | Lists MIDI ports. |
 | `identity` | yes | Sends a MIDI Identity Request and prints the reply. |
-| `monitor` | yes | Prints SysEx sent by the amp until Ctrl-C. It only sees amp → host traffic; use a usbmon capture for the other direction. |
+| `monitor [--editor]` | yes | Prints SysEx sent by the amp until Ctrl-C. It only sees amp → host traffic; use a usbmon capture for the other direction. `--editor` turns editor mode on while listening (the amp then reports channel changes and more by itself) and off again on Ctrl-C. |
 | `extract <FILE>` | no | Prints the SysEx messages in a capture export (`.tsv`) or a `.syx` file, decoded. |
 | `diff <A> <B>` | no | Shows the bytes that differ between the DT1 data in two files (`.syx` or `.tsv`). |
 | `dump <OUT>` | yes | Reads the amp's current patch into a `.syx` file. |

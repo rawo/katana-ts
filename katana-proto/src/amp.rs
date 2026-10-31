@@ -5,7 +5,7 @@
 use std::time::{Duration, Instant};
 
 use crate::device::{self, MAX_DT1_DATA, SEND_INTERVAL};
-use crate::patch::{read_patch_blocks, slot_offset};
+use crate::patch::{read_blocks, slot_offset};
 use crate::{decode, encode, Address, Channel, Command, Header, Patch, ProtoError, Transport};
 
 /// Pause between selector reads while waiting for a channel change.
@@ -18,9 +18,14 @@ pub struct EditorSession<'t> {
     open: bool,
 }
 
+/// Turns editor mode on or off (`device::EDITOR_MODE`).
+pub fn set_editor_mode(t: &mut dyn Transport, on: bool) -> Result<(), ProtoError> {
+    send_dt1(t, device::EDITOR_MODE, &[u8::from(on)])
+}
+
 impl<'t> EditorSession<'t> {
     pub fn enter(t: &'t mut dyn Transport) -> Result<Self, ProtoError> {
-        send_dt1(t, device::EDITOR_MODE, &[1])?;
+        set_editor_mode(t, true)?;
         Ok(EditorSession { t, open: true })
     }
 
@@ -30,14 +35,14 @@ impl<'t> EditorSession<'t> {
 
     pub fn close(mut self) -> Result<(), ProtoError> {
         self.open = false;
-        send_dt1(self.t, device::EDITOR_MODE, &[0])
+        set_editor_mode(self.t, false)
     }
 }
 
 impl Drop for EditorSession<'_> {
     fn drop(&mut self) {
         if self.open {
-            let _ = send_dt1(self.t, device::EDITOR_MODE, &[0]);
+            let _ = set_editor_mode(self.t, false);
         }
     }
 }
@@ -48,17 +53,22 @@ fn send_dt1(t: &mut dyn Transport, a: u32, data: &[u8]) -> Result<(), ProtoError
 
 /// The selected channel: 0 = PANEL, 1–8 = A1–B4 (`Channel::selector`).
 pub fn read_selector(t: &mut dyn Transport, timeout: Duration) -> Result<u8, ProtoError> {
-    let p = read_patch_blocks(t, &[(device::SELECTOR, 2)], timeout)?;
-    let b = p.mem.read(Address(device::SELECTOR), 2).expect("read_patch_blocks covers the block");
+    let p = read_blocks(t, &[(device::SELECTOR, 2)], timeout)?;
+    let b = p.mem.read(Address(device::SELECTOR), 2).expect("read_blocks covers the block");
     Ok(b[0] << 4 | b[1])
 }
 
 /// Switches the amp to `ch` (it loads the channel into the current patch) and
 /// waits until the selector shows it, then `device::SELECT_SETTLE`.
 pub fn select_channel(s: &mut EditorSession, ch: Channel, timeout: Duration) -> Result<(), ProtoError> {
-    send_dt1(s.t, device::PATCH_SELECT, &[0, ch.selector()])?;
+    select(s.t, ch.selector(), timeout)
+}
+
+/// `select_channel` for any selector value, 0 (PANEL) to 8; editor mode must be on.
+pub fn select(t: &mut dyn Transport, selector: u8, timeout: Duration) -> Result<(), ProtoError> {
+    send_dt1(t, device::PATCH_SELECT, &[0, selector])?;
     let deadline = Instant::now() + timeout;
-    while read_selector(s.t, timeout)? != ch.selector() {
+    while read_selector(t, timeout)? != selector {
         if Instant::now() >= deadline {
             return Err(ProtoError::Timeout { addr: Address(device::SELECTOR) });
         }
@@ -195,6 +205,24 @@ mod tests {
         }
         assert!(!amp.editor);
         assert_eq!(amp.sent.last().unwrap(), &dt1(device::EDITOR_MODE, &[0]));
+    }
+
+    #[test]
+    fn set_editor_mode_toggles() {
+        let mut amp = amp();
+        set_editor_mode(&mut amp, true).unwrap();
+        assert!(amp.editor);
+        set_editor_mode(&mut amp, false).unwrap();
+        assert!(!amp.editor);
+    }
+
+    #[test]
+    fn select_reaches_panel() {
+        let mut amp = amp();
+        set_editor_mode(&mut amp, true).unwrap();
+        select(&mut amp, 0, T).unwrap();
+        assert_eq!(read_selector(&mut amp, T).unwrap(), 0);
+        assert_eq!(current(&mut amp), read_slot(&mut amp, 1, T).unwrap());
     }
 
     #[test]

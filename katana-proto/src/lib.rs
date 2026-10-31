@@ -2,6 +2,7 @@
 
 pub mod address;
 pub mod amp;
+pub mod backup;
 pub mod capture;
 pub mod channel;
 pub mod checksum;
@@ -37,6 +38,6 @@ pub use memmap::MemoryMap;
 #[cfg(feature = "midi")]
 pub use midi::{MidirTransport, DEFAULT_PORT};
 pub use params::{encode_param, find_param, set_param, Encoding, ParamDef, PARAMS};
-pub use patch::{read_patch, read_slot, verify_write_back, write_patch, Patch, SLOTS};
+pub use patch::{read_blocks, read_patch, read_slot, verify_write_back, write_patch, Patch, SLOTS};
 pub use syx::{read_syx, write_syx};
 pub use transport::Transport;

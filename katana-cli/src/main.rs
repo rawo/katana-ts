@@ -31,7 +31,12 @@ enum Command {
     Identity,
     /// Print SysEx received from the amp. Only sees amp->host traffic;
     /// host->amp traffic needs a usbmon capture (captures/tools/capture.sh).
-    Monitor,
+    Monitor {
+        /// Turn editor mode on while listening (the amp then reports more by
+        /// itself); it is turned off again on Ctrl-C.
+        #[arg(long)]
+        editor: bool,
+    },
     /// Print the SysEx messages in a capture export (.tsv) or .syx file.
     Extract { file: PathBuf },
     /// Show bytes that differ between the DT1 data in two files.
@@ -97,7 +102,7 @@ fn main() -> anyhow::Result<()> {
     match cli.command {
         Command::Ports => cmd::ports::run(),
         Command::Identity => cmd::identity::run(&cli.port),
-        Command::Monitor => cmd::monitor::run(&cli.port, &header),
+        Command::Monitor { editor } => cmd::monitor::run(&cli.port, &header, editor),
         Command::Extract { file } => cmd::extract::run(&file),
         Command::Diff { a, b } => cmd::diff::run(&header, &a, &b),
         Command::Dump { first, second, yes } => cmd::dump::run(&cli.port, &first, second.as_deref(), yes),
@@ -125,6 +130,7 @@ mod tests {
             &["katana-cli", "dump", "A3", "x.tsl", "--yes"],
             &["katana-cli", "tsl-list", "x.tsl"],
             &["katana-cli", "set", "gain", "40"],
+            &["katana-cli", "monitor", "--editor"],
         ] {
             assert!(Cli::try_parse_from(args).is_ok(), "{args:?}");
         }

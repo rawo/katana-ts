@@ -12,7 +12,7 @@ pub struct Patch {
 
 /// Reads the amp's current patch, one RQ1 per block. `timeout` applies per block.
 pub fn read_patch(t: &mut dyn Transport, timeout: Duration) -> Result<Patch, ProtoError> {
-    read_patch_blocks(t, PATCH_BLOCKS, timeout)
+    read_blocks(t, PATCH_BLOCKS, timeout)
 }
 
 /// Writes `p` to the amp's current patch, skipping `device::WRITE_PROTECTED`.
@@ -45,7 +45,7 @@ pub fn read_slot(t: &mut dyn Transport, slot: u8, timeout: Duration) -> Result<P
     }
     let off = slot_offset(slot);
     let blocks: Vec<(u32, u32)> = PATCH_BLOCKS.iter().map(|&(a, s)| (a + off, s)).collect();
-    let stored = read_patch_blocks(t, &blocks, timeout)?;
+    let stored = read_blocks(t, &blocks, timeout)?;
     let mut mem = MemoryMap::default();
     for (&k, &b) in &stored.mem.0 {
         mem.0.insert(k - off, b);
@@ -165,7 +165,8 @@ fn restrict(mem: &MemoryMap, blocks: &[(u32, u32)]) -> Result<Patch, ProtoError>
     Ok(Patch { mem: out })
 }
 
-pub(crate) fn read_patch_blocks(
+/// Reads the given (address, size) blocks; anything else the amp sends meanwhile is ignored.
+pub fn read_blocks(
     t: &mut dyn Transport,
     blocks: &[(u32, u32)],
     timeout: Duration,
@@ -397,7 +398,7 @@ mod tests {
     #[test]
     fn read_then_write_is_byte_identical() {
         let mut amp1 = filled_amp(128);
-        let p = read_patch_blocks(&mut amp1, BLOCKS, Duration::from_millis(50)).unwrap();
+        let p = read_blocks(&mut amp1, BLOCKS, Duration::from_millis(50)).unwrap();
         let mut amp2 = FakeAmp::new(device::header(), 128);
         write_patch_blocks(&mut amp2, BLOCKS, &p).unwrap();
         assert_eq!(amp2.mem, amp1.mem);
@@ -409,7 +410,7 @@ mod tests {
         let blocks = [(start.0, 300)];
         let mut amp = FakeAmp::new(device::header(), 128);
         amp.mem.apply(start, &[0x11; 300]);
-        let p = read_patch_blocks(&mut amp, &blocks, Duration::from_millis(50)).unwrap();
+        let p = read_blocks(&mut amp, &blocks, Duration::from_millis(50)).unwrap();
         assert_eq!(p.mem.read(start, 300), Some(vec![0x11; 300]));
 
         let mut amp2 = FakeAmp::new(device::header(), 128);
@@ -431,7 +432,7 @@ mod tests {
     #[test]
     fn read_patch_ignores_unrelated_messages() {
         let mut clean = filled_amp(128);
-        let expected = read_patch_blocks(&mut clean, BLOCKS, Duration::from_millis(50)).unwrap();
+        let expected = read_blocks(&mut clean, BLOCKS, Duration::from_millis(50)).unwrap();
 
         let mut noisy = filled_amp(128);
         let other_model = Header { model_id: vec![0x00, 0x00, 0x33], ..device::header() };
@@ -440,7 +441,7 @@ mod tests {
             encode(&other_model, &Command::Dt1 { addr: Address(0x100), data: vec![0x7F; 4] }).unwrap(),
             encode(&device::header(), &Command::Dt1 { addr: Address(0x7000), data: vec![1] }).unwrap(),
         ];
-        let got = read_patch_blocks(&mut noisy, BLOCKS, Duration::from_millis(50)).unwrap();
+        let got = read_blocks(&mut noisy, BLOCKS, Duration::from_millis(50)).unwrap();
         assert_eq!(got, expected);
     }
 
@@ -449,7 +450,7 @@ mod tests {
         let mut amp = filled_amp(128);
         amp.silent = true;
         assert!(matches!(
-            read_patch_blocks(&mut amp, BLOCKS, Duration::from_millis(50)),
+            read_blocks(&mut amp, BLOCKS, Duration::from_millis(50)),
             Err(ProtoError::Timeout { .. })
         ));
     }
@@ -457,7 +458,7 @@ mod tests {
     #[test]
     fn syx_round_trip_preserves_patch() {
         let mut amp = filled_amp(128);
-        let p = read_patch_blocks(&mut amp, BLOCKS, Duration::from_millis(50)).unwrap();
+        let p = read_blocks(&mut amp, BLOCKS, Duration::from_millis(50)).unwrap();
         assert_eq!(Patch::from_syx_blocks(&p.to_syx_blocks(BLOCKS), BLOCKS).unwrap(), p);
     }
 
@@ -471,12 +472,27 @@ mod tests {
     #[test]
     fn from_syx_rejects_incomplete_patch() {
         let mut amp = filled_amp(128);
-        let p = read_patch_blocks(&mut amp, BLOCKS, Duration::from_millis(50)).unwrap();
+        let p = read_blocks(&mut amp, BLOCKS, Duration::from_millis(50)).unwrap();
         let mut msgs = crate::read_syx(&p.to_syx_blocks(BLOCKS)).unwrap();
         msgs.remove(1);
         assert!(matches!(
             Patch::from_syx_blocks(&crate::write_syx(&msgs), BLOCKS),
             Err(ProtoError::IncompletePatch { .. })
         ));
+    }
+
+    #[test]
+    fn read_blocks_reads_only_given_blocks() {
+        let mut amp = crate::FakeAmp::new(device::header(), 128);
+        for &(a, s) in device::PATCH_BLOCKS {
+            amp.mem.apply(Address(a), &vec![0x11; s as usize]);
+        }
+        let blocks = [device::PATCH_BLOCKS[3], device::PATCH_BLOCKS[29]];
+        let p = read_blocks(&mut amp, &blocks, Duration::from_millis(50)).unwrap();
+        let want: usize = blocks.iter().map(|&(_, s)| s as usize).sum();
+        assert_eq!(p.mem.0.len(), want);
+        for &(a, s) in &blocks {
+            assert_eq!(p.mem.read(Address(a), s).unwrap(), vec![0x11; s as usize]);
+        }
     }
 }

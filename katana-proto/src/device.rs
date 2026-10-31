@@ -77,6 +77,30 @@ pub const NOT_STORED: &[(u32, u32)] = WRITE_PROTECTED;
 /// SOLO_DELAY level (`20 50 3E 07` in slot 9) was 50, a DT1 of 30 read back 50.
 pub const SLOT_SOLO_DELAY_WRITABLE: bool = false;
 
+/// Current-patch blocks the panel can change and that are re-read while Live
+/// edit is on, to notice panel changes the amp doesn't report by itself.
+/// Starting set from docs/protocol.md's panel table (cabinet in OTHER, colours,
+/// amp knobs, on/off, booster/delay/reverb per colour, solo, contour, knob
+/// positions); settled by the stage 2 hardware check.
+pub const PANEL_BLOCKS: &[(u32, u32)] = &[
+    (addr([0x20, 0x00, 0x02, 0x00]), 3),  // OTHER
+    (addr([0x20, 0x00, 0x04, 0x00]), 5),  // COLOR
+    (addr([0x20, 0x00, 0x06, 0x00]), 10), // AMP
+    (addr([0x20, 0x00, 0x08, 0x00]), 6),  // SW
+    (addr([0x20, 0x00, 0x0A, 0x00]), 8),  // BOOSTER(1)
+    (addr([0x20, 0x00, 0x0C, 0x00]), 8),  // BOOSTER(2)
+    (addr([0x20, 0x00, 0x0E, 0x00]), 8),  // BOOSTER(3)
+    (addr([0x20, 0x00, 0x28, 0x00]), 17), // DELAY(1)
+    (addr([0x20, 0x00, 0x2A, 0x00]), 17), // DELAY(2)
+    (addr([0x20, 0x00, 0x2C, 0x00]), 17), // DELAY(3)
+    (addr([0x20, 0x00, 0x34, 0x00]), 13), // REVERB(1)
+    (addr([0x20, 0x00, 0x36, 0x00]), 13), // REVERB(2)
+    (addr([0x20, 0x00, 0x38, 0x00]), 13), // REVERB(3)
+    (addr([0x20, 0x00, 0x3A, 0x00]), 2),  // SOLO_COM
+    (addr([0x20, 0x00, 0x40, 0x00]), 1),  // CONTOUR_COM
+    (addr([0x20, 0x01, 0x1C, 0x00]), 5),  // PATCH_KNOB_READONLY
+];
+
 pub fn is_write_protected(linear: u32) -> bool {
     WRITE_PROTECTED.iter().any(|&(a, n)| (a..a + n).contains(&linear))
 }
@@ -284,5 +308,12 @@ mod tests {
         sorted.sort();
         sorted.dedup();
         assert_eq!(sorted.len(), 80, "names are unique");
+    }
+
+    #[test]
+    fn panel_blocks_are_patch_blocks() {
+        for b in PANEL_BLOCKS {
+            assert!(PATCH_BLOCKS.contains(b), "{b:?}");
+        }
     }
 }
