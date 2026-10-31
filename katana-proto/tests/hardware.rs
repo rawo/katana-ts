@@ -122,3 +122,19 @@ fn store_patch_round_trip_on_b4() {
     r2.unwrap();
     assert_eq!(read_slot(&mut t, Channel::B4.slot(), T).unwrap(), orig);
 }
+
+/// Whether `PATCH_SELECT` can switch the amp to PANEL (selector 0); goes back after.
+#[test]
+fn select_panel_and_back() {
+    use katana_proto::amp::{read_selector, select, set_editor_mode};
+    let mut t = MidirTransport::open(DEFAULT_PORT).unwrap();
+    let s = read_selector(&mut t, T).unwrap();
+    set_editor_mode(&mut t, true).unwrap();
+    let to_panel = select(&mut t, 0, T);
+    println!("select PANEL from selector {s}: {to_panel:?}");
+    let back = select(&mut t, s, T);
+    println!("select back to {s}: {back:?}");
+    set_editor_mode(&mut t, false).unwrap();
+    to_panel.unwrap();
+    back.unwrap();
+}
