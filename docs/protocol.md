@@ -157,8 +157,8 @@ solo off and on. Writing all of stored PATCH(1) into the current patch changed
 79 of the 80 differing bytes; the only one kept was SOLO_DELAY level. The
 `PATCH_KNOB_*_READONLY` blocks, despite their app names, *are* written.
 `write_patch` skips SOLO_DELAY (`device::WRITE_PROTECTED`), so `load` cannot
-change solo-delay settings; `dump` still saves them. Whether stored slots
-accept SOLO_DELAY writes is untested.
+change solo-delay settings; `dump` still saves them. Stored slots don't accept
+SOLO_DELAY writes either (VERIFIED 2026-10-31, see "Amp control").
 
 **Colour changes apply asynchronously** (VERIFIED 2026-10-22): writing a
 *different* variation colour (`20 00 04 00`…) makes the amp re-derive that
@@ -177,26 +177,47 @@ re-applies the knob position when the variation changes. With the knob turned
 on, colour changes keep the booster on. Editors must send colour before on/off
 (and may need to account for the knob-position byte).
 
-## Amp control (observed 2026-10-22, not yet in katana-proto — phase 2 stage 1)
+## Amp control (VERIFIED 2026-10-22 by hand, 2026-10-31 in katana-proto)
 
-Probed by hand with `amidi` on the user's amp; to be re-verified and coded in stage 1.
+First probed by hand with `amidi` (2026-10-22), then coded in `katana-proto::amp`
+and checked with the hardware tests in `katana-proto/tests/hardware.rs`
+(2026-10-31, scratch channel B4, backups first).
 
-- **Editor mode:** DT1 `7F 00 00 01` ← `01` on, ← `00` off. While on, the amp sends
-  unsolicited DT1s by itself: the selector (`00 00 00 00` ← `00 nn`) after a channel
-  change, a `PATCH_WRITE` echo (`7F 00 01 04` ← `00 nn`) after a store, and a stream of
-  `7F 01 01 xx` ← `yy` status messages (meaning not yet decoded).
+- **Editor mode:** DT1 `7F 00 00 01` ← `01` on, ← `00` off (`amp::EditorSession`,
+  turned off again on drop).
 - **Channel select:**
   - MIDI **Program Change** works without editor mode: PC 2 → selector 3 (A:CH3),
     PC 3 → selector 4 (A:CH4), i.e. PC *n* → selector *n*+1 (PANEL via PC untested).
   - DT1 to the selector `00 00 00 00` and `PATCH_SELECT` `7F 00 01 00` ← `00 nn` are
-    **ignored without editor mode**; `PATCH_SELECT` works **with** editor mode on.
+    **ignored without editor mode**; `PATCH_SELECT` works **with** editor mode on
+    (`amp::select_channel`: waits until the selector shows the channel, then
+    `device::SELECT_SETTLE` = 300 ms; 300 ms is enough, shorter values untried).
 - **Store to channel:** `PATCH_WRITE` `7F 00 01 04` ← `00 <selector>` stores the
   current patch into that channel **only in editor mode** (ignored otherwise).
-  Tested on A:CH4: live gain 60→77, store → stored slot `20 50 06 00` = 77; then
-  gain 60, store → stored slot byte-identical to the backup taken before the test.
-- Backups of the user's scratch channels (A3 Riff Shred, A4 Bloom Crunch, B3 Spongy
-  Crunch, B4 Bite Lead) taken before the test: `backups/slot{4,5,8,9}-*.syx`
-  (untracked, local).
+  2026-10-22, by hand on A:CH4: live gain 60→77, store → stored slot `20 50 06 00` =
+  77; gain 60, store → byte-identical to the backup. 2026-10-31, `amp::store_patch`
+  (select, write the current patch, store, read the slot back): "KTS TEST" with GAIN
+  changed into B4, then the original back → both `Ok`, echo seen, B4 byte-identical
+  to the original; passed twice.
+- **Solo delay in a stored channel:** a DT1 straight into the slot's SOLO_DELAY is
+  ignored too (2026-10-31: B4 level `20 50 3E 07` was 50, wrote 30, read 50). So a
+  stored channel keeps its own solo delay (`device::SLOT_SOLO_DELAY_WRITABLE` =
+  false); `store_patch` selects the channel first, so the current patch carries the
+  channel's own solo delay into the store. `device::NOT_STORED` = SOLO_DELAY only:
+  every other byte of a stored patch read back as written.
+- **Messages the amp sends by itself in editor mode** (2026-10-31,
+  `store_patch_round_trip_on_b4 --nocapture`):
+  - nothing within 1 s of turning editor mode on;
+  - after `PATCH_SELECT` B4: an echo of it (`7F 00 01 00` ← `00 08`), the selector
+    (`00 00 00 00` ← `00 08`, sent twice, about a second apart), and the
+    `7F 01 01 01`–`05` status stream (seen: `02 03 03 00 00`, repeating);
+  - after `PATCH_WRITE` B4: its echo (`7F 00 01 04` ← `00 08`, seen twice), then the
+    same status stream.
+  The `7F 01 01 xx` meaning is not decoded (`amp::Notification::Other`). Panel
+  actions that are and aren't reported: not yet checked (needs the user at the amp).
+- Backups of the scratch channels taken before the tests: `backups/slot{4,5,8,9}-*.syx`
+  (2026-10-22) and `backups/2026-10-31-slot{4,5,8,9}.syx` (hardware test
+  `backup_scratch_channels`); untracked, local.
 
 ## Open questions
 

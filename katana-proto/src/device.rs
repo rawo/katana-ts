@@ -61,7 +61,9 @@ pub const PATCH_SELECT: u32 = addr([0x7F, 0x00, 0x01, 0x00]);
 pub const PATCH_WRITE: u32 = addr([0x7F, 0x00, 0x01, 0x04]);
 /// Pause after the selector shows a new channel, before writing the current
 /// patch, so the amp's own load of the channel can't overwrite our writes.
-/// Starting value, not yet measured.
+/// Evidence: 300 ms works — hardware test `store_patch_round_trip_on_b4`
+/// passed twice on 2026-10-31 (store "KTS TEST" with GAIN changed into B4,
+/// then the original back; B4 byte-identical at the end). Shorter values untried.
 pub const SELECT_SETTLE: std::time::Duration = std::time::Duration::from_millis(300);
 
 /// Current-patch ranges the amp doesn't store from our writes; left out when a
@@ -70,8 +72,9 @@ pub const SELECT_SETTLE: std::time::Duration = std::time::Duration::from_millis(
 /// `SLOT_SOLO_DELAY_WRITABLE`).
 pub const NOT_STORED: &[(u32, u32)] = WRITE_PROTECTED;
 
-/// Whether SOLO_DELAY can be written straight into a stored channel. Not yet
-/// tested on the amp, so assumed not.
+/// Whether SOLO_DELAY can be written straight into a stored channel. No —
+/// evidence: hardware test `slot_solo_delay_direct_write`, 2026-10-31: B4's
+/// SOLO_DELAY level (`20 50 3E 07` in slot 9) was 50, a DT1 of 30 read back 50.
 pub const SLOT_SOLO_DELAY_WRITABLE: bool = false;
 
 pub fn is_write_protected(linear: u32) -> bool {
