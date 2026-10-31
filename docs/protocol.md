@@ -215,6 +215,19 @@ and checked with the hardware tests in `katana-proto/tests/hardware.rs`
     same status stream.
   The `7F 01 01 xx` meaning is not decoded (`amp::Notification::Other`). Panel
   actions that are and aren't reported: not yet checked (needs the user at the amp).
+- **CLI end to end** (2026-10-31, `katana-cli`, A3 and A4):
+  - `tsl-list samples/Black_Sabbath.tsl` → `1 iron man`, `2 Paranoid`, `3 Black Sabbath`.
+  - `dump A3 a3.syx` / `dump A3 a3.tsl` → both written ("A3 'Riff Shred'"); again
+    with Enter at `Overwrite a3.syx? [y/N]` → "nothing written", file unchanged;
+    without a terminal → error asking for `--yes`.
+  - `store samples/Black_Sabbath.tsl A3 --patch 1`, `y` → both backup paths, "stored
+    'iron man' in A3; the amp is now on A3", "solo delay not stored". `dump A3` as
+    `.tsl` equals set patch 1 in all 80 blocks.
+  - `store <A3 backup>.syx A3 --yes` → `dump A3` byte-identical to the dump before.
+  - `store a3.tsl A4 --patch 1 --yes` → `dump A4` as `.tsl` equals `a3.tsl` in all 80
+    blocks; A4 restored from its backup, byte-identical to before.
+  In both comparisons SOLO_DELAY matched too: the channels involved hold the same
+  solo-delay settings, so this run doesn't show a solo delay being left behind.
 - Backups of the scratch channels taken before the tests: `backups/slot{4,5,8,9}-*.syx`
   (2026-10-22) and `backups/2026-10-31-slot{4,5,8,9}.syx` (hardware test
   `backup_scratch_channels`); untracked, local.

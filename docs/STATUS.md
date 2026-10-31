@@ -1,7 +1,7 @@
 # Project status and handoff
 
-Last updated: 2026-10-28 (end of the macOS session). Read this first when picking the
-work up on another machine, in particular the Linux machine with the amp.
+Last updated: 2026-10-31 (stage 1 on the Linux machine with the amp). Read this first
+when picking the work up.
 
 ## Where things stand
 
@@ -13,8 +13,10 @@ All on `main` (pushed to `origin`):
 | Phase 2, stage 2 shell: offline egui editor | done; checked on Linux in a VM | `docs/superpowers/specs/2026-10-22-katana-gui-design.md` | `docs/superpowers/plans/2026-10-26-katana-gui-shell.md` |
 | GUI polish (review minors, text size, 2-row top bar) | done | same | `docs/superpowers/plans/2026-10-28-katana-gui-polish.md` |
 | Stage 3: preset library | done; hands-on check in the Linux VM passed 2026-10-28 | `docs/superpowers/specs/2026-10-28-katana-preset-library-design.md` | `docs/superpowers/plans/2026-10-28-katana-preset-library.md` |
+| Stage 1: amp control (library + CLI) | verified on the amp 2026-10-31; branch `feature/amp-control`, pending review and the user's check | `docs/superpowers/specs/2026-10-29-katana-amp-control-design.md` | `docs/superpowers/plans/2026-10-29-katana-amp-control.md` |
 
-- 189 tests pass on macOS and on Linux (Ubuntu 26.04 arm64 VM).
+- 225 tests pass on the Linux machine (`cargo test --workspace`, 2026-10-31); hardware
+  tests: `cargo test -p katana-proto --features hardware-tests` (amp needed).
 - `cargo clippy --workspace --all-targets` shows 3 known warnings in `katana-proto`
   (2× `is_multiple_of`, 1× `chunks_exact`); no new ones should be added.
 - The GUI has not yet run on the Linux machine itself (real GPU, real amp). Only the
@@ -33,16 +35,18 @@ The user's decision (2026-10-28): stage 1 and the rest of stage 2 are developed
 directly on the Linux machine with the amp connected. Every real amp action is
 built and verified there.
 
-1. **Stage 1, amp control groundwork** (library + CLI, same evidence rules as
-   phase 1; see the GUI design spec, "Work order", item 1):
-   - editor mode on/off; select channel; read a stored channel;
-   - store to channel, with an automatic backup of the target channel to disk
-     first and confirmation in the CLI;
-   - decode the amp's unsolicited change notifications (which panel actions are
-     reported and which are not; fall back to a targeted re-read for the rest);
-   - test writing the SOLO_DELAY block directly into a stored channel
-     (`PATCH(n)` area), **only on the scratch channels A3, A4, B3, B4, with
-     backups** (spec, "Solo delay").
+1. **Stage 1, amp control groundwork** — done on `feature/amp-control`, verified on
+   the amp 2026-10-31 (docs/protocol.md, "Amp control"):
+   - `katana-proto::amp`: editor mode, channel select, `store_patch` (select, write,
+     store, read back), notifications; `tsl::write_tsl`.
+   - CLI: `store <file> <channel> [--patch N] [--yes]` (backs up the channel and the
+     current sound to `~/.local/share/katana-ts/backups/` first, then asks),
+     `dump <channel> <file.syx|file.tsl>`, `tsl-list <file>`.
+   - Solo delay can't be written into a stored channel either: a channel keeps its
+     own (the CLI says "solo delay not stored").
+   - Still open: which panel actions the amp reports in editor mode (needs the user
+     at the amp); the `7F 01 01 xx` status messages are not decoded; `--no-cs`
+     deferred.
 2. **Rest of stage 2, editor ↔ amp** (spec, "Editor ↔ amp model" and
    "Channel tabs"):
    - MIDI I/O off the UI thread (no blocking, no polling storms);
