@@ -3,8 +3,9 @@
 use std::path::{Path, PathBuf};
 
 use eframe::egui;
-use katana_proto::Patch;
+use katana_proto::{device, encode_param, Address, ParamDef, Patch, ProtoError, PARAMS};
 
+use crate::amp::{AmpLink, Event, Job};
 use crate::editor::{Editor, Origin};
 use crate::library::{self, Kind, Library};
 use crate::theme::{self, ThemeId};
@@ -23,6 +24,9 @@ enum Pending {
     Pick(PathBuf, usize),
     Close,
 }
+
+/// Channel names by selector.
+pub const CHANNEL_NAMES: [&str; 9] = ["PANEL", "A1", "A2", "A3", "A4", "B1", "B2", "B3", "B4"];
 
 /// Seconds between auto-saves while the editor keeps changing.
 pub const AUTOSAVE_SECS: f64 = 300.0;
@@ -58,6 +62,16 @@ pub struct KatanaApp {
     close_confirmed: bool,
     /// The channel tab shown: 0 = PANEL, 1–8 = A1–B4; `None` when none is.
     pub channel_tab: Option<u8>,
+    amp: Option<AmpLink>,
+    pub connected: bool,
+    /// The channel the amp is on (a selector).
+    pub amp_on: Option<u8>,
+    /// Live edit is on; kept across a disconnect, off at every start.
+    pub live: bool,
+    /// What the amp worker is busy with.
+    pub busy: Option<String>,
+    /// The last change made on the amp's panel: what, and when.
+    pub last_panel_change: Option<(String, chrono::NaiveDateTime)>,
 }
 
 impl Default for KatanaApp {
@@ -81,6 +95,12 @@ impl KatanaApp {
             autosaved_at: None,
             last_autosave: None,
             channel_tab: None,
+            amp: None,
+            connected: false,
+            amp_on: None,
+            live: false,
+            busy: None,
+            last_panel_change: None,
             editor,
             library,
             tab: Tab::Editor,
@@ -94,6 +114,145 @@ impl KatanaApp {
             pending_delete: None,
             save_as_name: None,
             close_confirmed: false,
+        }
+    }
+
+    pub fn with_amp(mut self, link: AmpLink) -> KatanaApp {
+        self.amp = Some(link);
+        self
+    }
+
+    fn send(&self, job: Job) {
+        if let Some(link) = &self.amp {
+            link.send(job);
+        }
+    }
+
+    /// Handles everything the amp worker reported since the last frame.
+    pub fn poll_amp(&mut self, now: chrono::NaiveDateTime) {
+        let Some(link) = &self.amp else { return };
+        let events: Vec<Event> = std::iter::from_fn(|| link.try_recv()).collect();
+        for event in events {
+            self.on_amp_event(event, now);
+        }
+    }
+
+    fn on_amp_event(&mut self, event: Event, now: chrono::NaiveDateTime) {
+        match event {
+            Event::Connected => {
+                self.connected = true;
+                if self.live {
+                    self.quick_save_if_dirty(now);
+                    self.send(Job::LiveOn);
+                }
+            }
+            Event::Disconnected => {
+                self.connected = false;
+                self.busy = None;
+                self.amp_on = None;
+            }
+            Event::AmpOn(sel) => {
+                self.amp_on = Some(sel);
+                if self.live {
+                    self.channel_tab = Some(sel);
+                }
+            }
+            Event::Slot(sel, p) => {
+                self.show_amp_settings(sel, p, now);
+                self.channel_tab = Some(sel);
+            }
+            Event::Current(sel, p) if self.live => {
+                self.show_amp_settings(sel, p, now);
+                self.channel_tab = Some(sel);
+                self.amp_on = Some(sel);
+            }
+            Event::PanelChange { addr, data } if self.live => {
+                self.editor.apply_amp_change(addr, &data);
+                let what = PARAMS
+                    .iter()
+                    .find(|p| p.addr == addr)
+                    .map_or_else(|| Address(addr).to_string(), |p| p.name.to_string());
+                self.last_panel_change = Some((what, now));
+            }
+            Event::Failed(message) | Event::StoreFailed(message) => self.error = Some(message),
+            Event::Busy(what) => self.busy = what,
+            Event::Current(..) | Event::PanelChange { .. } | Event::Peeked(..) | Event::Stored { .. } => {}
+        }
+    }
+
+    /// The amp's settings take over the editor; unsaved changes are kept in a
+    /// quick save first, and the channel's copy is kept for viewing without the amp.
+    fn show_amp_settings(&mut self, sel: u8, p: Patch, now: chrono::NaiveDateTime) {
+        self.quick_save_if_dirty(now);
+        if self.library.root().is_some() {
+            if let Err(e) = self.library.save_channel_copy(sel, &p) {
+                self.error = Some(e);
+            }
+        }
+        self.editor.replace_from_amp(p);
+    }
+
+    fn quick_save_if_dirty(&mut self, now: chrono::NaiveDateTime) {
+        if self.editor.is_dirty() {
+            self.quick_save(now);
+        }
+    }
+
+    /// An edit from the UI: into the editor and, with Live on, to the amp.
+    pub fn edit(&mut self, def: &ParamDef, value: u32) -> Result<(), ProtoError> {
+        self.editor.set(def, value)?;
+        if self.live && self.connected {
+            self.send(Job::SetParam { addr: def.addr, data: encode_param(def, value)? });
+        }
+        Ok(())
+    }
+
+    pub fn set_live(&mut self, on: bool) {
+        self.live = on;
+        if on {
+            self.quick_save_if_dirty(chrono::Local::now().naive_local());
+            self.send(Job::LiveOn);
+        } else {
+            self.send(Job::LiveOff);
+        }
+    }
+
+    /// Whether a channel tab can be clicked now.
+    pub fn channel_enabled(&self, selector: u8) -> bool {
+        if selector == 0 && self.live && !device::PANEL_SELECTABLE {
+            return false;
+        }
+        self.connected || self.library.has_channel_copy(selector)
+    }
+
+    /// A channel tab: with Live on the amp switches, with Live off the channel
+    /// is only shown; without the amp, its last seen copy is shown.
+    pub fn click_channel(&mut self, selector: u8) {
+        let now = chrono::Local::now().naive_local();
+        if self.connected {
+            self.quick_save_if_dirty(now);
+            self.send(if self.live { Job::Select(selector) } else { Job::ReadSlot(selector) });
+        } else {
+            let Some(copy) = self.library.channel_copy(selector) else { return };
+            self.quick_save_if_dirty(now);
+            self.editor.replace_from_amp(copy);
+        }
+        self.channel_tab = Some(selector);
+    }
+
+    /// Plays the editor's patch on the amp's current settings. Nothing is stored
+    /// and the amp stays on its channel.
+    pub fn load_to_amp(&mut self) {
+        self.send(Job::WritePatch(self.editor.patch().clone()));
+    }
+
+    /// A file was opened into the editor: with Live on it plays; with Live off
+    /// the editor no longer shows a channel.
+    fn after_open(&mut self) {
+        if self.live && self.connected {
+            self.load_to_amp();
+        } else if !self.live {
+            self.channel_tab = None;
         }
     }
 
@@ -181,6 +340,7 @@ impl KatanaApp {
             Ok(patch) => {
                 self.editor.load(patch, origin);
                 self.error = None;
+                self.after_open();
             }
             Err(e) => self.error = Some(e),
         }
@@ -201,6 +361,7 @@ impl KatanaApp {
             Ok((path, patch)) => {
                 self.editor.load(patch, Origin::Patch(path));
                 self.error = None;
+                self.after_open();
             }
             Err(e) => self.error = Some(e),
         }
@@ -237,6 +398,7 @@ impl KatanaApp {
             _ => self.library.new_quick_save(&patch, now),
         };
         self.finish_save(result.map(|path| (patch, Origin::QuickSave(path))));
+        self.clear_tab_after_save();
     }
 
     /// Overwrites the file the editor came from; with no origin, asks for a name.
@@ -257,6 +419,14 @@ impl KatanaApp {
         patch.set_name(name.trim());
         let result = self.library.save_as(name, &patch);
         self.finish_save(result.map(|path| (patch, Origin::Patch(path))));
+        self.clear_tab_after_save();
+    }
+
+    /// With Live off, a saved editor no longer shows a channel's stored settings.
+    fn clear_tab_after_save(&mut self) {
+        if !self.live && self.error.is_none() {
+            self.channel_tab = None;
+        }
     }
 
     fn finish_save(&mut self, result: Result<(Patch, Origin), String>) {
@@ -404,6 +574,7 @@ impl KatanaApp {
     /// The whole UI, drawn into the window's root `Ui`.
     pub fn show(&mut self, ui: &mut egui::Ui) {
         let ctx = ui.ctx().clone();
+        self.poll_amp(chrono::Local::now().naive_local());
         if ctx.input(|i| i.viewport().close_requested()) && !self.on_close_requested() {
             ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
         }

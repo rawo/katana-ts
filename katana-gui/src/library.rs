@@ -87,7 +87,7 @@ struct AutosaveState {
 fn channel_copy_name(selector: u8) -> Option<String> {
     match selector {
         0 => Some("PANEL.syx".to_string()),
-        n => Channel::ALL.get(n as usize - 1).map(|c| format!("{c}.syx")),
+        n => Channel::ALL.get(usize::from(n) - 1).map(|c| format!("{c}.syx")),
     }
 }
 
@@ -372,6 +372,12 @@ impl Library {
         let fail = |e: std::io::Error| format!("Couldn't keep a copy of the channel: {e}");
         std::fs::create_dir_all(&dir).map_err(fail)?;
         write_atomic(&dir.join(name), &p.to_syx()).map_err(fail)
+    }
+
+    /// Whether a copy of the channel exists (cheap enough for every frame).
+    pub fn has_channel_copy(&self, selector: u8) -> bool {
+        let Some(name) = channel_copy_name(selector) else { return false };
+        self.root.as_ref().is_some_and(|r| r.join(CHANNELS).join(name).is_file())
     }
 
     /// The last seen copy of a channel; `None` if there is none or it can't be read.

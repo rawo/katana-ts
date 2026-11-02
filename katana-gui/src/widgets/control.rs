@@ -4,7 +4,7 @@ use eframe::egui::{self, Button, ComboBox, RichText};
 use katana_proto::ParamDef;
 
 use super::Knob;
-use crate::editor::Editor;
+use crate::app::KatanaApp;
 use crate::theme::Palette;
 
 const ON_OFF: &[(u32, &str)] = &[(0, "OFF"), (1, "ON")];
@@ -18,16 +18,16 @@ pub fn on_off_text(value: u32) -> String {
     }
 }
 
-/// Draws the right widget for `def` and writes changes into the editor:
+/// Draws the right widget for `def` and applies changes with `KatanaApp::edit`:
 /// on/off → toggle, named values → dropdown, anything else → knob.
 pub fn param_control(
     ui: &mut egui::Ui,
-    editor: &mut Editor,
+    app: &mut KatanaApp,
     def: &'static ParamDef,
     label: &str,
     p: &Palette,
 ) -> egui::Response {
-    let Some(value) = editor.get(def) else {
+    let Some(value) = app.editor.get(def) else {
         return ui
             .vertical(|ui| {
                 ui.label(RichText::new(label).small().color(p.dim));
@@ -67,7 +67,7 @@ pub fn param_control(
         None => ui.add(Knob { label, value: &mut new, min: def.min, max: def.max, palette: p }),
     };
     if new != value {
-        let r = editor.set(def, new);
+        let r = app.edit(def, new);
         debug_assert!(r.is_ok(), "{} = {new}: {r:?}", def.name);
     }
     response

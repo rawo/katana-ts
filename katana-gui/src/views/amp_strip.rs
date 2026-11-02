@@ -15,7 +15,7 @@ pub fn amp_strip(ui: &mut egui::Ui, app: &mut KatanaApp, p: &Palette) {
         ui.spacing_mut().item_spacing.x = 16.0;
         for c in AMP_STRIP {
             if let Some(def) = find_param(c.param) {
-                param_control(ui, &mut app.editor, def, c.label, p);
+                param_control(ui, app, def, c.label, p);
             }
         }
     });

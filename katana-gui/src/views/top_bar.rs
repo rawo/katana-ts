@@ -1,22 +1,38 @@
 use eframe::egui::{self, Align, Button, Layout, RichText};
 
-use super::NEEDS_AMP;
-use crate::app::KatanaApp;
+use crate::app::{KatanaApp, CHANNEL_NAMES};
 use crate::theme::Palette;
 
-const CHANNELS: [&str; 9] = ["PANEL", "A1", "A2", "A3", "A4", "B1", "B2", "B3", "B4"];
+const NO_AMP: &str = "Amp not connected";
 
 /// First row: connection, channel tabs, and the preset's name and Live edit.
 pub fn top_bar(ui: &mut egui::Ui, app: &mut KatanaApp, p: &Palette) {
     ui.horizontal(|ui| {
-        super::dot_label(ui, p.dim, "not connected");
+        if app.connected {
+            super::dot_label(ui, p.green, "connected");
+        } else {
+            super::dot_label(ui, p.dim, "not connected");
+        }
         ui.add_space(8.0);
-        for ch in CHANNELS {
-            ui.add_enabled(false, Button::selectable(false, ch)).on_disabled_hover_text(NEEDS_AMP);
+        for (selector, name) in (0u8..).zip(CHANNEL_NAMES) {
+            let selected = app.channel_tab == Some(selector);
+            let tab = ui.add_enabled(app.channel_enabled(selector), Button::selectable(selected, name));
+            let hover = if app.connected {
+                "Select PANEL on the amp"
+            } else {
+                "Amp not connected; no copy of this channel yet"
+            };
+            if tab.on_disabled_hover_text(hover).clicked() {
+                app.click_channel(selector);
+            }
         }
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
             // Right to left: the last item here sits leftmost.
-            ui.add_enabled(false, egui::Checkbox::new(&mut false, "Live edit")).on_disabled_hover_text(NEEDS_AMP);
+            let mut live = app.live;
+            let check = ui.add_enabled(app.connected, egui::Checkbox::new(&mut live, "Live edit"));
+            if check.on_disabled_hover_text(NO_AMP).changed() {
+                app.set_live(live);
+            }
             ui.add_space(8.0);
             if app.editor.is_dirty() {
                 super::dot_label(ui, p.accent, "unsaved");
@@ -25,6 +41,9 @@ pub fn top_bar(ui: &mut egui::Ui, app: &mut KatanaApp, p: &Palette) {
             let name = ui.add(egui::Label::new(RichText::new(app.editor.display_name()).strong()).truncate());
             if let Some(path) = app.editor.path() {
                 name.on_hover_text(path.display().to_string());
+            }
+            if let Some(note) = app.editor.replaced_note() {
+                ui.add(egui::Label::new(RichText::new(note).small().color(p.dim)).truncate());
             }
         });
     });

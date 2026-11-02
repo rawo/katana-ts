@@ -75,7 +75,7 @@ fn pill(ui: &mut egui::Ui, app: &mut KatanaApp, title: &str, param: &str, p: &Pa
     let name = format!("{title} {label}");
     response.widget_info(|| WidgetInfo::labeled(Role::Button, true, &name));
     if response.clicked() {
-        let r = app.editor.set(def, u32::from(!on));
+        let r = app.edit(def, u32::from(!on));
         debug_assert!(r.is_ok());
     }
 }
@@ -97,7 +97,7 @@ fn leds(ui: &mut egui::Ui, app: &mut KatanaApp, title: &str, param: &str, p: &Pa
             let label = format!("{title} {name}");
             response.widget_info(|| WidgetInfo::selected(Role::RadioButton, true, lit, &label));
             if response.clicked() {
-                let r = app.editor.set(def, v);
+                let r = app.edit(def, v);
                 debug_assert!(r.is_ok());
             }
         }
