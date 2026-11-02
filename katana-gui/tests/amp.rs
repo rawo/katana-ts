@@ -594,3 +594,45 @@ fn store_disabled_without_library() {
     assert!(h.get_by_label("Store to channel…").accesskit_node().is_disabled());
     assert!(!h.get_by_label("Load to amp").accesskit_node().is_disabled());
 }
+
+#[test]
+fn quit_signal_closes_without_prompt() {
+    let root = tmp("quit-signal");
+    let mut app = KatanaApp::with_library(Library::open(root.clone()));
+    app.editor.set(find_param(GAIN).unwrap(), 5).unwrap();
+    let flag = app.quit_signal.clone();
+    let mut h =
+        Harness::builder().with_size([1600.0, 960.0]).build_ui_state(|ui, app: &mut KatanaApp| app.show(ui), app);
+    h.run();
+    let saved = names_in(&root.join("autosave")).iter().filter(|n| n.ends_with(".syx")).count();
+    h.state_mut().editor.set(find_param(GAIN).unwrap(), 6).unwrap();
+
+    flag.store(true, std::sync::atomic::Ordering::SeqCst);
+    h.step();
+    let close = h.output().viewport_output.values().any(|v| v.commands.contains(&egui::ViewportCommand::Close));
+    assert!(close, "the window closes");
+    assert!(h.query_by_label("Discard").is_none());
+    let now = names_in(&root.join("autosave")).iter().filter(|n| n.ends_with(".syx")).count();
+    assert_eq!(now, saved + 1, "the unsaved edit is in a new auto-save");
+    let restored = KatanaApp::start(Library::open(root));
+    assert_eq!(gain_of(restored.editor.patch()), Some(6));
+}
+
+#[test]
+fn no_quit_without_the_signal() {
+    let root = tmp("quit-none");
+    let app = KatanaApp::with_library(Library::open(root));
+    let mut h =
+        Harness::builder().with_size([1600.0, 960.0]).build_ui_state(|ui, app: &mut KatanaApp| app.show(ui), app);
+    h.step();
+    let close = h.output().viewport_output.values().any(|v| v.commands.contains(&egui::ViewportCommand::Close));
+    assert!(!close);
+}
+
+#[test]
+fn closing_turns_the_link_off() {
+    let (link, end) = AmpLink::pair();
+    let mut app = KatanaApp::new().with_amp(link);
+    app.shutdown_amp();
+    assert_eq!(end.jobs.try_iter().collect::<Vec<_>>(), vec![Job::Shutdown]);
+}

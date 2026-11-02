@@ -1,6 +1,8 @@
 //! The main window.
 
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
 use eframe::egui;
 use katana_proto::{device, encode_param, Address, Channel, ParamDef, Patch, ProtoError, PARAMS};
@@ -78,6 +80,8 @@ pub struct KatanaApp {
     pub busy: Option<String>,
     /// The last change made on the amp's panel: what, and when.
     pub last_panel_change: Option<(String, chrono::NaiveDateTime)>,
+    /// Set by the signal handler: save and close without asking.
+    pub quit_signal: Arc<AtomicBool>,
     store_dialog: Option<StoreDialog>,
     /// The name of the patch being stored, for the message afterwards.
     storing: Option<String>,
@@ -112,6 +116,7 @@ impl KatanaApp {
             live: false,
             busy: None,
             last_panel_change: None,
+            quit_signal: Arc::default(),
             store_dialog: None,
             storing: None,
             store_note: None,
@@ -134,6 +139,13 @@ impl KatanaApp {
     pub fn with_amp(mut self, link: AmpLink) -> KatanaApp {
         self.amp = Some(link);
         self
+    }
+
+    /// Ends the amp worker, which turns editor mode off.
+    pub fn shutdown_amp(&mut self) {
+        if let Some(link) = self.amp.take() {
+            link.shutdown();
+        }
     }
 
     fn send(&self, job: Job) {
@@ -705,6 +717,12 @@ impl KatanaApp {
     pub fn show(&mut self, ui: &mut egui::Ui) {
         let ctx = ui.ctx().clone();
         self.poll_amp(chrono::Local::now().naive_local());
+        if self.quit_signal.load(Ordering::SeqCst) {
+            // Nobody may be there to answer a prompt; the edits are in the auto-save.
+            self.autosave(chrono::Local::now().naive_local());
+            self.close_confirmed = true;
+            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+        }
         if ctx.input(|i| i.viewport().close_requested()) && !self.on_close_requested() {
             ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
         }
@@ -745,5 +763,9 @@ pub fn default_file_name(name: &str) -> String {
 impl eframe::App for KatanaApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         self.show(ui);
+    }
+
+    fn on_exit(&mut self) {
+        self.shutdown_amp();
     }
 }

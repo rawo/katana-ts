@@ -7,7 +7,7 @@ STUDIO doesn't run):
 |---|---|
 | `katana-proto` | Protocol library: Roland SysEx (RQ1/DT1), patch read/write, verified parameters. |
 | `katana-cli` | Command-line tool: store patches into channels, dump channels to `.syx`/`.tsl`, set parameters, watch the amp, analyse captures. |
-| `katana-gui` | Desktop editor (egui). Works offline on `.syx` files; amp control comes in later stages. |
+| `katana-gui` | Desktop editor (egui). Edits `.syx` files offline; with the amp connected, plays and stores them on it. |
 
 Linux is the only target. The code also builds on macOS for development.
 
@@ -176,6 +176,31 @@ default preset: everything off or 0, amp type CLEAN.
 
 Only parameters verified on the amp appear (see the table below). Blocks with none
 yet say so.
+
+### With the amp
+
+The app finds the amp by itself (USB; the official app should be closed). The dot
+in the top bar says whether it is connected.
+
+- **Nothing is stored into a channel without a click on Store.** Editing, Open, Live
+  edit, Save and Load to amp only change what the amp plays right now.
+- **Live edit** is off at every start. With it on, the app and the amp follow each
+  other: edits in the app are heard at once, panel changes and channel switches on the
+  amp show up in the app, and clicking a channel tab switches the amp. Opening a
+  preset plays it, without storing it. Live edit keeps its position if the amp is
+  unplugged and comes back.
+- **Channel tabs** with Live edit off show what a channel holds, without switching
+  the amp. Without the amp they show the last copy seen, kept in `channels/` in the
+  library folder.
+- **Load to amp** plays the editor's preset on the channel the amp is on; it doesn't
+  switch channels or store anything.
+- **Store to channel…** asks first, showing what the channel holds now. It backs up
+  that channel and the current sound to `backups/` in the library folder, the same
+  place the CLI uses, stores, reads the channel back, and leaves the amp on that
+  channel. A channel keeps its own solo delay.
+- Before the amp's settings replace the editor, unsaved changes go into a quick save.
+  When they replace a library preset, the top bar shows "Saving will overwrite library
+  preset ...": Save would write them into that file. Save as… keeps both.
 
 ### Library folder
 

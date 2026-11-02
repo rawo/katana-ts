@@ -11,6 +11,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 directories = "6"
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
+ctrlc = { version = "3", features = ["termination"] }
 
 [dev-dependencies]
 katana-proto = { path = "../katana-proto", features = ["testing"] }

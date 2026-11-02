@@ -1,6 +1,18 @@
+use std::sync::atomic::Ordering;
+
 use eframe::egui;
+use katana_gui::amp::{AmpLink, Worker};
 use katana_gui::app::{KatanaApp, MIN_WINDOW};
 use katana_gui::library::Library;
+use katana_proto::{MidirTransport, Transport, DEFAULT_PORT};
+
+/// The amp worker on the real MIDI port.
+fn real_worker() -> Worker {
+    Worker::new(
+        Box::new(|| MidirTransport::open(DEFAULT_PORT).map(|t| Box::new(t) as Box<dyn Transport + Send>)),
+        Box::new(|| MidirTransport::list_ports().is_ok_and(|ports| ports.iter().any(|p| p.contains(DEFAULT_PORT)))),
+    )
+}
 
 fn main() -> eframe::Result {
     let options = eframe::NativeOptions {
@@ -18,5 +30,22 @@ fn main() -> eframe::Result {
             app
         }
     };
-    eframe::run_native("KATANA Tone Studio", options, Box::new(|_cc| Ok(Box::new(app))))
+    eframe::run_native(
+        "KATANA Tone Studio",
+        options,
+        Box::new(|cc| {
+            let ctx = cc.egui_ctx.clone();
+            let link = AmpLink::spawn(real_worker(), Box::new(move || ctx.request_repaint()));
+            let quit = app.quit_signal.clone();
+            let ctx = cc.egui_ctx.clone();
+            // SIGINT, SIGTERM, SIGHUP: close normally, so editor mode goes off.
+            if let Err(e) = ctrlc::set_handler(move || {
+                quit.store(true, Ordering::SeqCst);
+                ctx.request_repaint();
+            }) {
+                eprintln!("can't handle quit signals: {e}");
+            }
+            Ok(Box::new(app.with_amp(link)))
+        }),
+    )
 }

@@ -1930,6 +1930,7 @@ name = "katana-gui"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "ctrlc",
  "directories",
  "eframe",
  "egui_kittest",
