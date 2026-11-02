@@ -30,6 +30,11 @@ pub struct FakeAmp {
 }
 
 impl FakeAmp {
+    /// Queues `msg` as if the amp had sent it by itself.
+    pub fn queue(&mut self, msg: Vec<u8>) {
+        self.pending.push_back(msg);
+    }
+
     pub fn new(header: Header, max_dt1: usize) -> FakeAmp {
         FakeAmp {
             header,
