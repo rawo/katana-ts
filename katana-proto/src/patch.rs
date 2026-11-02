@@ -33,7 +33,7 @@ fn writable(blocks: &[(u32, u32)]) -> Vec<(u32, u32)> {
 /// current patch (`20 10 00 00`, … `20 70 00 00`, `21 00 00 00`, …).
 pub const SLOTS: u8 = 10;
 
-pub(crate) fn slot_offset(slot: u8) -> u32 {
+pub fn slot_offset(slot: u8) -> u32 {
     slot as u32 * (0x10 << 14)
 }
 

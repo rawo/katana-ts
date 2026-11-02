@@ -13,4 +13,5 @@ directories = "6"
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 
 [dev-dependencies]
+katana-proto = { path = "../katana-proto", features = ["testing"] }
 egui_kittest = "0.37"
