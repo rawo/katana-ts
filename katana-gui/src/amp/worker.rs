@@ -1,6 +1,7 @@
 //! The worker: owns the MIDI connection and runs one amp job at a time. A plain
 //! struct, so tests drive `handle` and `idle` without a thread.
 
+use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender};
 use std::time::{Duration, Instant};
@@ -8,8 +9,8 @@ use std::time::{Duration, Instant};
 use katana_proto::amp::{notification, Notification};
 use katana_proto::backup::{backup_name, write_backup};
 use katana_proto::{
-    amp, device, encode, read_blocks, read_patch, read_slot, write_patch, Address, Channel, Command, Patch, ProtoError,
-    Transport,
+    amp, decode, device, encode, read_blocks, read_patch, read_slot, write_patch, Address, Channel, Command, Patch,
+    ProtoError, Transport,
 };
 
 use super::{Event, Job};
@@ -27,6 +28,11 @@ const TICK: Duration = Duration::from_millis(20);
 const REPLY_TIMEOUT: Duration = Duration::from_secs(2);
 
 const NOT_CONNECTED: &str = "amp not connected";
+const READING_CHANNEL: &str = "Reading channel\u{2026}";
+/// The shortest time between two sends of edits.
+const PARAM_INTERVAL: Duration = Duration::from_millis(30);
+/// Reads of the current patch while the channels keep changing, before giving up on a clean one.
+const MAX_READS: usize = 4;
 
 /// How often `device::PANEL_BLOCKS` are re-read while Live is on.
 const PANEL_REREAD: Duration = Duration::from_secs(1);
@@ -63,10 +69,71 @@ fn write_store_backups(
     Ok((channel_backup, current_backup))
 }
 
+/// The connection: remembers what the amp said by itself during a read, which a
+/// read would otherwise throw away.
+struct Link {
+    inner: Box<dyn Transport + Send>,
+    /// Messages outside the block being read, oldest first.
+    kept: VecDeque<Vec<u8>>,
+    /// The block asked for last.
+    asked: Option<(u32, u32)>,
+}
+
+impl Link {
+    fn new(inner: Box<dyn Transport + Send>) -> Link {
+        Link { inner, kept: VecDeque::new(), asked: None }
+    }
+
+    /// The next message the amp sent by itself, without waiting.
+    fn next_message(&mut self) -> Result<Option<Vec<u8>>, ProtoError> {
+        match self.kept.pop_front() {
+            Some(msg) => Ok(Some(msg)),
+            None => self.inner.recv(Duration::ZERO),
+        }
+    }
+
+    /// Takes the channel reports out of what was kept, oldest first.
+    fn take_selectors(&mut self) -> Vec<u8> {
+        let h = device::header();
+        let mut selectors = Vec::new();
+        self.kept.retain(|msg| match notification(&h, msg) {
+            Some(Notification::Selector(sel)) => {
+                selectors.push(sel);
+                false
+            }
+            _ => true,
+        });
+        selectors
+    }
+}
+
+impl Transport for Link {
+    fn send(&mut self, msg: &[u8]) -> Result<(), ProtoError> {
+        if let Ok(Command::Rq1 { addr, size }) = decode(&device::header(), msg) {
+            self.asked = Some((addr.0, size.0));
+        }
+        self.inner.send(msg)
+    }
+
+    fn recv(&mut self, timeout: Duration) -> Result<Option<Vec<u8>>, ProtoError> {
+        let msg = self.inner.recv(timeout)?;
+        if let Some(m) = &msg {
+            let answer = match decode(&device::header(), m) {
+                Ok(Command::Dt1 { addr, .. }) => self.asked.is_some_and(|(a, n)| (a..a + n).contains(&addr.0)),
+                _ => false,
+            };
+            if !answer {
+                self.kept.push_back(m.clone());
+            }
+        }
+        Ok(msg)
+    }
+}
+
 pub struct Worker {
     open: Opener,
     port_present: PortCheck,
-    transport: Option<Box<dyn Transport + Send>>,
+    transport: Option<Link>,
     live: bool,
     last_port_check: Option<Instant>,
     /// The amp's current settings as last read or written here, while Live is on.
@@ -74,6 +141,9 @@ pub struct Worker {
     last_reread: Option<Instant>,
     /// A store lost the amp: `handle_with` ends the connection after its events.
     link_lost: bool,
+    /// Edits waiting for their turn, latest value per address.
+    held: Vec<(u32, Vec<u8>)>,
+    last_param_send: Option<Instant>,
     timeout: Duration,
     panel_blocks: &'static [(u32, u32)],
 }
@@ -89,6 +159,8 @@ impl Worker {
             shadow: None,
             last_reread: None,
             link_lost: false,
+            held: Vec::new(),
+            last_param_send: None,
             timeout: REPLY_TIMEOUT,
             panel_blocks: device::PANEL_BLOCKS,
         }
@@ -116,7 +188,7 @@ impl Worker {
         if let Some(what) = busy {
             emit(Event::Busy(Some(what.into())));
         }
-        match self.run_job(t.as_mut(), job) {
+        match self.run_job(&mut t, job) {
             Ok(events) => {
                 events.into_iter().for_each(&mut *emit);
                 if std::mem::take(&mut self.link_lost) {
@@ -135,7 +207,7 @@ impl Worker {
 
     /// A failed job: an unplugged amp ends the connection, anything else is
     /// reported and the connection stays.
-    fn after_error(&mut self, t: Box<dyn Transport + Send>, e: ProtoError) -> Vec<Event> {
+    fn after_error(&mut self, t: Link, e: ProtoError) -> Vec<Event> {
         if is_link_error(&e) && !(self.port_present)() {
             self.end_live();
             vec![Event::Disconnected]
@@ -148,31 +220,72 @@ impl Worker {
     fn end_live(&mut self) {
         self.live = false;
         self.shadow = None;
+        self.held.clear();
     }
 
     fn turn_editor_mode_off(&mut self) {
         if let Some(mut t) = self.transport.take() {
-            let _ = amp::set_editor_mode(t.as_mut(), false);
+            let _ = self.send_held(&mut t, Instant::now());
+            let _ = amp::set_editor_mode(&mut t, false);
         }
     }
 
-    fn run_job(&mut self, t: &mut (dyn Transport + Send), job: Job) -> Result<Vec<Event>, ProtoError> {
+    fn send_held(&mut self, t: &mut Link, now: Instant) -> Result<(), ProtoError> {
+        for (addr, data) in std::mem::take(&mut self.held) {
+            t.send(&encode(&device::header(), &Command::Dt1 { addr: Address(addr), data })?)?;
+            self.last_param_send = Some(now);
+        }
+        Ok(())
+    }
+
+    /// A knob drag makes a value per frame; the amp gets the latest one per `PARAM_INTERVAL`.
+    fn send_held_if_due(&mut self, t: &mut Link, now: Instant) -> Result<(), ProtoError> {
+        if self.last_param_send.is_none_or(|last| now.duration_since(last) >= PARAM_INTERVAL) {
+            self.send_held(t, now)?;
+        }
+        Ok(())
+    }
+
+    fn set_param(&mut self, t: &mut Link, addr: u32, data: Vec<u8>) -> Result<(), ProtoError> {
+        if let Some(shadow) = &mut self.shadow {
+            shadow.mem.apply(Address(addr), &data);
+        }
+        let now = Instant::now();
+        match self.held.iter_mut().find(|(a, _)| *a == addr) {
+            Some((_, held)) => *held = data,
+            None => self.held.push((addr, data)),
+        }
+        let settle = device::settle_after_param(addr);
+        if settle.is_zero() {
+            self.send_held_if_due(t, now)
+        } else {
+            // The amp re-derives on/off from a colour a moment later: nothing may overtake it.
+            self.send_held(t, now)?;
+            std::thread::sleep(settle);
+            Ok(())
+        }
+    }
+
+    fn run_job(&mut self, t: &mut Link, job: Job) -> Result<Vec<Event>, ProtoError> {
+        if !matches!(job, Job::SetParam { .. }) {
+            self.send_held(t, Instant::now())?;
+        }
         Ok(match job {
-            Job::LiveOn => {
-                amp::set_editor_mode(t, true)?;
-                match self.read_current(t) {
-                    Ok((sel, p)) => {
-                        self.live = true;
-                        self.shadow = Some(p.clone());
-                        self.last_reread = None;
-                        vec![Event::Current(sel, p)]
-                    }
-                    Err(e) => {
-                        let _ = amp::set_editor_mode(t, false);
+            Job::LiveOn => match self.start_live(t) {
+                Ok((sel, p)) => {
+                    self.live = true;
+                    self.last_reread = None;
+                    vec![Event::Current(sel, p)]
+                }
+                Err(e) => {
+                    self.shadow = None;
+                    let _ = amp::set_editor_mode(t, false);
+                    if is_link_error(&e) && !(self.port_present)() {
                         return Err(e);
                     }
+                    vec![Event::LiveFailed(format!("Live edit couldn't start: {e}"))]
                 }
-            }
+            },
             Job::LiveOff => {
                 self.end_live();
                 amp::set_editor_mode(t, false)?;
@@ -182,8 +295,7 @@ impl Worker {
             Job::Select(_) if !self.live => vec![Event::Failed("Live edit is off".into())],
             Job::Select(sel) => {
                 amp::select(t, sel, self.timeout)?;
-                let p = read_patch(t, self.timeout)?;
-                self.shadow = Some(p.clone());
+                let (sel, p) = self.read_settled(t, sel)?;
                 vec![Event::Current(sel, p)]
             }
             Job::WritePatch(p) => {
@@ -195,10 +307,7 @@ impl Worker {
                 vec![Event::AmpOn(amp::read_selector(t, self.timeout)?)]
             }
             Job::SetParam { addr, data } => {
-                t.send(&encode(&device::header(), &Command::Dt1 { addr: Address(addr), data: data.clone() })?)?;
-                if let Some(shadow) = &mut self.shadow {
-                    shadow.mem.apply(Address(addr), &data);
-                }
+                self.set_param(t, addr, data)?;
                 vec![]
             }
             Job::Peek(ch) => vec![Event::Peeked(ch, read_slot(t, ch.slot(), self.timeout)?)],
@@ -207,15 +316,41 @@ impl Worker {
         })
     }
 
-    fn read_current(&self, t: &mut (dyn Transport + Send)) -> Result<(u8, Patch), ProtoError> {
-        Ok((amp::read_selector(t, self.timeout)?, read_patch(t, self.timeout)?))
+    fn start_live(&mut self, t: &mut Link) -> Result<(u8, Patch), ProtoError> {
+        amp::set_editor_mode(t, true)?;
+        let sel = amp::read_selector(t, self.timeout)?;
+        self.read_settled(t, sel)
+    }
+
+    /// Reads the current patch once the amp has finished loading a channel. If
+    /// the channel changes during the read, the result would be a mix of two
+    /// channels: it reads again, up to `MAX_READS` times, and returns where the amp is.
+    fn read_settled(&mut self, t: &mut Link, mut sel: u8) -> Result<(u8, Patch), ProtoError> {
+        let h = device::header();
+        for attempt in 1..=MAX_READS {
+            std::thread::sleep(device::SELECT_SETTLE);
+            // What came before this read, the read will see. Only a channel report still matters.
+            while let Some(msg) = t.next_message()? {
+                if let Some(Notification::Selector(n)) = notification(&h, &msg) {
+                    sel = n;
+                }
+            }
+            let p = read_patch(t, self.timeout)?;
+            let reports = t.take_selectors();
+            if attempt == MAX_READS || reports.iter().all(|&n| n == sel) {
+                self.shadow = Some(p.clone());
+                return Ok((sel, p));
+            }
+            sel = *reports.last().expect("a report differs from sel");
+        }
+        unreachable!("the last attempt returns")
     }
 
     /// Backups first, then the store. `store_patch` ends with editor mode off, so
     /// Live is turned back on afterwards.
     fn store(
         &mut self,
-        t: &mut (dyn Transport + Send),
+        t: &mut Link,
         ch: Channel,
         patch: &Patch,
         backup_dir: &Path,
@@ -236,13 +371,27 @@ impl Worker {
             ],
             Err(e) => {
                 self.link_lost = is_link_error(&e) && !(self.port_present)();
-                vec![Event::StoreFailed(store_failure_message(ch, &e.to_string(), &channel_backup, &current_backup))]
+                let mut failed = vec![Event::StoreFailed(store_failure_message(
+                    ch,
+                    &e.to_string(),
+                    &channel_backup,
+                    &current_backup,
+                ))];
+                // The store may have moved the amp to `ch`, or not: the app needs to know which.
+                if !self.link_lost {
+                    if let Ok(sel) = amp::read_selector(t, self.timeout) {
+                        failed.push(Event::AmpOn(sel));
+                    }
+                }
+                failed
             }
         };
+        t.kept.clear();
         if self.live && !self.link_lost {
-            let resumed = amp::set_editor_mode(t, true).and_then(|()| read_patch(t, self.timeout));
+            let on = amp::set_editor_mode(t, true);
+            let resumed = on.and_then(|()| amp::read_selector(t, self.timeout)).and_then(|s| self.read_settled(t, s));
             match resumed {
-                Ok(p) => self.shadow = Some(p),
+                Ok(_) => {}
                 Err(e) if is_link_error(&e) && !(self.port_present)() => self.link_lost = true,
                 Err(e) => events.push(Event::Failed(e.to_string())),
             }
@@ -253,17 +402,20 @@ impl Worker {
     /// Between jobs: watches the port list, at most once per `PORT_CHECK`, and
     /// follows the amp while Live is on.
     pub fn idle(&mut self, now: Instant) -> Vec<Event> {
-        let mut events = self.check_port(now);
+        let mut events = Vec::new();
+        self.idle_with(now, &mut |e| events.push(e));
+        events
+    }
+
+    /// `idle`, reporting each event as it happens.
+    pub fn idle_with(&mut self, now: Instant, emit: &mut dyn FnMut(Event)) {
+        self.check_port(now).into_iter().for_each(&mut *emit);
         if let Some(mut t) = self.transport.take() {
-            match self.follow_amp(t.as_mut(), now) {
-                Ok(more) => {
-                    self.transport = Some(t);
-                    events.extend(more);
-                }
-                Err(e) => events.extend(self.after_error(t, e)),
+            match self.follow_amp(&mut t, now, emit) {
+                Ok(()) => self.transport = Some(t),
+                Err(e) => self.after_error(t, e).into_iter().for_each(&mut *emit),
             }
         }
-        events
     }
 
     fn check_port(&mut self, now: Instant) -> Vec<Event> {
@@ -283,29 +435,32 @@ impl Worker {
         }
     }
 
-    /// Handles what the amp sent by itself (ignored with Live off), then the
-    /// timed re-read of panel blocks.
-    fn follow_amp(&mut self, t: &mut (dyn Transport + Send), now: Instant) -> Result<Vec<Event>, ProtoError> {
+    /// Sends what waits, handles what the amp sent by itself (ignored with Live
+    /// off), then the timed re-read of panel blocks.
+    fn follow_amp(&mut self, t: &mut Link, now: Instant, emit: &mut dyn FnMut(Event)) -> Result<(), ProtoError> {
+        self.send_held_if_due(t, now)?;
         let h = device::header();
-        let mut events = Vec::new();
         for _ in 0..MAX_MESSAGES_PER_IDLE {
-            let Some(msg) = t.recv(Duration::ZERO)? else { break };
+            let Some(msg) = t.next_message()? else { break };
             if !self.live {
                 continue;
             }
             match notification(&h, &msg) {
                 Some(Notification::Selector(sel)) => {
-                    // The amp's own load of the channel must finish first.
-                    std::thread::sleep(device::SELECT_SETTLE);
-                    let p = read_patch(t, self.timeout)?;
-                    self.shadow = Some(p.clone());
-                    events.push(Event::Current(sel, p));
+                    emit(Event::Busy(Some(READING_CHANNEL.into())));
+                    let read = self.read_settled(t, sel);
+                    if let Ok((sel, p)) = &read {
+                        emit(Event::Current(*sel, p.clone()));
+                    }
+                    emit(Event::Busy(None));
+                    read?;
                 }
                 Some(Notification::Other { addr, data }) if in_current_patch(addr.0) => {
-                    if let Some(shadow) = &mut self.shadow {
+                    let Some(shadow) = &mut self.shadow else { continue };
+                    if shadow.mem.read(addr, data.len() as u32).as_deref() != Some(data.as_slice()) {
                         shadow.mem.apply(addr, &data);
+                        emit(Event::PanelChange { addr: addr.0, data });
                     }
-                    events.push(Event::PanelChange { addr: addr.0, data });
                 }
                 _ => {}
             }
@@ -315,16 +470,18 @@ impl Worker {
                 None => self.last_reread = Some(now),
                 Some(last) if now.duration_since(last) >= PANEL_REREAD => {
                     self.last_reread = Some(now);
-                    events.extend(self.reread_panel_blocks(t)?);
+                    // What is sent is what the read must find.
+                    self.send_held(t, now)?;
+                    self.reread_panel_blocks(t)?.into_iter().for_each(emit);
                 }
                 Some(_) => {}
             }
         }
-        Ok(events)
+        Ok(())
     }
 
     /// One `PanelChange` per contiguous run of bytes differing from the shadow.
-    fn reread_panel_blocks(&mut self, t: &mut (dyn Transport + Send)) -> Result<Vec<Event>, ProtoError> {
+    fn reread_panel_blocks(&mut self, t: &mut Link) -> Result<Vec<Event>, ProtoError> {
         let got = read_blocks(t, self.panel_blocks, self.timeout)?;
         let shadow = self.shadow.get_or_insert_with(Patch::default);
         let mut events: Vec<Event> = Vec::new();
@@ -343,18 +500,20 @@ impl Worker {
     /// Opens the port. An amp that can't be opened or doesn't answer stays "not
     /// connected"; the next port check tries again.
     fn connect(&mut self) -> Vec<Event> {
-        let Ok(mut t) = (self.open)() else { return vec![] };
+        let Ok(t) = (self.open)() else { return vec![] };
+        let mut t = Link::new(t);
         // Clears editor mode left on by a crash.
-        if amp::set_editor_mode(t.as_mut(), false).is_err() {
+        if amp::set_editor_mode(&mut t, false).is_err() {
             return vec![];
         }
-        let Ok(sel) = amp::read_selector(t.as_mut(), self.timeout) else { return vec![] };
+        let Ok(sel) = amp::read_selector(&mut t, self.timeout) else { return vec![] };
         self.transport = Some(t);
         vec![Event::Connected, Event::AmpOn(sel)]
     }
 
-    /// The thread's loop: jobs first, `idle` when there are none. Ends on
-    /// `Shutdown` or when the UI's end of the channel is gone.
+    /// The thread's loop: jobs first, then `idle`, so a stream of edits can't
+    /// hold up the amp's messages. Ends on `Shutdown` or when the UI's end of the
+    /// channel is gone.
     pub fn run(mut self, jobs: Receiver<Job>, events: Sender<Event>, wake: Box<dyn Fn() + Send>) {
         let mut emit = |e: Event| {
             let _ = events.send(e);
@@ -368,10 +527,6 @@ impl Worker {
                 Err(RecvTimeoutError::Disconnected) => batch.push(Job::Shutdown),
             }
             batch.extend(jobs.try_iter());
-            if batch.is_empty() {
-                self.idle(Instant::now()).into_iter().for_each(&mut emit);
-                continue;
-            }
             for job in coalesce(batch) {
                 let last = job == Job::Shutdown;
                 self.handle_with(job, &mut emit);
@@ -379,6 +534,7 @@ impl Worker {
                     return;
                 }
             }
+            self.idle_with(Instant::now(), &mut emit);
         }
     }
 }
@@ -393,7 +549,7 @@ impl Drop for Worker {
 fn busy_label(job: &Job) -> Option<&'static str> {
     match job {
         Job::LiveOn => Some("Turning Live edit on\u{2026}"),
-        Job::ReadSlot(_) | Job::Peek(_) => Some("Reading channel\u{2026}"),
+        Job::ReadSlot(_) | Job::Peek(_) => Some(READING_CHANNEL),
         Job::Select(_) => Some("Switching channel\u{2026}"),
         Job::WritePatch(_) => Some("Loading to amp\u{2026}"),
         Job::Store { .. } => Some("Storing\u{2026}"),
@@ -408,20 +564,24 @@ fn is_link_error(e: &ProtoError) -> bool {
 
 /// Drops each `SetParam` that a later one to the same address replaces, as long
 /// as only `SetParam`s lie between them: a fast knob drag sends the last value.
+/// A colour write is a barrier, as on/off must stay after its colour.
 pub fn coalesce(jobs: Vec<Job>) -> Vec<Job> {
     let mut out: Vec<Job> = Vec::with_capacity(jobs.len());
     let mut run_start = 0;
     for job in jobs {
-        if let Job::SetParam { addr, .. } = &job {
-            let replaced =
-                out[run_start..].iter().position(|j| matches!(j, Job::SetParam { addr: a, .. } if a == addr));
-            if let Some(i) = replaced {
-                out.remove(run_start + i);
+        match &job {
+            Job::SetParam { addr, .. } if device::settle_after_param(*addr).is_zero() => {
+                let replaced =
+                    out[run_start..].iter().position(|j| matches!(j, Job::SetParam { addr: a, .. } if a == addr));
+                if let Some(i) = replaced {
+                    out.remove(run_start + i);
+                }
+                out.push(job);
             }
-            out.push(job);
-        } else {
-            out.push(job);
-            run_start = out.len();
+            _ => {
+                out.push(job);
+                run_start = out.len();
+            }
         }
     }
     out
@@ -635,7 +795,7 @@ mod tests {
     fn live_on_failure_leaves_editor_mode_off() {
         let mut r = connected();
         r.fake.lock().unwrap().silent = true;
-        assert!(matches!(outcome(r.worker.handle(Job::LiveOn)).as_slice(), [Event::Failed(_)]));
+        assert!(matches!(outcome(r.worker.handle(Job::LiveOn)).as_slice(), [Event::LiveFailed(_)]));
         assert!(!r.fake.lock().unwrap().editor);
     }
 
@@ -771,8 +931,8 @@ mod tests {
         let mut r = live();
         let expected = slot_of(&r.fake, 7);
         // The amp switches and sends the selector, as the panel's channel button does.
-        r.fake.lock().unwrap().send(&dt1(device::PATCH_SELECT, &[0, 6])).unwrap();
-        assert_eq!(r.worker.idle(Instant::now()), vec![Event::Current(6, expected)]);
+        r.fake.lock().unwrap().press_channel(6);
+        assert_eq!(outcome(r.worker.idle(Instant::now())), vec![Event::Current(6, expected)]);
     }
 
     #[test]
@@ -936,7 +1096,7 @@ mod tests {
         let mut r = connected();
         r.fake.lock().unwrap().ignore_dt1 = true;
         let events = outcome(r.worker.handle(store_job(&dir)));
-        let [Event::StoreFailed(m)] = events.as_slice() else { panic!("{events:?}") };
+        let [Event::StoreFailed(m), Event::AmpOn(4)] = events.as_slice() else { panic!("{events:?}") };
         let files: Vec<_> = std::fs::read_dir(&dir).unwrap().map(|e| e.unwrap().path()).collect();
         assert_eq!(files.len(), 2);
         for f in &files {
@@ -1021,5 +1181,217 @@ mod tests {
             "Storing into A3 failed: boom. The amp now plays A3 with part of the new preset. \
              Your previous sound: /b/current.syx (Open it, then Load to amp). A3's backup: /b/channel.syx."
         );
+    }
+
+    // --- Messages during reads, settle, rate (final review I2, I3, I5, I6, I7, I10) ---
+
+    /// Patch blocks before and including AMP: the 4th block is read 4th.
+    const RQ1S_PAST_AMP: usize = 8;
+
+    #[test]
+    fn second_channel_press_during_a_read_ends_on_it() {
+        let mut r = live();
+        let expected = slot_of(&r.fake, 8);
+        {
+            let mut amp = r.fake.lock().unwrap();
+            amp.press_channel(6);
+            amp.at_rq1(20, |a| a.press_channel(7));
+        }
+        assert_eq!(outcome(r.worker.idle(Instant::now())), vec![Event::Current(7, expected)]);
+        assert_eq!(outcome(r.worker.idle(Instant::now())), vec![]);
+    }
+
+    #[test]
+    fn channel_pressed_there_and_back_during_a_read_is_read_again() {
+        let mut r = live();
+        let expected = slot_of(&r.fake, 7);
+        {
+            let mut amp = r.fake.lock().unwrap();
+            amp.press_channel(6);
+            amp.at_rq1(10, |a| a.press_channel(7));
+            amp.at_rq1(20, |a| a.press_channel(6));
+        }
+        assert_eq!(outcome(r.worker.idle(Instant::now())), vec![Event::Current(6, expected)]);
+    }
+
+    #[test]
+    fn knob_turned_during_a_channel_read_is_not_lost() {
+        let mut r = live();
+        let expected = slot_of(&r.fake, 7);
+        {
+            let mut amp = r.fake.lock().unwrap();
+            amp.press_channel(6);
+            amp.at_rq1(RQ1S_PAST_AMP, |a| a.turn_panel(GAIN, &[77]));
+        }
+        let events = outcome(r.worker.idle(Instant::now()));
+        assert_eq!(events[0], Event::Current(6, expected));
+        let more = outcome(r.worker.idle(Instant::now()));
+        let all: Vec<_> = events.into_iter().skip(1).chain(more).collect();
+        assert_eq!(all, vec![Event::PanelChange { addr: GAIN, data: vec![77] }]);
+    }
+
+    #[test]
+    fn knob_turned_during_a_peek_is_not_lost() {
+        let mut r = live();
+        r.fake.lock().unwrap().at_rq1(2, |a| a.turn_panel(GAIN, &[77]));
+        r.worker.handle(Job::Peek(Channel::A1));
+        assert_eq!(r.worker.idle(Instant::now()), vec![Event::PanelChange { addr: GAIN, data: vec![77] }]);
+    }
+
+    #[test]
+    fn channel_press_during_a_peek_is_followed() {
+        let mut r = live();
+        let expected = slot_of(&r.fake, 7);
+        r.fake.lock().unwrap().at_rq1(2, |a| a.press_channel(6));
+        r.worker.handle(Job::Peek(Channel::A1));
+        assert_eq!(outcome(r.worker.idle(Instant::now())), vec![Event::Current(6, expected)]);
+    }
+
+    #[test]
+    fn own_select_echoes_do_not_read_again() {
+        let mut r = live();
+        r.fake.lock().unwrap().at_rq1(3, |a| {
+            let again = dt1(device::SELECTOR, &[0, 2]);
+            a.queue(again);
+        });
+        r.worker.handle(Job::Select(2));
+        assert_eq!(r.worker.idle(Instant::now()), vec![]);
+    }
+
+    #[test]
+    fn panel_read_reports_busy_before_it_reads() {
+        let mut r = live();
+        r.fake.lock().unwrap().press_channel(6);
+        let fake = r.fake.clone();
+        let mut sent_at_busy = None;
+        r.worker.idle_with(Instant::now(), &mut |e| {
+            if matches!(e, Event::Busy(Some(_))) {
+                sent_at_busy = Some(fake.lock().unwrap().sent.len());
+            }
+        });
+        assert_eq!(sent_at_busy, Some(0));
+    }
+
+    #[test]
+    fn a_report_of_what_the_shadow_holds_is_no_change() {
+        let mut r = live();
+        r.fake.lock().unwrap().queue(dt1(GAIN, &[0x40]));
+        assert_eq!(r.worker.idle(Instant::now()), vec![]);
+    }
+
+    #[test]
+    fn panel_blocks_cover_the_amp_settings() {
+        assert_eq!(device::PANEL_BLOCKS, TEST_PANEL_BLOCKS);
+    }
+
+    #[test]
+    fn live_failure_is_its_own_event_while_the_port_is_there() {
+        let mut r = connected();
+        r.fake.lock().unwrap().silent = true;
+        let events = outcome(r.worker.handle(Job::LiveOn));
+        assert!(matches!(events.as_slice(), [Event::LiveFailed(_)]), "{events:?}");
+        assert!(matches!(outcome(r.worker.handle(Job::Select(2))).as_slice(), [Event::Failed(_)]));
+    }
+
+    #[test]
+    fn unplug_during_live_on_is_a_disconnect() {
+        let mut r = connected();
+        r.fake.lock().unwrap().silent = true;
+        r.port.store(false, Ordering::SeqCst);
+        assert_eq!(outcome(r.worker.handle(Job::LiveOn)), vec![Event::Disconnected]);
+    }
+
+    const BOOSTER_COLOR: u32 = device::addr([0x20, 0x00, 0x04, 0x00]);
+    const DELAY_COLOR: u32 = device::addr([0x20, 0x00, 0x04, 0x03]);
+    const BOOSTER_SW: u32 = device::addr([0x20, 0x00, 0x08, 0x00]);
+
+    #[test]
+    fn colour_write_settles_before_the_next_one() {
+        let mut r = live();
+        let start = Instant::now();
+        r.worker.handle(Job::SetParam { addr: BOOSTER_COLOR, data: vec![1] });
+        assert!(start.elapsed() >= Duration::from_millis(300), "{:?}", start.elapsed());
+        r.worker.handle(Job::SetParam { addr: BOOSTER_SW, data: vec![1] });
+        let sent = r.fake.lock().unwrap().sent.clone();
+        assert_eq!(sent, vec![dt1(BOOSTER_COLOR, &[1]), dt1(BOOSTER_SW, &[1])]);
+    }
+
+    #[test]
+    fn every_colour_block_address_settles() {
+        let mut r = live();
+        let start = Instant::now();
+        r.worker.handle(Job::SetParam { addr: DELAY_COLOR, data: vec![1] });
+        assert!(start.elapsed() >= Duration::from_millis(300));
+    }
+
+    #[test]
+    fn coalesce_keeps_on_off_after_its_colour() {
+        let jobs = vec![set(BOOSTER_COLOR, 1), set(BOOSTER_SW, 1), set(BOOSTER_COLOR, 2)];
+        assert_eq!(coalesce(jobs.clone()), jobs);
+    }
+
+    #[test]
+    fn fast_edits_send_the_first_and_then_the_last_value() {
+        let mut r = live();
+        for v in [1, 2, 3, 4] {
+            r.worker.handle(Job::SetParam { addr: GAIN, data: vec![v] });
+        }
+        assert_eq!(r.fake.lock().unwrap().sent, vec![dt1(GAIN, &[1])], "the rest wait");
+        r.worker.idle(Instant::now() + Duration::from_millis(50));
+        assert_eq!(r.fake.lock().unwrap().sent, vec![dt1(GAIN, &[1]), dt1(GAIN, &[4])]);
+    }
+
+    #[test]
+    fn a_held_edit_goes_out_before_the_next_job() {
+        let mut r = live();
+        r.worker.handle(Job::SetParam { addr: GAIN, data: vec![1] });
+        r.worker.handle(Job::SetParam { addr: GAIN, data: vec![2] });
+        r.worker.handle(Job::Peek(Channel::A1));
+        let sent = r.fake.lock().unwrap().sent.clone();
+        assert_eq!(sent[1], dt1(GAIN, &[2]));
+    }
+
+    #[test]
+    fn a_held_edit_goes_out_before_a_colour() {
+        let mut r = live();
+        r.worker.handle(Job::SetParam { addr: GAIN, data: vec![1] });
+        r.worker.handle(Job::SetParam { addr: GAIN, data: vec![2] });
+        r.worker.handle(Job::SetParam { addr: BOOSTER_COLOR, data: vec![1] });
+        let sent = r.fake.lock().unwrap().sent.clone();
+        assert_eq!(sent, vec![dt1(GAIN, &[1]), dt1(GAIN, &[2]), dt1(BOOSTER_COLOR, &[1])]);
+    }
+
+    #[test]
+    fn a_held_edit_goes_out_at_shutdown() {
+        let mut r = live();
+        r.worker.handle(Job::SetParam { addr: GAIN, data: vec![1] });
+        r.worker.handle(Job::SetParam { addr: GAIN, data: vec![2] });
+        r.worker.handle(Job::Shutdown);
+        assert!(r.fake.lock().unwrap().sent.contains(&dt1(GAIN, &[2])));
+    }
+
+    #[test]
+    fn a_held_edit_is_not_read_back_as_a_panel_change() {
+        let mut r = live();
+        r.worker.panel_blocks = TEST_PANEL_BLOCKS;
+        let t0 = Instant::now();
+        r.worker.idle(t0);
+        r.worker.handle(Job::SetParam { addr: GAIN, data: vec![1] });
+        r.worker.handle(Job::SetParam { addr: GAIN, data: vec![2] });
+        assert_eq!(r.worker.idle(t0 + Duration::from_millis(1100)), vec![]);
+    }
+
+    #[test]
+    fn failed_store_reports_the_channel_the_amp_is_on() {
+        let dir = temp_dir("failed-channel");
+        let mut r = connected();
+        // After the two backup reads, the amp has moved on and stops taking writes.
+        r.fake.lock().unwrap().at_rq1(160, |a| {
+            a.mem.apply(Address(device::SELECTOR), &[0, 3]);
+            a.ignore_dt1 = true;
+        });
+        let events = outcome(r.worker.handle(store_job(&dir)));
+        assert!(matches!(events.as_slice(), [Event::StoreFailed(_), Event::AmpOn(3)]), "{events:?}");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

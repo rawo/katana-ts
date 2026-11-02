@@ -238,6 +238,7 @@ impl KatanaApp {
                 }
                 self.error = Some(message);
             }
+            Event::LiveFailed(message) => self.error = Some(message),
             Event::Busy(what) => self.busy = what,
             Event::Current(..) | Event::PanelChange { .. } => {}
         }

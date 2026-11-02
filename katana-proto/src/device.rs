@@ -36,6 +36,19 @@ pub const SEND_INTERVAL: std::time::Duration = std::time::Duration::from_millis(
 pub const SETTLE_AFTER: &[(u32, std::time::Duration)] =
     &[(addr([0x20, 0x00, 0x04, 0x00]), std::time::Duration::from_millis(300))];
 
+/// The COLOR block: the colours of booster, mod, FX, delay and reverb.
+const COLOR_BLOCK: (u32, u32) = (addr([0x20, 0x00, 0x04, 0x00]), 5);
+
+/// Pause owed after a single write to `a`. `SETTLE_AFTER` goes by block for a
+/// whole patch; one parameter can be any colour in the block.
+pub fn settle_after_param(a: u32) -> std::time::Duration {
+    if (COLOR_BLOCK.0..COLOR_BLOCK.0 + COLOR_BLOCK.1).contains(&a) {
+        SETTLE_AFTER[0].1
+    } else {
+        std::time::Duration::ZERO
+    }
+}
+
 /// Current-patch ranges the amp accepts DT1 for but never changes (no error,
 /// value kept). Skipped by `write_patch`, excluded from write-back checks.
 /// SOLO_DELAY (`20 00 3E 00`, 14 bytes) — evidence: 2026-10-22 writes of
@@ -77,15 +90,14 @@ pub const NOT_STORED: &[(u32, u32)] = WRITE_PROTECTED;
 /// SOLO_DELAY level (`20 50 3E 07` in slot 9) was 50, a DT1 of 30 read back 50.
 pub const SLOT_SOLO_DELAY_WRITABLE: bool = false;
 
-/// Current-patch blocks to re-read while Live edit is on, for panel changes the
-/// amp doesn't report by itself. Empty: in editor mode the amp reports every
-/// panel action as a DT1. Evidence (stage 2 hardware check, 2026-11-02):
-/// `captures/102-panel-editor-mode.log` has every knob, on/off, colour, solo,
-/// contour, cabinet and channel action. `captures/103-*` and `captures/104-*`
-/// replay the log over a snapshot taken before it: the result equals the
-/// snapshot taken after it, byte for byte (14 and 1 changed bytes). One report
-/// is unexplained: see docs/protocol.md, "Panel in editor mode".
-pub const PANEL_BLOCKS: &[(u32, u32)] = &[];
+/// Current-patch blocks to re-read while Live edit is on. The amp reports every
+/// panel action as a DT1 in editor mode, so this is a safety net: the AMP block.
+/// Evidence (stage 2 hardware check, 2026-11-02): `captures/103-*` and
+/// `captures/104-*` replay the log over a snapshot taken before it and equal the
+/// snapshot taken after it. But in `captures/102-*` a report of the amp type
+/// went missing for no known reason (docs/protocol.md, "Panel in editor mode"),
+/// and a wrong amp type could be saved or stored without anyone hearing why.
+pub const PANEL_BLOCKS: &[(u32, u32)] = &[(addr([0x20, 0x00, 0x06, 0x00]), 10)];
 
 /// Whether `amp::select` can select PANEL (selector 0) in editor mode. Yes —
 /// evidence: hardware test `select_panel_and_back`, 2026-10-31 (selector 5 →

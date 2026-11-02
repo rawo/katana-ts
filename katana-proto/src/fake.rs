@@ -27,9 +27,49 @@ pub struct FakeAmp {
     /// Send the amp's own messages after a channel select or a store.
     pub echo: bool,
     pending: VecDeque<Vec<u8>>,
+    /// Scripted happenings: (RQ1s still to come before it, what happens).
+    script: Vec<(usize, Script)>,
 }
 
+/// Something that happens on the amp while the host is reading from it.
+pub type Script = Box<dyn FnOnce(&mut FakeAmp) + Send>;
+
 impl FakeAmp {
+    /// Runs `happening` just before the amp answers the `n`th RQ1 from now
+    /// (1 = the next): what the amp says then lands in the middle of a read.
+    pub fn at_rq1(&mut self, n: usize, happening: impl FnOnce(&mut FakeAmp) + Send + 'static) {
+        self.script.push((n, Box::new(happening)));
+    }
+
+    /// The channel button on the panel: loads the channel, reports the selector.
+    pub fn press_channel(&mut self, selector: u8) {
+        self.mem.apply(Address(device::SELECTOR), &[0, selector]);
+        self.copy_patch(slot_offset(selector + 1), 0);
+        let _ = self.notify(device::SELECTOR, &[0, selector]);
+    }
+
+    /// A panel control: changes the current patch, reports the bytes.
+    pub fn turn_panel(&mut self, addr: u32, data: &[u8]) {
+        self.mem.apply(Address(addr), data);
+        let _ = self.notify(addr, data);
+    }
+
+    fn run_script(&mut self) {
+        let mut due = Vec::new();
+        let mut later = Vec::new();
+        for (n, happening) in std::mem::take(&mut self.script) {
+            if n <= 1 {
+                due.push(happening);
+            } else {
+                later.push((n - 1, happening));
+            }
+        }
+        self.script = later;
+        for happening in due {
+            happening(self);
+        }
+    }
+
     /// Queues `msg` as if the amp had sent it by itself.
     pub fn queue(&mut self, msg: Vec<u8>) {
         self.pending.push_back(msg);
@@ -48,6 +88,7 @@ impl FakeAmp {
             editor: false,
             echo: true,
             pending: VecDeque::new(),
+            script: Vec::new(),
         }
     }
 }
@@ -110,6 +151,7 @@ impl Transport for FakeAmp {
                 }
             }
             Ok(Command::Rq1 { addr, size }) if !self.silent => {
+                self.run_script();
                 self.pending.extend(self.noise.iter().cloned());
                 let data: Vec<u8> =
                     (addr.0..addr.0 + size.0).map(|k| self.mem.0.get(&k).copied().unwrap_or(0)).collect();

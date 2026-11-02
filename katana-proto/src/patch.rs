@@ -166,11 +166,7 @@ fn restrict(mem: &MemoryMap, blocks: &[(u32, u32)]) -> Result<Patch, ProtoError>
 }
 
 /// Reads the given (address, size) blocks; anything else the amp sends meanwhile is ignored.
-pub fn read_blocks(
-    t: &mut dyn Transport,
-    blocks: &[(u32, u32)],
-    timeout: Duration,
-) -> Result<Patch, ProtoError> {
+pub fn read_blocks(t: &mut dyn Transport, blocks: &[(u32, u32)], timeout: Duration) -> Result<Patch, ProtoError> {
     let h = device::header();
     let mut mem = MemoryMap::default();
     for &(a, s) in blocks {
@@ -449,10 +445,7 @@ mod tests {
     fn read_patch_times_out_when_amp_silent() {
         let mut amp = filled_amp(128);
         amp.silent = true;
-        assert!(matches!(
-            read_blocks(&mut amp, BLOCKS, Duration::from_millis(50)),
-            Err(ProtoError::Timeout { .. })
-        ));
+        assert!(matches!(read_blocks(&mut amp, BLOCKS, Duration::from_millis(50)), Err(ProtoError::Timeout { .. })));
     }
 
     #[test]

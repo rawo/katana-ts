@@ -217,8 +217,8 @@ and checked with the hardware tests in `katana-proto/tests/hardware.rs`
   "Panel in editor mode" below.
 - **Panel in editor mode** (2026-11-02, the user at the amp, `monitor --editor`,
   `captures/102-*`, `103-*`, `104-*`): the panel behaved normally (sound, LEDs,
-  channel switching). **Every panel action tried is reported as a DT1**, so nothing
-  needs re-reading (`device::PANEL_BLOCKS` is empty):
+  channel switching). **Every panel action tried is reported as a DT1**. The app still
+  re-reads the AMP block once a second (`device::PANEL_BLOCKS`), see "Unexplained" below:
 
   | Panel action | DT1s from the amp |
   |---|---|
@@ -251,7 +251,8 @@ and checked with the hardware tests in `katana-proto/tests/hardware.rs`
     channel before PANEL, stores `4`, which is why selecting PANEL reported no
     change. A 3→4 report seems to be missing; it didn't happen again in `103` and
     `104` (41 reports, both checks byte-exact). The cause is unknown. If it is a real
-    loss, the app shows the old amp type until the next channel switch.
+    loss, the app would show and could store an amp type that isn't the one heard, so
+    the AMP block is re-read once a second as a safety net.
 - **CLI end to end** (2026-10-31, `katana-cli`, A3 and A4):
   - `tsl-list samples/Black_Sabbath.tsl` → `1 iron man`, `2 Paranoid`, `3 Black Sabbath`.
   - `dump A3 a3.syx` / `dump A3 a3.tsl` → both written ("A3 'Riff Shred'"); again

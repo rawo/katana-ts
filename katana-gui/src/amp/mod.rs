@@ -46,6 +46,8 @@ pub enum Event {
     },
     StoreFailed(String),
     Failed(String),
+    /// Live edit couldn't start; the worker's Live is off.
+    LiveFailed(String),
     /// A long job started (`Some(what)`) or ended (`None`).
     Busy(Option<String>),
 }
