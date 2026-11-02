@@ -329,7 +329,7 @@ fn state_keeps_channel_tab() {
     let root = tmp("lib-state-channel");
     let mut lib = Library::open(root);
     let now = chrono::NaiveDate::from_ymd_opt(2026, 11, 2).unwrap().and_hms_opt(20, 0, 0).unwrap();
-    lib.autosave(&patch("X", 1), &katana_gui::editor::Origin::None, true, Some(4), now).unwrap();
+    lib.autosave(&patch("X", 1), &katana_gui::editor::Origin::None, true, Some(4), None, now).unwrap();
     assert_eq!(lib.last_autosave().unwrap().3, Some(4));
 }
 
@@ -338,7 +338,7 @@ fn old_state_without_channel_still_loads() {
     let root = tmp("lib-state-old");
     let mut lib = Library::open(root.clone());
     let now = chrono::NaiveDate::from_ymd_opt(2026, 11, 2).unwrap().and_hms_opt(20, 0, 0).unwrap();
-    lib.autosave(&patch("X", 1), &katana_gui::editor::Origin::None, true, Some(4), now).unwrap();
+    lib.autosave(&patch("X", 1), &katana_gui::editor::Origin::None, true, Some(4), None, now).unwrap();
     let state = root.join("autosave/state.json");
     let mut json: serde_json::Value = serde_json::from_slice(&std::fs::read(&state).unwrap()).unwrap();
     json.as_object_mut().unwrap().remove("channel");

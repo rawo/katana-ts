@@ -58,8 +58,8 @@ pub struct KatanaApp {
     pub sort: library::Sort,
     /// A library file waiting for the user to confirm its deletion, with its name.
     pending_delete: Option<(PathBuf, String)>,
-    /// The editor's patch and origin and the channel tab as last auto-saved (or as at start).
-    autosaved: (Patch, Origin, Option<u8>),
+    /// The editor's patch, origin and amp baseline, and the channel tab, as last auto-saved (or as at start).
+    autosaved: (Patch, Origin, Option<u8>, Option<Patch>),
     /// `egui` time of the last timed auto-save.
     autosaved_at: Option<f64>,
     /// Local time of the last auto-save, for the status line.
@@ -80,6 +80,8 @@ pub struct KatanaApp {
     pub busy: Option<String>,
     /// The last change made on the amp's panel: what, and when.
     pub last_panel_change: Option<(String, chrono::NaiveDateTime)>,
+    /// The content last kept by `keep_unsaved`.
+    kept_unsaved: Option<Patch>,
     /// Set by the signal handler: save and close without asking.
     pub quit_signal: Arc<AtomicBool>,
     store_dialog: Option<StoreDialog>,
@@ -106,7 +108,7 @@ impl KatanaApp {
         let problems = std::mem::take(&mut library.problems);
         let editor = Editor::new();
         KatanaApp {
-            autosaved: (editor.patch().clone(), Origin::None, None),
+            autosaved: (editor.patch().clone(), Origin::None, None, None),
             autosaved_at: None,
             last_autosave: None,
             channel_tab: None,
@@ -116,6 +118,7 @@ impl KatanaApp {
             live: false,
             busy: None,
             last_panel_change: None,
+            kept_unsaved: None,
             quit_signal: Arc::default(),
             store_dialog: None,
             storing: None,
@@ -168,8 +171,11 @@ impl KatanaApp {
             Event::Connected => {
                 self.connected = true;
                 if self.live {
-                    self.quick_save_if_dirty(now);
-                    self.send(Job::LiveOn);
+                    if self.keep_unsaved(now) {
+                        self.send(Job::LiveOn);
+                    } else {
+                        self.live = false;
+                    }
                 }
             }
             Event::Disconnected => {
@@ -186,13 +192,19 @@ impl KatanaApp {
                 }
             }
             Event::Slot(sel, p) => {
-                self.show_amp_settings(sel, p, now);
-                self.channel_tab = Some(sel);
+                if self.show_amp_settings(sel, p, now) {
+                    self.channel_tab = Some(sel);
+                }
             }
             Event::Current(sel, p) if self.live => {
-                self.show_amp_settings(sel, p, now);
-                self.channel_tab = Some(sel);
                 self.amp_on = Some(sel);
+                if self.show_amp_settings(sel, p, now) {
+                    self.channel_tab = Some(sel);
+                } else {
+                    // The edits can't be kept anywhere else: stop following the amp.
+                    self.live = false;
+                    self.send(Job::LiveOff);
+                }
             }
             Event::PanelChange { addr, data } if self.live => {
                 self.editor.apply_amp_change(addr, &data);
@@ -233,19 +245,38 @@ impl KatanaApp {
 
     /// The amp's settings take over the editor; unsaved changes are kept in a
     /// quick save first, and the channel's copy is kept for viewing without the amp.
-    fn show_amp_settings(&mut self, sel: u8, p: Patch, now: chrono::NaiveDateTime) {
-        self.quick_save_if_dirty(now);
+    /// False, with the editor untouched, if the changes couldn't be kept.
+    fn show_amp_settings(&mut self, sel: u8, p: Patch, now: chrono::NaiveDateTime) -> bool {
+        if !self.keep_unsaved(now) {
+            return false;
+        }
         if self.library.root().is_some() {
             if let Err(e) = self.library.save_channel_copy(sel, &p) {
                 self.error = Some(e);
             }
         }
         self.editor.replace_from_amp(p);
+        true
     }
 
-    fn quick_save_if_dirty(&mut self, now: chrono::NaiveDateTime) {
-        if self.editor.is_dirty() {
-            self.quick_save(now);
+    /// Before the amp's settings replace the editor: unsaved changes go into a new
+    /// quick save, never over an existing file, and the editor and its origin stay
+    /// as they are. Once per content, as a tab click and its result both ask. False
+    /// if they couldn't be kept; then the error says so.
+    fn keep_unsaved(&mut self, now: chrono::NaiveDateTime) -> bool {
+        if !self.editor.is_dirty() || self.kept_unsaved.as_ref() == Some(self.editor.patch()) {
+            return true;
+        }
+        let patch = self.editor.patch().clone();
+        match self.library.new_quick_save(&patch, now) {
+            Ok(_) => {
+                self.kept_unsaved = Some(patch);
+                true
+            }
+            Err(e) => {
+                self.error = Some(format!("Your unsaved changes couldn't be kept ({e}), so they stay in the editor"));
+                false
+            }
         }
     }
 
@@ -259,10 +290,11 @@ impl KatanaApp {
     }
 
     pub fn set_live(&mut self, on: bool) {
-        self.live = on;
+        self.live = on && self.keep_unsaved(chrono::Local::now().naive_local());
         if on {
-            self.quick_save_if_dirty(chrono::Local::now().naive_local());
-            self.send(Job::LiveOn);
+            if self.live {
+                self.send(Job::LiveOn);
+            }
         } else {
             self.send(Job::LiveOff);
         }
@@ -281,11 +313,15 @@ impl KatanaApp {
     pub fn click_channel(&mut self, selector: u8) {
         let now = chrono::Local::now().naive_local();
         if self.connected {
-            self.quick_save_if_dirty(now);
+            if !self.keep_unsaved(now) {
+                return;
+            }
             self.send(if self.live { Job::Select(selector) } else { Job::ReadSlot(selector) });
         } else {
             let Some(copy) = self.library.channel_copy(selector) else { return };
-            self.quick_save_if_dirty(now);
+            if !self.keep_unsaved(now) {
+                return;
+            }
             self.editor.replace_from_amp(copy);
         }
         self.channel_tab = Some(selector);
@@ -413,7 +449,7 @@ impl KatanaApp {
     /// without one, and says so.
     pub fn start(library: Library) -> KatanaApp {
         let mut app = KatanaApp::with_library(library);
-        let Some((patch, origin, dirty, channel)) = app.library.last_autosave() else {
+        let Some((patch, origin, dirty, channel, amp_baseline)) = app.library.last_autosave() else {
             app.take_library_problems();
             return app;
         };
@@ -428,8 +464,11 @@ impl KatanaApp {
         };
         // Clean at quit: the origin file is the truth, even if it changed since.
         let patch = if dirty || origin == Origin::None { patch } else { baseline.clone() };
-        app.editor.restore(patch, baseline, origin);
-        app.autosaved = (app.editor.patch().clone(), app.editor.origin().clone(), app.channel_tab);
+        match amp_baseline {
+            Some(amp) => app.editor.restore_from_amp(patch, amp, origin),
+            None => app.editor.restore(patch, baseline, origin),
+        }
+        app.autosaved = app.autosave_state();
         app.take_library_problems();
         app
     }
@@ -451,13 +490,29 @@ impl KatanaApp {
         }
     }
 
+    fn autosave_state(&self) -> (Patch, Origin, Option<u8>, Option<Patch>) {
+        (
+            self.editor.patch().clone(),
+            self.editor.origin().clone(),
+            self.channel_tab,
+            self.editor.amp_baseline().cloned(),
+        )
+    }
+
     /// Auto-saves the editor's state if it changed since the last one; true if written.
     fn autosave(&mut self, now: chrono::NaiveDateTime) -> bool {
-        let state = (self.editor.patch().clone(), self.editor.origin().clone(), self.channel_tab);
+        let state = self.autosave_state();
         if state == self.autosaved || self.library.root().is_none() {
             return false;
         }
-        match self.library.autosave(&state.0, &state.1, self.editor.needs_restore_as_is(), state.2, now) {
+        match self.library.autosave(
+            &state.0,
+            &state.1,
+            self.editor.needs_restore_as_is(),
+            state.2,
+            state.3.as_ref(),
+            now,
+        ) {
             Ok(()) => {
                 self.autosaved = state;
                 self.last_autosave = Some(now);
@@ -534,7 +589,8 @@ impl KatanaApp {
     pub fn quick_save(&mut self, now: chrono::NaiveDateTime) {
         let patch = self.editor.patch().clone();
         let result = match self.editor.origin().clone() {
-            Origin::QuickSave(path) if !self.library.is_read_only(&path) => {
+            // Content from the amp is not that quick save's: it gets a file of its own.
+            Origin::QuickSave(path) if !self.library.is_read_only(&path) && !self.editor.is_replaced() => {
                 self.library.overwrite(&path, &patch).map(|()| path)
             }
             _ => self.library.new_quick_save(&patch, now),

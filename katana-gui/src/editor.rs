@@ -27,7 +27,7 @@ pub struct Editor {
     /// What was last opened or saved; the editor is dirty while it differs.
     baseline: Patch,
     origin: Origin,
-    /// The amp's settings replaced a library preset's; the origin is still that file.
+    /// The amp's settings replaced the content; the origin, if any, is still that file.
     replaced: bool,
 }
 
@@ -116,7 +116,6 @@ impl Editor {
     /// The origin file is gone: keep the patch, with no file behind it.
     pub fn forget_origin(&mut self) {
         self.origin = Origin::None;
-        self.replaced = false;
     }
 
     /// The amp's settings take over the editor; clean afterwards. The origin
@@ -124,12 +123,28 @@ impl Editor {
     pub fn replace_from_amp(&mut self, patch: Patch) {
         self.baseline = patch.clone();
         self.patch = patch;
-        self.replaced = self.origin.path().is_some();
+        self.replaced = true;
     }
 
     /// A change made on the amp: counts as an edit, like one made in the app.
     pub fn apply_amp_change(&mut self, addr: u32, data: &[u8]) {
         self.patch.mem.apply(Address(addr), data);
+    }
+
+    /// Puts back an auto-saved state whose baseline came from the amp.
+    pub fn restore_from_amp(&mut self, patch: Patch, baseline: Patch, origin: Origin) {
+        self.restore(patch, baseline, origin);
+        self.replaced = true;
+    }
+
+    /// The baseline, when it came from the amp and not from the origin file.
+    pub fn amp_baseline(&self) -> Option<&Patch> {
+        self.replaced.then_some(&self.baseline)
+    }
+
+    /// Whether the amp's settings replaced the content.
+    pub fn is_replaced(&self) -> bool {
+        self.replaced
     }
 
     /// Set while the amp's settings replaced a library preset.

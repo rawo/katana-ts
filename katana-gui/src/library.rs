@@ -81,6 +81,18 @@ struct AutosaveState {
     /// The channel tab shown (a selector).
     #[serde(default)]
     channel: Option<u8>,
+    /// The baseline as hex `.syx`, when it came from the amp: no file holds it.
+    #[serde(default)]
+    amp_baseline: Option<String>,
+}
+
+fn to_hex(bytes: &[u8]) -> String {
+    bytes.iter().map(|b| format!("{b:02X}")).collect()
+}
+
+fn from_hex(text: &str) -> Option<Vec<u8>> {
+    let digits: Vec<char> = text.chars().collect();
+    digits.chunks(2).map(|d| u8::from_str_radix(&d.iter().collect::<String>(), 16).ok()).collect()
 }
 
 /// The name of a channel's copy, for a selector: 0 = PANEL, 1–8 = A1–B4.
@@ -332,6 +344,7 @@ impl Library {
         origin: &Origin,
         dirty: bool,
         channel: Option<u8>,
+        amp_baseline: Option<&Patch>,
         now: chrono::NaiveDateTime,
     ) -> Result<(), String> {
         let dir = self.root.as_ref().ok_or("No library folder")?.join(AUTOSAVE);
@@ -355,7 +368,14 @@ impl Library {
             Origin::Patch(p) => self.key(p).map(|path| SavedOrigin { kind: "patch".into(), path }),
             Origin::QuickSave(p) => self.key(p).map(|path| SavedOrigin { kind: "quick-save".into(), path }),
         };
-        let state = AutosaveState { latest: file_name(&path), origin, dirty, files: keep.clone(), channel };
+        let state = AutosaveState {
+            latest: file_name(&path),
+            origin,
+            dirty,
+            files: keep.clone(),
+            channel,
+            amp_baseline: amp_baseline.map(|p| to_hex(&p.to_syx())),
+        };
         let text = serde_json::to_string_pretty(&state).map_err(|e| e.to_string())?;
         write_atomic(&dir.join(AUTOSAVE_STATE), text.as_bytes()).map_err(fail)?;
         // Everything not among the newest written goes, including files the state doesn't know.
@@ -392,9 +412,9 @@ impl Library {
     }
 
     /// The newest auto-save, its origin, whether it differed from the origin
-    /// file, and the channel tab shown; `None` when there is none or it can't be read (then a
+    /// file, the channel tab shown, and the baseline if it came from the amp; `None` when there is none or it can't be read (then a
     /// problem says so).
-    pub fn last_autosave(&mut self) -> Option<(Patch, Origin, bool, Option<u8>)> {
+    pub fn last_autosave(&mut self) -> Option<(Patch, Origin, bool, Option<u8>, Option<Patch>)> {
         let dir = self.root.as_ref()?.join(AUTOSAVE);
         let text = std::fs::read(dir.join(AUTOSAVE_STATE)).ok()?;
         let restored = serde_json::from_slice::<AutosaveState>(&text).map_err(|e| e.to_string()).and_then(|state| {
@@ -405,7 +425,8 @@ impl Library {
                 Some(o) if o.kind == "quick-save" => Origin::QuickSave(root.join(o.path)),
                 Some(o) => Origin::Patch(root.join(o.path)),
             };
-            Ok((patch, origin, state.dirty, state.channel))
+            let amp_baseline = state.amp_baseline.as_deref().and_then(from_hex).and_then(|b| Patch::from_syx(&b).ok());
+            Ok((patch, origin, state.dirty, state.channel, amp_baseline))
         });
         restored.map_err(|e| self.problems.push(format!("The last auto-save couldn't be restored: {e}"))).ok()
     }
