@@ -213,8 +213,45 @@ and checked with the hardware tests in `katana-proto/tests/hardware.rs`
     `7F 01 01 01`–`05` status stream (seen: `02 03 03 00 00`, repeating);
   - after `PATCH_WRITE` B4: its echo (`7F 00 01 04` ← `00 08`, seen twice), then the
     same status stream.
-  The `7F 01 01 xx` meaning is not decoded (`amp::Notification::Other`). Panel
-  actions that are and aren't reported: not yet checked (needs the user at the amp).
+  The `7F 01 01 xx` stream arrives as `amp::Notification::Other`; its meaning is in
+  "Panel in editor mode" below.
+- **Panel in editor mode** (2026-11-02, the user at the amp, `monitor --editor`,
+  `captures/102-*`, `103-*`, `104-*`): the panel behaved normally (sound, LEDs,
+  channel switching). **Every panel action tried is reported as a DT1**, so nothing
+  needs re-reading (`device::PANEL_BLOCKS` is empty):
+
+  | Panel action | DT1s from the amp |
+  |---|---|
+  | GAIN, VOLUME, BASS, MIDDLE, TREBLE, PRESENCE | `20 00 06 00`–`05` |
+  | Amp type | `20 00 06 07` |
+  | Booster knob | `20 00 0A/0C/0E 01` drive and `06` level (block follows the colour), `20 01 1C 00`, `30 00 02 00` |
+  | Mod, FX knob | the selected effect's own parameter (seen: `20 00 21 48`, `20 00 23 19`), `20 01 1C 01/02`, `30 00 02 01/02` |
+  | Delay knob | `20 00 2A/2C 05` feedback and `07` level, `20 01 1C 03`, `30 00 02 03` |
+  | Reverb knob | `20 00 34/36/38 0A` level and `09`, `20 01 1C 04`, `30 00 02 04` |
+  | Effect knob to/from its off position | also `20 00 08 00/01/02/03/05` on/off |
+  | Effect colour button | `20 00 04 00`–`04` and `7F 01 01 01`–`05` |
+  | SOLO, CONTOUR, cabinet resonance | `20 00 3A 00`, `20 00 40 00`, `20 00 02 01` |
+  | Channel | selector `00 00 00 00` ← `00 nn`, then `7F 01 01 01`–`05` (twice) |
+
+  - Check: patch snapshot, log, snapshot; the log replayed over the first snapshot
+    equals the second byte for byte (`103`: colours with knobs, all 6 amp types,
+    contour, cabinet, 14 changed bytes; `104`: 35 fast amp type steps, none skipped).
+    Knob turns in other colours land in that colour's block.
+  - A channel switch reports only the selector, not the new patch, so the current
+    patch must be read after it. Selecting PANEL reports the bytes where the panel
+    differs from the channel just left, after the selector (`102`, lines 988–1001).
+  - `7F 01 01 01`–`05` is the LED of booster, mod, FX, delay, reverb: `0`–`2` colour,
+    `3` off (observed: follows `20 00 04 0n` and on/off; not in the app's table as
+    such). `30 00 02 00`–`04` mirrors `20 01 1C 00`–`04`. Neither is in the current
+    patch.
+  - **Selecting PANEL with `PATCH_SELECT` works** (`device::PANEL_SELECTABLE` = true;
+    hardware test `select_panel_and_back`, 2026-10-31: selector 5 → PANEL → 5).
+  - **Unexplained:** in `102` the last amp type report is `3` (lines 453–454), yet
+    the amp read `4` after the log and the user's knob was on LEAD (`4`). B4, the
+    channel before PANEL, stores `4`, which is why selecting PANEL reported no
+    change. A 3→4 report seems to be missing; it didn't happen again in `103` and
+    `104` (41 reports, both checks byte-exact). The cause is unknown. If it is a real
+    loss, the app shows the old amp type until the next channel switch.
 - **CLI end to end** (2026-10-31, `katana-cli`, A3 and A4):
   - `tsl-list samples/Black_Sabbath.tsl` → `1 iron man`, `2 Paranoid`, `3 Black Sabbath`.
   - `dump A3 a3.syx` / `dump A3 a3.tsl` → both written ("A3 'Riff Shred'"); again

@@ -77,29 +77,20 @@ pub const NOT_STORED: &[(u32, u32)] = WRITE_PROTECTED;
 /// SOLO_DELAY level (`20 50 3E 07` in slot 9) was 50, a DT1 of 30 read back 50.
 pub const SLOT_SOLO_DELAY_WRITABLE: bool = false;
 
-/// Current-patch blocks the panel can change and that are re-read while Live
-/// edit is on, to notice panel changes the amp doesn't report by itself.
-/// Starting set from docs/protocol.md's panel table (cabinet in OTHER, colours,
-/// amp knobs, on/off, booster/delay/reverb per colour, solo, contour, knob
-/// positions); settled by the stage 2 hardware check.
-pub const PANEL_BLOCKS: &[(u32, u32)] = &[
-    (addr([0x20, 0x00, 0x02, 0x00]), 3),  // OTHER
-    (addr([0x20, 0x00, 0x04, 0x00]), 5),  // COLOR
-    (addr([0x20, 0x00, 0x06, 0x00]), 10), // AMP
-    (addr([0x20, 0x00, 0x08, 0x00]), 6),  // SW
-    (addr([0x20, 0x00, 0x0A, 0x00]), 8),  // BOOSTER(1)
-    (addr([0x20, 0x00, 0x0C, 0x00]), 8),  // BOOSTER(2)
-    (addr([0x20, 0x00, 0x0E, 0x00]), 8),  // BOOSTER(3)
-    (addr([0x20, 0x00, 0x28, 0x00]), 17), // DELAY(1)
-    (addr([0x20, 0x00, 0x2A, 0x00]), 17), // DELAY(2)
-    (addr([0x20, 0x00, 0x2C, 0x00]), 17), // DELAY(3)
-    (addr([0x20, 0x00, 0x34, 0x00]), 13), // REVERB(1)
-    (addr([0x20, 0x00, 0x36, 0x00]), 13), // REVERB(2)
-    (addr([0x20, 0x00, 0x38, 0x00]), 13), // REVERB(3)
-    (addr([0x20, 0x00, 0x3A, 0x00]), 2),  // SOLO_COM
-    (addr([0x20, 0x00, 0x40, 0x00]), 1),  // CONTOUR_COM
-    (addr([0x20, 0x01, 0x1C, 0x00]), 5),  // PATCH_KNOB_READONLY
-];
+/// Current-patch blocks to re-read while Live edit is on, for panel changes the
+/// amp doesn't report by itself. Empty: in editor mode the amp reports every
+/// panel action as a DT1. Evidence (stage 2 hardware check, 2026-11-02):
+/// `captures/102-panel-editor-mode.log` has every knob, on/off, colour, solo,
+/// contour, cabinet and channel action. `captures/103-*` and `captures/104-*`
+/// replay the log over a snapshot taken before it: the result equals the
+/// snapshot taken after it, byte for byte (14 and 1 changed bytes). One report
+/// is unexplained: see docs/protocol.md, "Panel in editor mode".
+pub const PANEL_BLOCKS: &[(u32, u32)] = &[];
+
+/// Whether `amp::select` can select PANEL (selector 0) in editor mode. Yes —
+/// evidence: hardware test `select_panel_and_back`, 2026-10-31 (selector 5 →
+/// PANEL → 5, both `Ok`).
+pub const PANEL_SELECTABLE: bool = true;
 
 pub fn is_write_protected(linear: u32) -> bool {
     WRITE_PROTECTED.iter().any(|&(a, n)| (a..a + n).contains(&linear))
