@@ -10,12 +10,13 @@ use std::time::SystemTime;
 use katana_proto::tsl::ToneSet;
 
 use crate::editor::Origin;
-use katana_proto::Patch;
+use katana_proto::{Channel, Patch};
 use serde::{Deserialize, Serialize};
 
 pub const PATCHES: &str = "patches";
 pub const QUICK_SAVES: &str = "quick-saves";
 pub const SETS: &str = "sets";
+pub const CHANNELS: &str = "channels";
 pub const AUTOSAVE: &str = "autosave";
 const INDEX: &str = "index.json";
 const AUTOSAVE_STATE: &str = "state.json";
@@ -77,6 +78,17 @@ struct AutosaveState {
     /// follows this, not the time in the names, which can go back (DST, clock fixes).
     #[serde(default)]
     files: Vec<String>,
+    /// The channel tab shown (a selector).
+    #[serde(default)]
+    channel: Option<u8>,
+}
+
+/// The name of a channel's copy, for a selector: 0 = PANEL, 1–8 = A1–B4.
+fn channel_copy_name(selector: u8) -> Option<String> {
+    match selector {
+        0 => Some("PANEL.syx".to_string()),
+        n => Channel::ALL.get(n as usize - 1).map(|c| format!("{c}.syx")),
+    }
 }
 
 fn yes() -> bool {
@@ -319,6 +331,7 @@ impl Library {
         patch: &Patch,
         origin: &Origin,
         dirty: bool,
+        channel: Option<u8>,
         now: chrono::NaiveDateTime,
     ) -> Result<(), String> {
         let dir = self.root.as_ref().ok_or("No library folder")?.join(AUTOSAVE);
@@ -342,7 +355,7 @@ impl Library {
             Origin::Patch(p) => self.key(p).map(|path| SavedOrigin { kind: "patch".into(), path }),
             Origin::QuickSave(p) => self.key(p).map(|path| SavedOrigin { kind: "quick-save".into(), path }),
         };
-        let state = AutosaveState { latest: file_name(&path), origin, dirty, files: keep.clone() };
+        let state = AutosaveState { latest: file_name(&path), origin, dirty, files: keep.clone(), channel };
         let text = serde_json::to_string_pretty(&state).map_err(|e| e.to_string())?;
         write_atomic(&dir.join(AUTOSAVE_STATE), text.as_bytes()).map_err(fail)?;
         // Everything not among the newest written goes, including files the state doesn't know.
@@ -352,15 +365,30 @@ impl Library {
         Ok(())
     }
 
+    /// Keeps `p` as the last seen copy of a channel, for viewing it without the amp.
+    pub fn save_channel_copy(&self, selector: u8, p: &Patch) -> Result<(), String> {
+        let name = channel_copy_name(selector).ok_or_else(|| format!("No channel {selector}"))?;
+        let dir = self.root.as_ref().ok_or("No library folder")?.join(CHANNELS);
+        let fail = |e: std::io::Error| format!("Couldn't keep a copy of the channel: {e}");
+        std::fs::create_dir_all(&dir).map_err(fail)?;
+        write_atomic(&dir.join(name), &p.to_syx()).map_err(fail)
+    }
+
+    /// The last seen copy of a channel; `None` if there is none or it can't be read.
+    pub fn channel_copy(&self, selector: u8) -> Option<Patch> {
+        let path = self.root.as_ref()?.join(CHANNELS).join(channel_copy_name(selector)?);
+        Patch::from_syx(&std::fs::read(path).ok()?).ok()
+    }
+
     fn autosave_state(&self) -> Option<AutosaveState> {
         let text = std::fs::read(self.root.as_ref()?.join(AUTOSAVE).join(AUTOSAVE_STATE)).ok()?;
         serde_json::from_slice(&text).ok()
     }
 
-    /// The newest auto-save, its origin, and whether it differed from the
-    /// origin file; `None` when there is none or it can't be read (then a
+    /// The newest auto-save, its origin, whether it differed from the origin
+    /// file, and the channel tab shown; `None` when there is none or it can't be read (then a
     /// problem says so).
-    pub fn last_autosave(&mut self) -> Option<(Patch, Origin, bool)> {
+    pub fn last_autosave(&mut self) -> Option<(Patch, Origin, bool, Option<u8>)> {
         let dir = self.root.as_ref()?.join(AUTOSAVE);
         let text = std::fs::read(dir.join(AUTOSAVE_STATE)).ok()?;
         let restored = serde_json::from_slice::<AutosaveState>(&text).map_err(|e| e.to_string()).and_then(|state| {
@@ -371,7 +399,7 @@ impl Library {
                 Some(o) if o.kind == "quick-save" => Origin::QuickSave(root.join(o.path)),
                 Some(o) => Origin::Patch(root.join(o.path)),
             };
-            Ok((patch, origin, state.dirty))
+            Ok((patch, origin, state.dirty, state.channel))
         });
         restored.map_err(|e| self.problems.push(format!("The last auto-save couldn't be restored: {e}"))).ok()
     }

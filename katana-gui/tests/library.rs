@@ -288,3 +288,60 @@ fn deleted_patch_does_not_pass_its_lock_to_a_new_file() {
     assert_eq!(again, a);
     assert!(!lib.is_read_only(&again));
 }
+
+#[test]
+fn channel_copy_round_trip() {
+    let root = tmp("lib-channel-copy");
+    let lib = Library::open(root.clone());
+    lib.save_channel_copy(3, &patch("Third", 30)).unwrap();
+    assert!(root.join("channels/A3.syx").is_file());
+    assert_eq!(lib.channel_copy(3), Some(patch("Third", 30)));
+    assert_eq!(lib.channel_copy(5), None);
+}
+
+#[test]
+fn channel_copy_names_every_selector() {
+    let root = tmp("lib-channel-names");
+    let lib = Library::open(root.clone());
+    for sel in 0..=8 {
+        lib.save_channel_copy(sel, &patch("X", sel as u32)).unwrap();
+    }
+    let mut got = names_in(&root.join("channels"));
+    got.sort();
+    let expected = ["A1", "A2", "A3", "A4", "B1", "B2", "B3", "B4", "PANEL"].map(|n| format!("{n}.syx"));
+    assert_eq!(got, expected);
+    assert_eq!(lib.channel_copy(0), Some(patch("X", 0)));
+    assert_eq!(lib.channel_copy(9), None);
+    assert!(lib.save_channel_copy(9, &patch("X", 9)).is_err());
+}
+
+#[test]
+fn unreadable_channel_copy_is_none() {
+    let root = tmp("lib-channel-broken");
+    let lib = Library::open(root.clone());
+    std::fs::create_dir_all(root.join("channels")).unwrap();
+    std::fs::write(root.join("channels/A1.syx"), b"not sysex").unwrap();
+    assert_eq!(lib.channel_copy(1), None);
+}
+
+#[test]
+fn state_keeps_channel_tab() {
+    let root = tmp("lib-state-channel");
+    let mut lib = Library::open(root);
+    let now = chrono::NaiveDate::from_ymd_opt(2026, 11, 2).unwrap().and_hms_opt(20, 0, 0).unwrap();
+    lib.autosave(&patch("X", 1), &katana_gui::editor::Origin::None, true, Some(4), now).unwrap();
+    assert_eq!(lib.last_autosave().unwrap().3, Some(4));
+}
+
+#[test]
+fn old_state_without_channel_still_loads() {
+    let root = tmp("lib-state-old");
+    let mut lib = Library::open(root.clone());
+    let now = chrono::NaiveDate::from_ymd_opt(2026, 11, 2).unwrap().and_hms_opt(20, 0, 0).unwrap();
+    lib.autosave(&patch("X", 1), &katana_gui::editor::Origin::None, true, Some(4), now).unwrap();
+    let state = root.join("autosave/state.json");
+    let mut json: serde_json::Value = serde_json::from_slice(&std::fs::read(&state).unwrap()).unwrap();
+    json.as_object_mut().unwrap().remove("channel");
+    std::fs::write(&state, serde_json::to_vec(&json).unwrap()).unwrap();
+    assert_eq!(lib.last_autosave().unwrap().3, None);
+}

@@ -46,8 +46,8 @@ pub struct KatanaApp {
     pub sort: library::Sort,
     /// A library file waiting for the user to confirm its deletion, with its name.
     pending_delete: Option<(PathBuf, String)>,
-    /// The editor's patch and origin as last auto-saved (or as at start).
-    autosaved: (Patch, Origin),
+    /// The editor's patch and origin and the channel tab as last auto-saved (or as at start).
+    autosaved: (Patch, Origin, Option<u8>),
     /// `egui` time of the last timed auto-save.
     autosaved_at: Option<f64>,
     /// Local time of the last auto-save, for the status line.
@@ -56,6 +56,8 @@ pub struct KatanaApp {
     save_as_name: Option<String>,
     /// The user chose to discard changes and close.
     close_confirmed: bool,
+    /// The channel tab shown: 0 = PANEL, 1–8 = A1–B4; `None` when none is.
+    pub channel_tab: Option<u8>,
 }
 
 impl Default for KatanaApp {
@@ -75,9 +77,10 @@ impl KatanaApp {
         let problems = std::mem::take(&mut library.problems);
         let editor = Editor::new();
         KatanaApp {
-            autosaved: (editor.patch().clone(), Origin::None),
+            autosaved: (editor.patch().clone(), Origin::None, None),
             autosaved_at: None,
             last_autosave: None,
+            channel_tab: None,
             editor,
             library,
             tab: Tab::Editor,
@@ -109,10 +112,11 @@ impl KatanaApp {
     /// without one, and says so.
     pub fn start(library: Library) -> KatanaApp {
         let mut app = KatanaApp::with_library(library);
-        let Some((patch, origin, dirty)) = app.library.last_autosave() else {
+        let Some((patch, origin, dirty, channel)) = app.library.last_autosave() else {
             app.take_library_problems();
             return app;
         };
+        app.channel_tab = channel;
         let (baseline, origin) = match origin.path().map(|p| (p, app.library.load(p))) {
             None => (Patch::default_preset(), origin),
             Some((_, Ok(baseline))) => (baseline, origin),
@@ -124,7 +128,7 @@ impl KatanaApp {
         // Clean at quit: the origin file is the truth, even if it changed since.
         let patch = if dirty || origin == Origin::None { patch } else { baseline.clone() };
         app.editor.restore(patch, baseline, origin);
-        app.autosaved = (app.editor.patch().clone(), app.editor.origin().clone());
+        app.autosaved = (app.editor.patch().clone(), app.editor.origin().clone(), app.channel_tab);
         app.take_library_problems();
         app
     }
@@ -148,11 +152,11 @@ impl KatanaApp {
 
     /// Auto-saves the editor's state if it changed since the last one; true if written.
     fn autosave(&mut self, now: chrono::NaiveDateTime) -> bool {
-        let state = (self.editor.patch().clone(), self.editor.origin().clone());
+        let state = (self.editor.patch().clone(), self.editor.origin().clone(), self.channel_tab);
         if state == self.autosaved || self.library.root().is_none() {
             return false;
         }
-        match self.library.autosave(&state.0, &state.1, self.editor.is_dirty(), now) {
+        match self.library.autosave(&state.0, &state.1, self.editor.needs_restore_as_is(), state.2, now) {
             Ok(()) => {
                 self.autosaved = state;
                 self.last_autosave = Some(now);

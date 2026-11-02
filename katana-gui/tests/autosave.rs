@@ -38,12 +38,12 @@ fn autosave_keeps_last_ten() {
     let d = tmp("auto-ten");
     let mut lib = Library::open(d.clone());
     for i in 0..12 {
-        lib.autosave(&patch("X", i), &Origin::None, true, at(0, i)).unwrap();
+        lib.autosave(&patch("X", i), &Origin::None, true, None, at(0, i)).unwrap();
     }
     let files = autosaves(&d);
     assert_eq!(files.len(), AUTOSAVE_KEEP);
     assert_eq!(files[0], "autosave_2026-10-28_15-00-02.syx");
-    let (p, origin, _) = lib.last_autosave().unwrap();
+    let (p, origin, _, _) = lib.last_autosave().unwrap();
     assert_eq!(gain_of(&p), Some(11));
     assert_eq!(origin, Origin::None);
 }
@@ -53,7 +53,7 @@ fn autosaves_in_the_same_second_keep_their_order() {
     let d = tmp("auto-same");
     let mut lib = Library::open(d.clone());
     for i in 0..12 {
-        lib.autosave(&patch("X", i), &Origin::None, true, at(0, 0)).unwrap();
+        lib.autosave(&patch("X", i), &Origin::None, true, None, at(0, 0)).unwrap();
     }
     assert_eq!(autosaves(&d).len(), AUTOSAVE_KEEP);
     assert_eq!(gain_of(&lib.last_autosave().unwrap().0), Some(11));
@@ -70,9 +70,9 @@ fn clock_going_back_keeps_the_newest_autosave() {
     let mut lib = Library::open(d.clone());
     let two = |s| chrono::NaiveDate::from_ymd_opt(2026, 10, 25).unwrap().and_hms_opt(2, 0, s).unwrap();
     for i in 0..10 {
-        lib.autosave(&patch("X", i), &Origin::None, true, two(i)).unwrap();
+        lib.autosave(&patch("X", i), &Origin::None, true, None, two(i)).unwrap();
     }
-    lib.autosave(&patch("X", 99), &Origin::None, true, two(0) - chrono::Duration::hours(1)).unwrap();
+    lib.autosave(&patch("X", 99), &Origin::None, true, None, two(0) - chrono::Duration::hours(1)).unwrap();
     assert_eq!(autosaves(&d).len(), AUTOSAVE_KEEP);
     assert_eq!(gain_of(&lib.last_autosave().unwrap().0), Some(99));
     assert!(!d.join("autosave/autosave_2026-10-25_02-00-00.syx").exists(), "the oldest written goes");
@@ -234,4 +234,41 @@ fn clean_quit_then_outside_change_opens_the_newer_file() {
     assert!(!app.editor.is_dirty());
     app.save();
     assert_eq!(gain_of(&app.library.load(&a).unwrap()), Some(77));
+}
+
+#[test]
+fn replaced_content_survives_restart() {
+    let d = tmp("auto-replaced");
+    let path = lib_patch(&d, "Riff", 10);
+    let mut app = KatanaApp::with_library(Library::open(d.clone()));
+    app.editor.load(patch("Riff", 10), Origin::Patch(path.clone()));
+    app.editor.replace_from_amp(patch("From amp", 77));
+    assert!(!app.editor.is_dirty());
+    app.autosave_tick(0.0, at(0, 0));
+    drop(app);
+
+    let app = KatanaApp::start(Library::open(d));
+    assert_eq!(app.editor.patch(), &patch("From amp", 77));
+    assert_eq!(app.editor.path(), Some(path.as_path()));
+}
+
+#[test]
+fn start_restores_channel_tab() {
+    let d = tmp("auto-tab");
+    let mut app = KatanaApp::with_library(Library::open(d.clone()));
+    set_gain(&mut app, 5);
+    app.channel_tab = Some(3);
+    app.autosave_tick(0.0, at(0, 0));
+    drop(app);
+    assert_eq!(KatanaApp::start(Library::open(d)).channel_tab, Some(3));
+}
+
+#[test]
+fn a_new_channel_tab_alone_is_auto_saved() {
+    let d = tmp("auto-tab-only");
+    let mut app = KatanaApp::with_library(Library::open(d.clone()));
+    app.channel_tab = Some(6);
+    app.autosave_tick(0.0, at(0, 0));
+    drop(app);
+    assert_eq!(KatanaApp::start(Library::open(d)).channel_tab, Some(6));
 }

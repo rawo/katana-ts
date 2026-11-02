@@ -2,7 +2,7 @@
 
 use std::path::{Path, PathBuf};
 
-use katana_proto::{ParamDef, Patch, ProtoError};
+use katana_proto::{Address, ParamDef, Patch, ProtoError};
 
 /// The library file the editor's patch came from; Save and Quick save write there.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -27,6 +27,8 @@ pub struct Editor {
     /// What was last opened or saved; the editor is dirty while it differs.
     baseline: Patch,
     origin: Origin,
+    /// The amp's settings replaced a library preset's; the origin is still that file.
+    replaced: bool,
 }
 
 impl Default for Editor {
@@ -38,7 +40,7 @@ impl Default for Editor {
 impl Editor {
     pub fn new() -> Editor {
         let patch = Patch::default_preset();
-        Editor { baseline: patch.clone(), patch, origin: Origin::None }
+        Editor { baseline: patch.clone(), patch, origin: Origin::None, replaced: false }
     }
 
     pub fn patch(&self) -> &Patch {
@@ -93,6 +95,7 @@ impl Editor {
         self.baseline = patch.clone();
         self.patch = patch;
         self.origin = origin;
+        self.replaced = false;
     }
 
     /// Replaces the editor's patch with a `.syx` file's; nothing changes on error.
@@ -107,11 +110,38 @@ impl Editor {
         self.patch = patch;
         self.baseline = baseline;
         self.origin = origin;
+        self.replaced = false;
     }
 
     /// The origin file is gone: keep the patch, with no file behind it.
     pub fn forget_origin(&mut self) {
         self.origin = Origin::None;
+        self.replaced = false;
+    }
+
+    /// The amp's settings take over the editor; clean afterwards. The origin
+    /// stays, so Save would overwrite that file (`replaced_note` says so).
+    pub fn replace_from_amp(&mut self, patch: Patch) {
+        self.baseline = patch.clone();
+        self.patch = patch;
+        self.replaced = self.origin.path().is_some();
+    }
+
+    /// A change made on the amp: counts as an edit, like one made in the app.
+    pub fn apply_amp_change(&mut self, addr: u32, data: &[u8]) {
+        self.patch.mem.apply(Address(addr), data);
+    }
+
+    /// Set while the amp's settings replaced a library preset.
+    pub fn replaced_note(&self) -> Option<String> {
+        let file = self.origin.path()?.file_name()?.to_string_lossy();
+        self.replaced.then(|| format!("Saving will overwrite library preset {file}"))
+    }
+
+    /// Whether a restart must restore the editor's content and not re-read its
+    /// origin file: edited, or replaced by the amp's settings.
+    pub fn needs_restore_as_is(&self) -> bool {
+        self.is_dirty() || self.replaced
     }
 
     /// Records a successful save of `patch` (the editor's patch as written,
@@ -125,6 +155,94 @@ impl Editor {
 mod tests {
     use super::*;
     use katana_proto::{find_param, Patch};
+
+    const GAIN: u32 = katana_proto::device::addr([0x20, 0x00, 0x06, 0x00]);
+
+    fn gain_patch(v: u32) -> Patch {
+        let mut p = Patch::default_preset();
+        p.set(find_param("gain").unwrap(), v).unwrap();
+        p
+    }
+
+    fn from_library() -> Editor {
+        let mut e = Editor::new();
+        e.load(gain_patch(10), Origin::Patch("/lib/patches/Riff.syx".into()));
+        e
+    }
+
+    #[test]
+    fn replace_keeps_origin_and_is_clean() {
+        let mut e = from_library();
+        e.replace_from_amp(gain_patch(20));
+        assert_eq!(e.patch(), &gain_patch(20));
+        assert!(!e.is_dirty());
+        assert_eq!(e.path(), Some(Path::new("/lib/patches/Riff.syx")));
+    }
+
+    #[test]
+    fn amp_change_makes_dirty() {
+        let mut e = from_library();
+        e.apply_amp_change(GAIN, &[33]);
+        assert_eq!(e.get(find_param("gain").unwrap()), Some(33));
+        assert!(e.is_dirty());
+    }
+
+    #[test]
+    fn note_names_the_library_file_while_replaced() {
+        let mut e = from_library();
+        assert_eq!(e.replaced_note(), None);
+        e.replace_from_amp(gain_patch(20));
+        assert_eq!(e.replaced_note().as_deref(), Some("Saving will overwrite library preset Riff.syx"));
+    }
+
+    #[test]
+    fn note_only_for_library_origin() {
+        let mut e = Editor::new();
+        e.replace_from_amp(gain_patch(20));
+        assert_eq!(e.replaced_note(), None);
+    }
+
+    #[test]
+    fn load_clears_note() {
+        let mut e = from_library();
+        e.replace_from_amp(gain_patch(20));
+        e.load(gain_patch(1), Origin::None);
+        assert_eq!(e.replaced_note(), None);
+    }
+
+    #[test]
+    fn restore_save_and_forget_clear_note() {
+        let replaced = || {
+            let mut e = from_library();
+            e.replace_from_amp(gain_patch(20));
+            e
+        };
+        let mut e = replaced();
+        e.restore(gain_patch(1), gain_patch(1), Origin::None);
+        assert_eq!(e.replaced_note(), None);
+        let mut e = replaced();
+        e.saved_as(gain_patch(1), Origin::Patch("b.syx".into()));
+        assert_eq!(e.replaced_note(), None);
+        let mut e = replaced();
+        e.forget_origin();
+        assert_eq!(e.replaced_note(), None);
+    }
+
+    #[test]
+    fn replaced_content_must_be_restored_as_is() {
+        let mut e = from_library();
+        assert!(!e.needs_restore_as_is());
+        e.replace_from_amp(gain_patch(20));
+        assert!(!e.is_dirty());
+        assert!(e.needs_restore_as_is());
+    }
+
+    #[test]
+    fn dirty_content_must_be_restored_as_is() {
+        let mut e = from_library();
+        e.set(find_param("gain").unwrap(), 11).unwrap();
+        assert!(e.needs_restore_as_is());
+    }
 
     #[test]
     fn new_editor_is_clean_default() {
