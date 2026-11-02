@@ -1,6 +1,8 @@
 //! The UI's end of the worker: channels and the thread.
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{channel, Receiver, Sender};
+use std::sync::Arc;
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
@@ -14,6 +16,28 @@ pub struct AmpLink {
     jobs: Sender<Job>,
     events: Receiver<Event>,
     thread: Option<JoinHandle<()>>,
+    finished: Arc<AtomicBool>,
+}
+
+/// Ends the worker from another thread.
+pub struct Stopper {
+    jobs: Sender<Job>,
+    finished: Arc<AtomicBool>,
+}
+
+impl Stopper {
+    /// Asks the worker to end after the job it is on; true if it did within `limit`.
+    pub fn stop(&self, limit: Duration) -> bool {
+        let _ = self.jobs.send(Job::Shutdown);
+        let deadline = Instant::now() + limit;
+        while !self.finished.load(Ordering::SeqCst) {
+            if Instant::now() >= deadline {
+                return false;
+            }
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        true
+    }
 }
 
 /// The worker's side of `AmpLink::pair`, for scripting the app in tests.
@@ -26,14 +50,23 @@ impl AmpLink {
     pub fn spawn(worker: Worker, wake: Box<dyn Fn() + Send>) -> AmpLink {
         let (job_tx, job_rx) = channel();
         let (event_tx, event_rx) = channel();
-        let thread = std::thread::spawn(move || worker.run(job_rx, event_tx, wake));
-        AmpLink { jobs: job_tx, events: event_rx, thread: Some(thread) }
+        let finished = Arc::new(AtomicBool::new(false));
+        let done = finished.clone();
+        let thread = std::thread::spawn(move || {
+            // `run` drops the worker when it ends, which turns editor mode off.
+            worker.run(job_rx, event_tx, wake);
+            done.store(true, Ordering::SeqCst);
+        });
+        AmpLink { jobs: job_tx, events: event_rx, thread: Some(thread), finished }
     }
 
     pub fn pair() -> (AmpLink, LinkEnd) {
         let (job_tx, job_rx) = channel();
         let (event_tx, event_rx) = channel();
-        (AmpLink { jobs: job_tx, events: event_rx, thread: None }, LinkEnd { jobs: job_rx, events: event_tx })
+        (
+            AmpLink { jobs: job_tx, events: event_rx, thread: None, finished: Arc::default() },
+            LinkEnd { jobs: job_rx, events: event_tx },
+        )
     }
 
     /// Queues a job. A worker that has ended takes nothing, which is fine: it
@@ -44,6 +77,11 @@ impl AmpLink {
 
     pub fn try_recv(&self) -> Option<Event> {
         self.events.try_recv().ok()
+    }
+
+    /// For a signal handler: ends the worker even if the UI doesn't draw frames.
+    pub fn stopper(&self) -> Stopper {
+        Stopper { jobs: self.jobs.clone(), finished: self.finished.clone() }
     }
 
     /// Asks the worker to end and waits up to `SHUTDOWN_WAIT` for it.
@@ -62,8 +100,7 @@ impl AmpLink {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::atomic::{AtomicUsize, Ordering};
-    use std::sync::Arc;
+    use std::sync::atomic::AtomicUsize;
 
     use super::*;
 
@@ -103,6 +140,19 @@ mod tests {
         assert_eq!(event, Event::Failed("amp not connected".into()));
         assert!(wakes.load(Ordering::SeqCst) >= 1);
         link.shutdown();
+    }
+
+    #[test]
+    fn stopper_ends_the_worker_from_elsewhere() {
+        let link = AmpLink::spawn(no_amp(), Box::new(|| {}));
+        let stopper = link.stopper();
+        assert!(std::thread::spawn(move || stopper.stop(Duration::from_secs(2))).join().unwrap());
+    }
+
+    #[test]
+    fn stopper_gives_up_at_its_limit() {
+        let (link, _end) = AmpLink::pair();
+        assert!(!link.stopper().stop(Duration::from_millis(1)));
     }
 
     #[test]

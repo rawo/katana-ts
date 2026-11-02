@@ -95,6 +95,9 @@ fn from_hex(text: &str) -> Option<Vec<u8>> {
     digits.chunks(2).map(|d| u8::from_str_radix(&d.iter().collect::<String>(), 16).ok()).collect()
 }
 
+/// See `Library::last_autosave`.
+pub type LastAutosave = (Patch, Origin, bool, Option<u8>, Option<Patch>);
+
 /// The name of a channel's copy, for a selector: 0 = PANEL, 1–8 = A1–B4.
 fn channel_copy_name(selector: u8) -> Option<String> {
     match selector {
@@ -414,7 +417,7 @@ impl Library {
     /// The newest auto-save, its origin, whether it differed from the origin
     /// file, the channel tab shown, and the baseline if it came from the amp; `None` when there is none or it can't be read (then a
     /// problem says so).
-    pub fn last_autosave(&mut self) -> Option<(Patch, Origin, bool, Option<u8>, Option<Patch>)> {
+    pub fn last_autosave(&mut self) -> Option<LastAutosave> {
         let dir = self.root.as_ref()?.join(AUTOSAVE);
         let text = std::fs::read(dir.join(AUTOSAVE_STATE)).ok()?;
         let restored = serde_json::from_slice::<AutosaveState>(&text).map_err(|e| e.to_string()).and_then(|state| {

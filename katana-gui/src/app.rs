@@ -29,6 +29,8 @@ enum Pending {
 
 /// The Store to channel… prompt: the chosen channel and, once read, what it holds.
 struct StoreDialog {
+    /// What the question names and Store stores, as when the prompt opened.
+    patch: Patch,
     channel: Option<Channel>,
     held: Option<Patch>,
 }
@@ -80,6 +82,8 @@ pub struct KatanaApp {
     pub busy: Option<String>,
     /// The last change made on the amp's panel: what, and when.
     pub last_panel_change: Option<(String, chrono::NaiveDateTime)>,
+    /// A long job was sent and isn't done yet.
+    awaiting: bool,
     /// The content last kept by `keep_unsaved`.
     kept_unsaved: Option<Patch>,
     /// Set by the signal handler: save and close without asking.
@@ -118,6 +122,7 @@ impl KatanaApp {
             live: false,
             busy: None,
             last_panel_change: None,
+            awaiting: false,
             kept_unsaved: None,
             quit_signal: Arc::default(),
             store_dialog: None,
@@ -167,12 +172,27 @@ impl KatanaApp {
     }
 
     fn on_amp_event(&mut self, event: Event, now: chrono::NaiveDateTime) {
+        if matches!(
+            event,
+            Event::Disconnected
+                | Event::AmpOn(_)
+                | Event::Slot(..)
+                | Event::Current(..)
+                | Event::Peeked(..)
+                | Event::Stored { .. }
+                | Event::StoreFailed(_)
+                | Event::Failed(_)
+                | Event::LiveFailed(_)
+                | Event::Busy(None)
+        ) {
+            self.awaiting = false;
+        }
         match event {
             Event::Connected => {
                 self.connected = true;
                 if self.live {
                     if self.keep_unsaved(now) {
-                        self.send(Job::LiveOn);
+                        self.send_long(Job::LiveOn);
                     } else {
                         self.live = false;
                     }
@@ -232,13 +252,17 @@ impl KatanaApp {
                 self.error = Some(message);
             }
             Event::Failed(message) => {
+                self.storing = None;
                 // A channel that couldn't be read can be chosen again.
                 if let Some(d) = self.store_dialog.as_mut().filter(|d| d.held.is_none()) {
                     d.channel = None;
                 }
                 self.error = Some(message);
             }
-            Event::LiveFailed(message) => self.error = Some(message),
+            Event::LiveFailed(message) => {
+                self.live = false;
+                self.error = Some(message);
+            }
             Event::Busy(what) => self.busy = what,
             Event::Current(..) | Event::PanelChange { .. } => {}
         }
@@ -282,7 +306,11 @@ impl KatanaApp {
     }
 
     /// An edit from the UI: into the editor and, with Live on, to the amp.
+    /// Ignored while a read runs: its result is about to replace the editor.
     pub fn edit(&mut self, def: &ParamDef, value: u32) -> Result<(), ProtoError> {
+        if !self.amp_idle() {
+            return Ok(());
+        }
         self.editor.set(def, value)?;
         if self.live && self.connected {
             self.send(Job::SetParam { addr: def.addr, data: encode_param(def, value)? });
@@ -294,7 +322,7 @@ impl KatanaApp {
         self.live = on && self.keep_unsaved(chrono::Local::now().naive_local());
         if on {
             if self.live {
-                self.send(Job::LiveOn);
+                self.send_long(Job::LiveOn);
             }
         } else {
             self.send(Job::LiveOff);
@@ -303,6 +331,9 @@ impl KatanaApp {
 
     /// Whether a channel tab can be clicked now.
     pub fn channel_enabled(&self, selector: u8) -> bool {
+        if !self.amp_idle() {
+            return false;
+        }
         if selector == 0 && self.live && !device::PANEL_SELECTABLE {
             return false;
         }
@@ -317,7 +348,7 @@ impl KatanaApp {
             if !self.keep_unsaved(now) {
                 return;
             }
-            self.send(if self.live { Job::Select(selector) } else { Job::ReadSlot(selector) });
+            self.send_long(if self.live { Job::Select(selector) } else { Job::ReadSlot(selector) });
         } else {
             let Some(copy) = self.library.channel_copy(selector) else { return };
             if !self.keep_unsaved(now) {
@@ -328,11 +359,23 @@ impl KatanaApp {
         self.channel_tab = Some(selector);
     }
 
+    /// False from the moment a long job is sent until it is done, and during a
+    /// read the amp started: what would conflict with its result waits.
+    pub fn amp_idle(&self) -> bool {
+        !self.awaiting && self.busy.is_none()
+    }
+
+    /// Sends a job whose result the rest of the app must not get ahead of.
+    fn send_long(&mut self, job: Job) {
+        self.awaiting = true;
+        self.send(job);
+    }
+
     /// Why Store to channel… can't be used now, if so.
     pub fn store_blocked(&self) -> Option<&'static str> {
         if !self.connected {
             Some("Amp not connected")
-        } else if self.busy.is_some() {
+        } else if !self.amp_idle() {
             Some("The amp is busy")
         } else if self.library.root().is_none() {
             Some("No library folder for the backups")
@@ -345,28 +388,28 @@ impl KatanaApp {
     pub fn open_store_dialog(&mut self) {
         let channel = self.channel_tab.filter(|&s| s > 0).and_then(|s| Channel::ALL.get(usize::from(s) - 1)).copied();
         if let Some(ch) = channel {
-            self.send(Job::Peek(ch));
+            self.send_long(Job::Peek(ch));
         }
         self.store_note = None;
-        self.store_dialog = Some(StoreDialog { channel, held: None });
+        self.store_dialog = Some(StoreDialog { patch: self.editor.patch().clone(), channel, held: None });
     }
 
     /// The user confirmed: the only way anything is stored into a channel.
-    fn store(&mut self, ch: Channel) {
+    fn store(&mut self, ch: Channel, patch: Patch) {
         let Some(root) = self.library.root() else { return };
+        self.storing = Some(patch.name());
         let job = Job::Store {
             ch,
-            patch: self.editor.patch().clone(),
+            patch,
             backup_dir: root.join("backups"),
             stamp: chrono::Local::now().naive_local().format("%Y-%m-%d_%H-%M-%S").to_string(),
         };
-        self.storing = Some(self.editor.patch().name());
-        self.send(job);
+        self.send_long(job);
     }
 
     fn store_prompt(&mut self, ctx: &egui::Context) {
         let Some(mut dialog) = self.store_dialog.take() else { return };
-        let new_name = self.editor.patch().name();
+        let new_name = dialog.patch.name();
         let mut chosen = None;
         let mut answer = None;
         let modal = egui::Modal::new(egui::Id::NULL.with("store")).show(ctx, |ui| {
@@ -407,12 +450,13 @@ impl KatanaApp {
             answer = Some(false);
         }
         match (answer, dialog.channel) {
-            (Some(true), Some(ch)) => self.store(ch),
+            (Some(true), Some(ch)) => self.store(ch, dialog.patch),
             (Some(_), _) => {}
             (None, _) => {
                 if let Some(ch) = chosen.filter(|&c| dialog.channel != Some(c)) {
-                    dialog = StoreDialog { channel: Some(ch), held: None };
-                    self.send(Job::Peek(ch));
+                    dialog.channel = Some(ch);
+                    dialog.held = None;
+                    self.send_long(Job::Peek(ch));
                 }
                 self.store_dialog = Some(dialog);
             }
@@ -422,7 +466,7 @@ impl KatanaApp {
     /// Plays the editor's patch on the amp's current settings. Nothing is stored
     /// and the amp stays on its channel.
     pub fn load_to_amp(&mut self) {
-        self.send(Job::WritePatch(self.editor.patch().clone()));
+        self.send_long(Job::WritePatch(self.editor.patch().clone()));
     }
 
     /// A file was opened into the editor: with Live on it plays; with Live off
@@ -526,9 +570,20 @@ impl KatanaApp {
         }
     }
 
+    /// A file can't replace the editor while the amp's answer is on its way.
+    fn refuse_while_busy(&mut self) -> bool {
+        if !self.amp_idle() {
+            self.error = Some("The amp is busy; try again in a moment".to_string());
+        }
+        !self.amp_idle()
+    }
+
     /// Loads a file into the editor. A library file becomes the editor's
     /// origin; a file from elsewhere has none (Save then asks for a name).
     fn open(&mut self, path: &Path) {
+        if self.refuse_while_busy() {
+            return;
+        }
         let origin = match self.library.kind_of(path) {
             Some(Kind::Patch) => Origin::Patch(path.to_path_buf()),
             Some(Kind::QuickSave) => Origin::QuickSave(path.to_path_buf()),
@@ -555,6 +610,9 @@ impl KatanaApp {
     }
 
     fn pick(&mut self, set: &Path, index: usize) {
+        if self.refuse_while_busy() {
+            return;
+        }
         match self.library.pick(set, index) {
             Ok((path, patch)) => {
                 self.editor.load(patch, Origin::Patch(path));
@@ -724,6 +782,10 @@ impl KatanaApp {
 
     /// The window asks to close. true = close now; false = asking first.
     pub fn on_close_requested(&mut self) -> bool {
+        if self.storing.is_some() {
+            self.error = Some("Storing into a channel; close again when it's done".to_string());
+            return false;
+        }
         if self.close_confirmed || !self.editor.is_dirty() {
             self.autosave(chrono::Local::now().naive_local());
             return true;
@@ -774,7 +836,8 @@ impl KatanaApp {
     pub fn show(&mut self, ui: &mut egui::Ui) {
         let ctx = ui.ctx().clone();
         self.poll_amp(chrono::Local::now().naive_local());
-        if self.quit_signal.load(Ordering::SeqCst) {
+        // A store runs to its end, or the amp could keep half a preset.
+        if self.quit_signal.load(Ordering::SeqCst) && self.storing.is_none() {
             // Nobody may be there to answer a prompt; the edits are in the auto-save.
             self.autosave(chrono::Local::now().naive_local());
             self.close_confirmed = true;
@@ -791,9 +854,11 @@ impl KatanaApp {
         egui::Panel::top("top_bar").show(ui, |ui| views::top_bar(ui, self, &palette));
         egui::Panel::top("tabs").show(ui, |ui| views::action_bar(ui, self, &palette));
         egui::Panel::bottom("status").show(ui, |ui| views::status(ui, self, &palette));
-        egui::CentralPanel::default().show(ui, |ui| match self.tab {
-            Tab::Editor => views::editor_tab(ui, self, &palette),
-            Tab::Library => views::library(ui, self, &palette),
+        egui::CentralPanel::default().show(ui, |ui| {
+            ui.add_enabled_ui(self.amp_idle(), |ui| match self.tab {
+                Tab::Editor => views::editor_tab(ui, self, &palette),
+                Tab::Library => views::library(ui, self, &palette),
+            });
         });
         self.discard_prompt(&ctx);
         self.save_as_prompt(&ctx);

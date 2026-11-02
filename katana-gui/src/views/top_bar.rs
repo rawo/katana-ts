@@ -17,7 +17,9 @@ pub fn top_bar(ui: &mut egui::Ui, app: &mut KatanaApp, p: &Palette) {
         for (selector, name) in (0u8..).zip(CHANNEL_NAMES) {
             let selected = app.channel_tab == Some(selector);
             let tab = ui.add_enabled(app.channel_enabled(selector), Button::selectable(selected, name));
-            let hover = if app.connected {
+            let hover = if !app.amp_idle() {
+                "The amp is busy"
+            } else if app.connected {
                 "Select PANEL on the amp"
             } else {
                 "Amp not connected; no copy of this channel yet"
@@ -29,7 +31,7 @@ pub fn top_bar(ui: &mut egui::Ui, app: &mut KatanaApp, p: &Palette) {
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
             // Right to left: the last item here sits leftmost.
             let mut live = app.live;
-            let check = ui.add_enabled(app.connected, egui::Checkbox::new(&mut live, "Live edit"));
+            let check = ui.add_enabled(app.connected && app.amp_idle(), egui::Checkbox::new(&mut live, "Live edit"));
             if check.on_disabled_hover_text(NO_AMP).changed() {
                 app.set_live(live);
             }

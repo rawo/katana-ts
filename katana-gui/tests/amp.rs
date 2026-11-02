@@ -237,6 +237,7 @@ fn open_with_live_on_writes_patch_not_store() {
 fn open_with_live_off_sends_nothing_and_clears_the_tab() {
     let mut r = rig("open-off").connected();
     r.click("A2");
+    r.event(Event::Slot(2, patch("Second", 2)));
     r.jobs();
     let path = lib_file(&r.root.clone(), "Riff", 20);
     r.app().request_open(path);
@@ -814,4 +815,362 @@ fn restart_without_a_quick_save_of_a_restored_quick_save() {
     let mut app = KatanaApp::start(Library::open(root));
     app.quick_save(at(1));
     assert_eq!(gain_of(&Patch::from_syx(&std::fs::read(&path).unwrap()).unwrap()), Some(55));
+}
+
+// --- Nothing conflicting while the amp is working (final review I1, I3, I4, I11, I13) ---
+
+#[test]
+fn nothing_conflicting_while_a_read_runs() {
+    let mut r = rig("lock-read").connected();
+    r.click("A3");
+    r.jobs();
+    for label in ["A1", "B4", "PANEL", "Live edit", "Load to amp", "Store to channel…"] {
+        assert!(r.disabled(label), "{label}");
+    }
+    r.event(Event::Slot(3, patch("Third", 3)));
+    for label in ["A1", "Live edit", "Load to amp", "Store to channel…"] {
+        assert!(!r.disabled(label), "{label}");
+    }
+}
+
+#[test]
+fn locked_from_the_click_not_from_the_workers_answer() {
+    let mut r = rig("lock-click").connected();
+    r.click("A3");
+    assert!(r.app().busy.is_none(), "the worker hasn't answered");
+    assert!(r.disabled("A4"));
+}
+
+#[test]
+fn open_during_a_read_is_refused_and_the_read_lands_cleanly() {
+    let mut r = rig("lock-open").connected();
+    let path = lib_file(&r.root.clone(), "Riff", 77);
+    r.click("A3");
+    r.jobs();
+    r.app().request_open(path.clone());
+    assert_ne!(r.app().editor.path(), Some(path.as_path()));
+    assert!(r.app().error.is_some());
+    r.event(Event::Slot(3, patch("Third", 33)));
+    assert_eq!(gain(&mut r), Some(33));
+    assert_eq!(r.app().editor.path(), None, "the channel's content is not labelled Riff");
+    assert_eq!(gain_of(&Patch::from_syx(&std::fs::read(&path).unwrap()).unwrap()), Some(77));
+}
+
+#[test]
+fn no_edit_while_live_is_syncing() {
+    let mut r = rig("lock-edit").connected();
+    r.click("Live edit");
+    r.jobs();
+    r.app().edit(find_param(GAIN).unwrap(), 90).unwrap();
+    assert_eq!(r.jobs(), vec![], "the amp gets nothing the editor is about to lose");
+    r.event(Event::Current(1, patch("On amp", 10)));
+    assert_eq!(gain(&mut r), Some(10));
+    r.app().edit(find_param(GAIN).unwrap(), 90).unwrap();
+    assert_eq!(r.jobs().len(), 1);
+}
+
+#[test]
+fn no_edit_during_a_read_the_amp_started() {
+    let mut r = rig("lock-panel").connected().live();
+    r.event(Event::Busy(Some("Reading channel\u{2026}".into())));
+    r.app().edit(find_param(GAIN).unwrap(), 90).unwrap();
+    assert_eq!(r.jobs(), vec![]);
+    r.event(Event::Current(4, patch("Fourth", 4)));
+    r.event(Event::Busy(None));
+    assert_eq!(gain(&mut r), Some(4));
+}
+
+#[test]
+fn controls_are_disabled_during_a_read() {
+    let mut r = rig("lock-ui").connected().live();
+    r.event(Event::Busy(Some("x".into())));
+    assert!(r.disabled("REVERB OFF"));
+    r.event(Event::Busy(None));
+    assert!(!r.disabled("REVERB OFF"));
+}
+
+#[test]
+fn failed_job_unlocks() {
+    let mut r = rig("lock-failed").connected();
+    r.click("A3");
+    r.event(Event::Failed("no reply".into()));
+    assert!(!r.disabled("A4"));
+}
+
+#[test]
+fn disconnect_unlocks() {
+    let mut r = rig("lock-unplug").connected();
+    r.app().library.save_channel_copy(4, &patch("Copy", 4)).unwrap();
+    r.click("A3");
+    r.event(Event::Disconnected);
+    assert!(!r.disabled("A4"));
+}
+
+#[test]
+fn failed_live_on_turns_the_checkbox_off() {
+    let mut r = rig("live-failed").connected();
+    r.click("Live edit");
+    r.event(Event::LiveFailed("Live edit couldn't start: no reply".into()));
+    assert!(!r.app().live);
+    assert!(r.status().contains("Live edit off"), "{}", r.status());
+    assert_eq!(r.app().error.as_deref(), Some("Live edit couldn't start: no reply"));
+    assert!(!r.disabled("Live edit"));
+}
+
+#[test]
+fn store_stores_what_the_question_showed() {
+    let mut r = store_asking("store-frozen");
+    r.end.events.send(Event::Busy(None)).unwrap();
+    r.app().editor.replace_from_amp(patch("Something else", 99));
+    r.h.run();
+    r.h.get_by_label("A3 currently 'Old sound' -> replace with 'New sound'?");
+    r.click("Store");
+    let jobs = r.jobs();
+    let [Job::Store { patch: p, .. }] = jobs.as_slice() else { panic!("{jobs:?}") };
+    assert_eq!(p, &patch("New sound", 7));
+    r.event(stored(false));
+    r.h.get_by_label("stored 'New sound' in A4; the amp is now on A4 · solo delay not stored");
+}
+
+#[test]
+fn close_waits_for_a_running_store() {
+    let mut r = store_asking("close-store");
+    r.click("Store");
+    assert!(!r.app().on_close_requested());
+    assert!(r.h.query_by_label("Discard").is_none());
+    assert!(r.app().error.as_deref().unwrap_or_default().contains("Storing"), "{:?}", r.app().error);
+    r.event(stored(false));
+    assert!(r.app().on_close_requested());
+}
+
+#[test]
+fn quit_signal_waits_for_a_running_store() {
+    let mut r = store_asking("quit-store");
+    r.click("Store");
+    r.app().quit_signal.store(true, std::sync::atomic::Ordering::SeqCst);
+    r.h.step();
+    let closes = |h: &Harness<KatanaApp>| {
+        h.output().viewport_output.values().any(|v| v.commands.contains(&egui::ViewportCommand::Close))
+    };
+    assert!(!closes(&r.h));
+    r.end.events.send(stored(false)).unwrap();
+    r.h.step();
+    assert!(closes(&r.h));
+}
+
+// --- The app with the real worker and the simulated amp (final review I14) ---
+
+mod with_worker {
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::{Arc, Mutex};
+    use std::time::{Duration, Instant};
+
+    use katana_gui::amp::Worker;
+    use katana_proto::device::{self, PATCH_BLOCKS};
+    use katana_proto::patch::slot_offset;
+    use katana_proto::{read_patch, read_slot, Address, FakeAmp, ProtoError, Transport};
+
+    use super::*;
+
+    const T: Duration = Duration::from_millis(200);
+    const GAIN_ADDR: u32 = device::addr([0x20, 0x00, 0x06, 0x00]);
+
+    struct SharedFake(Arc<Mutex<FakeAmp>>);
+
+    impl Transport for SharedFake {
+        fn send(&mut self, msg: &[u8]) -> Result<(), ProtoError> {
+            self.0.lock().unwrap().send(msg)
+        }
+
+        fn recv(&mut self, timeout: Duration) -> Result<Option<Vec<u8>>, ProtoError> {
+            self.0.lock().unwrap().recv(timeout)
+        }
+    }
+
+    struct Bench {
+        h: Harness<'static, KatanaApp>,
+        fake: Arc<Mutex<FakeAmp>>,
+        port: Arc<AtomicBool>,
+        root: PathBuf,
+    }
+
+    fn bench(test: &str) -> Bench {
+        let root = tmp(&format!("bench-{test}"));
+        let mut amp = FakeAmp::new(device::header(), 128);
+        for &(a, s) in PATCH_BLOCKS {
+            amp.mem.apply(Address(a), &vec![0x40; s as usize]);
+            for n in 1..=9u8 {
+                amp.mem.apply(Address(a + slot_offset(n)), &vec![n; s as usize]);
+            }
+        }
+        amp.mem.apply(Address(device::SELECTOR), &[0, 4]);
+        let fake = Arc::new(Mutex::new(amp));
+        let port = Arc::new(AtomicBool::new(true));
+        let (f, p) = (fake.clone(), port.clone());
+        let worker = Worker::new(
+            Box::new(move || Ok(Box::new(SharedFake(f.clone())) as Box<dyn Transport + Send>)),
+            Box::new(move || p.load(Ordering::SeqCst)),
+        );
+        let link = AmpLink::spawn(worker, Box::new(|| {}));
+        let app = KatanaApp::with_library(Library::open(root.clone())).with_amp(link);
+        let h =
+            Harness::builder().with_size([1600.0, 960.0]).build_ui_state(|ui, app: &mut KatanaApp| app.show(ui), app);
+        let mut b = Bench { h, fake, port, root };
+        b.wait("connected", |app| app.connected && app.amp_idle());
+        b
+    }
+
+    impl Bench {
+        fn wait(&mut self, what: &str, done: impl Fn(&KatanaApp) -> bool) {
+            let deadline = Instant::now() + Duration::from_secs(10);
+            while !done(self.h.state()) {
+                assert!(Instant::now() < deadline, "waited too long for: {what}");
+                std::thread::sleep(Duration::from_millis(5));
+                self.h.step();
+            }
+            self.h.step();
+        }
+
+        fn click(&mut self, label: &str) {
+            self.h.get_by_label(label).click();
+            self.h.step();
+            self.h.step();
+        }
+
+        fn live(mut self) -> Bench {
+            self.click("Live edit");
+            self.wait("Live", |app| app.amp_on.is_some() && app.channel_tab.is_some() && app.amp_idle());
+            self
+        }
+
+        fn amp_gain(&self) -> Option<u8> {
+            self.fake.lock().unwrap().mem.read(Address(GAIN_ADDR), 1).map(|b| b[0])
+        }
+
+        fn current(&self) -> Patch {
+            read_patch(&mut *self.fake.lock().unwrap(), T).unwrap()
+        }
+
+        fn slot(&self, n: u8) -> Patch {
+            read_slot(&mut *self.fake.lock().unwrap(), n, T).unwrap()
+        }
+    }
+
+    #[test]
+    fn live_shows_the_amps_settings() {
+        let b = bench("live").live();
+        let expected = b.current();
+        assert_eq!(b.h.state().editor.patch(), &expected);
+        assert_eq!(b.h.state().channel_tab, Some(4));
+        assert!(b.fake.lock().unwrap().editor);
+    }
+
+    #[test]
+    fn app_edit_reaches_the_amp_and_is_not_reported_back() {
+        let mut b = bench("edit").live();
+        b.h.state_mut().edit(find_param(GAIN).unwrap(), 71).unwrap();
+        let fake = b.fake.clone();
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while fake.lock().unwrap().mem.read(Address(GAIN_ADDR), 1) != Some(vec![71]) {
+            assert!(Instant::now() < deadline);
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        std::thread::sleep(Duration::from_millis(100));
+        b.h.step();
+        assert_eq!(b.amp_gain(), Some(71));
+        assert_eq!(b.h.state().last_panel_change, None);
+    }
+
+    #[test]
+    fn panel_knob_reaches_the_editor() {
+        let mut b = bench("panel").live();
+        b.fake.lock().unwrap().turn_panel(GAIN_ADDR, &[66]);
+        b.wait("panel change", |app| gain_of(app.editor.patch()) == Some(66));
+        assert!(b.h.state().editor.is_dirty());
+        assert!(b.h.state().last_panel_change.is_some());
+    }
+
+    #[test]
+    fn panel_channel_presses_end_on_the_last_one() {
+        let mut b = bench("channels").live();
+        let expected = b.slot(8);
+        {
+            let mut amp = b.fake.lock().unwrap();
+            amp.press_channel(6);
+            amp.at_rq1(25, |a| a.press_channel(7));
+        }
+        b.wait("the last channel", |app| app.channel_tab == Some(7) && app.amp_idle());
+        assert_eq!(b.h.state().editor.patch(), &expected);
+        assert!(!b.h.state().editor.is_dirty());
+        assert_eq!(b.h.state().library.channel_copy(7), Some(expected));
+        assert_eq!(b.h.state().library.channel_copy(6), None, "no mixed copy under the first channel");
+    }
+
+    #[test]
+    fn tab_with_live_off_leaves_the_amp_alone() {
+        let b = bench("tab").connected_tab();
+        assert_eq!(b.h.state().editor.patch(), &b.slot(3));
+        assert!(!b.fake.lock().unwrap().editor);
+        assert_eq!(b.h.state().amp_on, Some(4));
+    }
+
+    impl Bench {
+        fn connected_tab(mut self) -> Bench {
+            self.click("A2");
+            self.wait("the channel", |app| app.editor.patch().name() != "DEFAULT" && app.amp_idle());
+            self
+        }
+    }
+
+    #[test]
+    fn store_end_to_end() {
+        let mut b = bench("store");
+        b.h.state_mut().editor.load(patch("New sound", 7), Origin::None);
+        b.h.state_mut().channel_tab = Some(7);
+        b.h.step();
+        let old_b3 = b.slot(Channel::B3.slot());
+        b.click("Store to channel…");
+        b.wait("the question", |app| app.amp_idle());
+        b.h.step();
+        b.click("Store");
+        b.wait("the store", |app| app.store_note.is_some() && app.amp_idle());
+        assert_eq!(b.slot(Channel::B3.slot()).name(), "New sound");
+        assert_eq!(b.h.state().amp_on, Some(Channel::B3.selector()));
+        assert!(!b.fake.lock().unwrap().editor, "editor mode off again");
+        let files = names_in(&b.root.join("backups"));
+        assert_eq!(files.len(), 2, "{files:?}");
+        let channel_backup = files.iter().find(|n| n.contains("_B3_")).unwrap();
+        let bytes = std::fs::read(b.root.join("backups").join(channel_backup)).unwrap();
+        assert_eq!(Patch::from_syx(&bytes).unwrap(), old_b3);
+    }
+
+    #[test]
+    fn store_with_live_on_keeps_following() {
+        let mut b = bench("store-live").live();
+        b.click("Store to channel…");
+        b.wait("the question", |app| app.amp_idle());
+        b.h.step();
+        b.click("Store");
+        b.wait("the store", |app| app.store_note.is_some() && app.amp_idle());
+        assert!(b.fake.lock().unwrap().editor, "Live goes on");
+        let name = b.h.state().editor.patch().clone();
+        b.fake.lock().unwrap().turn_panel(GAIN_ADDR, &[33]);
+        b.wait("panel change", |app| gain_of(app.editor.patch()) == Some(33));
+        assert_ne!(b.h.state().editor.patch(), &name);
+    }
+
+    #[test]
+    fn unplug_and_return_with_live_on() {
+        let mut b = bench("unplug").live();
+        let before = b.h.state().editor.patch().clone();
+        b.port.store(false, Ordering::SeqCst);
+        b.wait("not connected", |app| !app.connected);
+        assert_eq!(b.h.state().editor.patch(), &before);
+        assert!(b.h.state().live);
+        b.h.state_mut().edit(find_param(GAIN).unwrap(), 9).unwrap();
+        b.port.store(true, Ordering::SeqCst);
+        b.wait("back", |app| app.connected && app.amp_idle() && gain_of(app.editor.patch()) != Some(9));
+        assert_eq!(names_in(&b.root.join("quick-saves")).len(), 1, "the edit was kept");
+        assert!(b.fake.lock().unwrap().editor);
+    }
 }

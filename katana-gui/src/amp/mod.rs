@@ -8,7 +8,7 @@ use katana_proto::{Channel, Patch};
 pub mod link;
 pub mod worker;
 
-pub use link::{AmpLink, LinkEnd};
+pub use link::{AmpLink, LinkEnd, Stopper};
 pub use worker::{coalesce, Opener, PortCheck, Worker};
 
 /// Work for the amp. `u8` values are selectors: 0 = PANEL, 1–8 = A1–B4.

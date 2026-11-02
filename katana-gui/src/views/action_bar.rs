@@ -15,7 +15,7 @@ pub fn action_bar(ui: &mut egui::Ui, app: &mut KatanaApp, _p: &Palette) {
             if store.on_disabled_hover_text(blocked.unwrap_or_default()).clicked() {
                 app.open_store_dialog();
             }
-            let can_load = app.connected && app.busy.is_none();
+            let can_load = app.connected && app.amp_idle();
             let load = ui.add_enabled(can_load, Button::new("Load to amp"));
             let why = if app.connected { "The amp is busy" } else { "Amp not connected" };
             if load.on_disabled_hover_text(why).clicked() {

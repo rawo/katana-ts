@@ -1,10 +1,16 @@
 use std::sync::atomic::Ordering;
+use std::time::Duration;
 
 use eframe::egui;
 use katana_gui::amp::{AmpLink, Worker};
 use katana_gui::app::{KatanaApp, MIN_WINDOW};
 use katana_gui::library::Library;
 use katana_proto::{MidirTransport, Transport, DEFAULT_PORT};
+
+/// How long a quit signal waits for the window to close by itself.
+const UNDRAWN_WINDOW_WAIT: Duration = Duration::from_secs(3);
+/// How long it then waits for the worker, which may be in the middle of a store.
+const STORE_WAIT: Duration = Duration::from_secs(30);
 
 /// The amp worker on the real MIDI port.
 fn real_worker() -> Worker {
@@ -36,12 +42,17 @@ fn main() -> eframe::Result {
         Box::new(|cc| {
             let ctx = cc.egui_ctx.clone();
             let link = AmpLink::spawn(real_worker(), Box::new(move || ctx.request_repaint()));
+            let stopper = link.stopper();
             let quit = app.quit_signal.clone();
             let ctx = cc.egui_ctx.clone();
             // SIGINT, SIGTERM, SIGHUP: close normally, so editor mode goes off.
             if let Err(e) = ctrlc::set_handler(move || {
                 quit.store(true, Ordering::SeqCst);
                 ctx.request_repaint();
+                // A window that isn't being drawn never sees the flag: end anyway.
+                std::thread::sleep(UNDRAWN_WINDOW_WAIT);
+                stopper.stop(STORE_WAIT);
+                std::process::exit(0);
             }) {
                 eprintln!("can't handle quit signals: {e}");
             }
