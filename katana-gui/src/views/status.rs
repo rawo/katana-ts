@@ -30,6 +30,9 @@ pub fn status(ui: &mut egui::Ui, app: &mut KatanaApp, p: &Palette) {
                 .color(p.dim)
                 .small(),
             );
+            if let Some(note) = &app.store_note {
+                ui.add(Label::new(RichText::new(note).color(p.dim).small()).truncate());
+            }
             if let Some(busy) = &app.busy {
                 ui.label(RichText::new(busy).color(p.accent).small());
             }

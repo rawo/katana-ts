@@ -6,13 +6,14 @@ mod common;
 use std::path::{Path, PathBuf};
 
 use common::{gain_of, names_in, patch, tmp};
+use eframe::egui;
 use egui_kittest::kittest::{NodeT, Queryable};
 use egui_kittest::Harness;
 use katana_gui::amp::{AmpLink, Event, Job, LinkEnd};
 use katana_gui::app::{KatanaApp, CHANNEL_NAMES};
 use katana_gui::editor::Origin;
 use katana_gui::library::Library;
-use katana_proto::{encode_param, find_param};
+use katana_proto::{encode_param, find_param, Channel};
 
 const GAIN: &str = "gain";
 
@@ -52,6 +53,12 @@ impl Rig {
 
     fn click(&mut self, label: &str) {
         self.h.get_by_label(label).click();
+        self.h.run();
+    }
+
+    /// `label` in an open combo box: the channel tabs have the same names and come first.
+    fn click_in_popup(&mut self, label: &str) {
+        self.h.get_all_by_label(label).last().unwrap().click();
         self.h.run();
     }
 
@@ -396,4 +403,194 @@ fn failed_job_shows_in_the_status_line() {
 fn no_link_means_not_connected() {
     let app = KatanaApp::new();
     assert!(!app.connected);
+}
+
+fn lib_snapshot(root: &Path) -> Vec<Vec<String>> {
+    ["patches", "quick-saves", "sets"].iter().map(|d| names_in(&root.join(d))).collect()
+}
+
+/// Opens the dialog on A3 and answers its peek.
+fn store_asking(test: &str) -> Rig {
+    let mut r = rig(test).connected();
+    r.app().editor.load(patch("New sound", 7), Origin::None);
+    r.app().channel_tab = Some(3);
+    r.h.run();
+    r.click("Store to channel…");
+    assert_eq!(r.jobs(), vec![Job::Peek(Channel::A3)]);
+    r.event(Event::Peeked(Channel::A3, patch("Old sound", 1)));
+    r
+}
+
+#[test]
+fn store_asks_with_old_and_new_names() {
+    let r = store_asking("store-asks");
+    r.h.get_by_label("A3 currently 'Old sound' -> replace with 'New sound'?");
+    r.h.get_by_label("Store");
+    r.h.get_by_label("Cancel");
+}
+
+#[test]
+fn store_shows_reading_until_the_peek_answers() {
+    let mut r = rig("store-reading").connected();
+    r.app().channel_tab = Some(3);
+    r.h.run();
+    r.click("Store to channel…");
+    r.h.get_by_label("Reading A3\u{2026}");
+    assert!(r.h.query_by_label("Store").is_none());
+}
+
+#[test]
+fn store_without_channel_tab_asks_for_one() {
+    let mut r = rig("store-pick").connected();
+    r.app().editor.load(patch("New sound", 7), Origin::None);
+    r.h.run();
+    r.click("Store to channel…");
+    assert_eq!(r.jobs(), vec![], "no channel chosen yet");
+    r.click("Channel");
+    r.click_in_popup("B2");
+    assert_eq!(r.jobs(), vec![Job::Peek(Channel::B2)]);
+    r.event(Event::Peeked(Channel::B2, patch("Old", 1)));
+    r.h.get_by_label("B2 currently 'Old' -> replace with 'New sound'?");
+}
+
+#[test]
+fn panel_tab_preselects_no_channel() {
+    let mut r = rig("store-panel").connected();
+    r.app().channel_tab = Some(0);
+    r.h.run();
+    r.click("Store to channel…");
+    assert_eq!(r.jobs(), vec![], "PANEL is not a store target");
+}
+
+#[test]
+fn store_cancel_sends_nothing() {
+    let mut r = store_asking("store-cancel");
+    r.click("Cancel");
+    assert_eq!(r.jobs(), vec![]);
+    assert!(r.h.query_by_label("Cancel").is_none());
+    assert!(r.app().channel_tab == Some(3));
+}
+
+#[test]
+fn store_escape_is_cancel() {
+    let mut r = store_asking("store-escape");
+    r.h.key_press(egui::Key::Escape);
+    r.h.run();
+    assert_eq!(r.jobs(), vec![]);
+    assert!(r.h.query_by_label("Cancel").is_none());
+}
+
+#[test]
+fn store_sends_store_with_backup_dir() {
+    let mut r = store_asking("store-sends");
+    r.click("Store");
+    let jobs = r.jobs();
+    let [Job::Store { ch, patch: p, backup_dir, stamp }] = jobs.as_slice() else { panic!("{jobs:?}") };
+    assert_eq!(*ch, Channel::A3);
+    assert_eq!(p, &patch("New sound", 7));
+    assert_eq!(backup_dir, &r.root.join("backups"));
+    assert!(chrono::NaiveDateTime::parse_from_str(stamp, "%Y-%m-%d_%H-%M-%S").is_ok(), "{stamp}");
+    assert!(r.h.query_by_label("Cancel").is_none(), "the dialog closes");
+}
+
+fn stored(solo_delay_stored: bool) -> Event {
+    Event::Stored {
+        ch: Channel::A4,
+        channel_backup: "/b/channel.syx".into(),
+        current_backup: "/b/current.syx".into(),
+        solo_delay_stored,
+    }
+}
+
+#[test]
+fn stored_moves_tab_and_reports_solo_delay() {
+    let mut r = store_asking("store-done");
+    r.click("Store");
+    r.event(stored(false));
+    assert_eq!(r.app().channel_tab, Some(4));
+    assert_eq!(r.app().amp_on, Some(4));
+    r.h.get_by_label("stored 'New sound' in A4; the amp is now on A4 · solo delay not stored");
+}
+
+#[test]
+fn stored_with_solo_delay_says_nothing_about_it() {
+    let mut r = store_asking("store-solo");
+    r.click("Store");
+    r.event(stored(true));
+    r.h.get_by_label("stored 'New sound' in A4; the amp is now on A4");
+}
+
+#[test]
+fn store_failure_shows_message() {
+    let mut r = store_asking("store-fail");
+    r.click("Store");
+    r.event(Event::StoreFailed("Storing into A3 failed: x".into()));
+    assert_eq!(r.app().error.as_deref(), Some("Storing into A3 failed: x"));
+}
+
+#[test]
+fn store_does_not_save_file() {
+    let mut r = store_asking("store-no-file");
+    r.app().edit(find_param(GAIN).unwrap(), 9).unwrap();
+    r.jobs();
+    let before = lib_snapshot(&r.root);
+    r.click("Store");
+    r.event(stored(false));
+    assert_eq!(lib_snapshot(&r.root), before);
+    assert!(r.app().editor.is_dirty(), "a store is not a save");
+    assert_eq!(gain(&mut r), Some(9));
+}
+
+#[test]
+fn no_store_without_a_click() {
+    let mut r = rig("no-store").connected().live();
+    r.app().edit(find_param(GAIN).unwrap(), 9).unwrap();
+    let path = lib_file(&r.root.clone(), "Riff", 20);
+    r.app().request_open(path);
+    r.app().quick_save(chrono::Local::now().naive_local());
+    r.h.run();
+    assert!(!r.jobs().iter().any(|j| matches!(j, Job::Store { .. })));
+}
+
+#[test]
+fn failed_peek_lets_the_user_choose_again() {
+    let mut r = rig("store-peek-fail").connected();
+    r.app().channel_tab = Some(3);
+    r.h.run();
+    r.click("Store to channel…");
+    r.event(Event::Failed("no reply".into()));
+    assert!(r.h.query_by_label("Reading A3\u{2026}").is_none());
+    r.h.get_by_label("Cancel");
+    r.jobs();
+    r.click("Channel");
+    r.click_in_popup("A3");
+    assert_eq!(r.jobs(), vec![Job::Peek(Channel::A3)]);
+}
+
+#[test]
+fn disconnect_closes_the_store_dialog() {
+    let mut r = store_asking("store-unplug");
+    r.event(Event::Disconnected);
+    assert!(r.h.query_by_label("Cancel").is_none());
+    assert_eq!(r.jobs(), vec![]);
+}
+
+#[test]
+fn store_disabled_when_busy() {
+    let mut r = rig("store-busy").connected();
+    assert!(!r.disabled("Store to channel…"));
+    r.event(Event::Busy(Some("x".into())));
+    assert!(r.disabled("Store to channel…"));
+}
+
+#[test]
+fn store_disabled_without_library() {
+    let (link, end) = AmpLink::pair();
+    let app = KatanaApp::new().with_amp(link);
+    let mut h =
+        Harness::builder().with_size([1600.0, 960.0]).build_ui_state(|ui, app: &mut KatanaApp| app.show(ui), app);
+    end.events.send(Event::Connected).unwrap();
+    h.run();
+    assert!(h.get_by_label("Store to channel…").accesskit_node().is_disabled());
+    assert!(!h.get_by_label("Load to amp").accesskit_node().is_disabled());
 }

@@ -3,7 +3,7 @@
 use std::path::{Path, PathBuf};
 
 use eframe::egui;
-use katana_proto::{device, encode_param, Address, ParamDef, Patch, ProtoError, PARAMS};
+use katana_proto::{device, encode_param, Address, Channel, ParamDef, Patch, ProtoError, PARAMS};
 
 use crate::amp::{AmpLink, Event, Job};
 use crate::editor::{Editor, Origin};
@@ -23,6 +23,12 @@ enum Pending {
     /// A patch of a downloaded set; its file is created only after Discard.
     Pick(PathBuf, usize),
     Close,
+}
+
+/// The Store to channel… prompt: the chosen channel and, once read, what it holds.
+struct StoreDialog {
+    channel: Option<Channel>,
+    held: Option<Patch>,
 }
 
 /// Channel names by selector.
@@ -72,6 +78,11 @@ pub struct KatanaApp {
     pub busy: Option<String>,
     /// The last change made on the amp's panel: what, and when.
     pub last_panel_change: Option<(String, chrono::NaiveDateTime)>,
+    store_dialog: Option<StoreDialog>,
+    /// The name of the patch being stored, for the message afterwards.
+    storing: Option<String>,
+    /// What the last store did, for the status line.
+    pub store_note: Option<String>,
 }
 
 impl Default for KatanaApp {
@@ -101,6 +112,9 @@ impl KatanaApp {
             live: false,
             busy: None,
             last_panel_change: None,
+            store_dialog: None,
+            storing: None,
+            store_note: None,
             editor,
             library,
             tab: Tab::Editor,
@@ -150,6 +164,8 @@ impl KatanaApp {
                 self.connected = false;
                 self.busy = None;
                 self.amp_on = None;
+                self.store_dialog = None;
+                self.storing = None;
             }
             Event::AmpOn(sel) => {
                 self.amp_on = Some(sel);
@@ -174,9 +190,32 @@ impl KatanaApp {
                     .map_or_else(|| Address(addr).to_string(), |p| p.name.to_string());
                 self.last_panel_change = Some((what, now));
             }
-            Event::Failed(message) | Event::StoreFailed(message) => self.error = Some(message),
+            Event::Peeked(ch, p) => {
+                if let Some(d) = self.store_dialog.as_mut().filter(|d| d.channel == Some(ch)) {
+                    d.held = Some(p);
+                }
+            }
+            Event::Stored { ch, solo_delay_stored, .. } => {
+                let name = self.storing.take().unwrap_or_default();
+                let solo = if solo_delay_stored { "" } else { " · solo delay not stored" };
+                self.store_note = Some(format!("stored '{name}' in {ch}; the amp is now on {ch}{solo}"));
+                self.channel_tab = Some(ch.selector());
+                self.amp_on = Some(ch.selector());
+                self.error = None;
+            }
+            Event::StoreFailed(message) => {
+                self.storing = None;
+                self.error = Some(message);
+            }
+            Event::Failed(message) => {
+                // A channel that couldn't be read can be chosen again.
+                if let Some(d) = self.store_dialog.as_mut().filter(|d| d.held.is_none()) {
+                    d.channel = None;
+                }
+                self.error = Some(message);
+            }
             Event::Busy(what) => self.busy = what,
-            Event::Current(..) | Event::PanelChange { .. } | Event::Peeked(..) | Event::Stored { .. } => {}
+            Event::Current(..) | Event::PanelChange { .. } => {}
         }
     }
 
@@ -238,6 +277,97 @@ impl KatanaApp {
             self.editor.replace_from_amp(copy);
         }
         self.channel_tab = Some(selector);
+    }
+
+    /// Why Store to channel… can't be used now, if so.
+    pub fn store_blocked(&self) -> Option<&'static str> {
+        if !self.connected {
+            Some("Amp not connected")
+        } else if self.busy.is_some() {
+            Some("The amp is busy")
+        } else if self.library.root().is_none() {
+            Some("No library folder for the backups")
+        } else {
+            None
+        }
+    }
+
+    /// Opens the Store to channel… prompt, on the channel tab when it is A1–B4.
+    pub fn open_store_dialog(&mut self) {
+        let channel = self.channel_tab.filter(|&s| s > 0).and_then(|s| Channel::ALL.get(usize::from(s) - 1)).copied();
+        if let Some(ch) = channel {
+            self.send(Job::Peek(ch));
+        }
+        self.store_note = None;
+        self.store_dialog = Some(StoreDialog { channel, held: None });
+    }
+
+    /// The user confirmed: the only way anything is stored into a channel.
+    fn store(&mut self, ch: Channel) {
+        let Some(root) = self.library.root() else { return };
+        let job = Job::Store {
+            ch,
+            patch: self.editor.patch().clone(),
+            backup_dir: root.join("backups"),
+            stamp: chrono::Local::now().naive_local().format("%Y-%m-%d_%H-%M-%S").to_string(),
+        };
+        self.storing = Some(self.editor.patch().name());
+        self.send(job);
+    }
+
+    fn store_prompt(&mut self, ctx: &egui::Context) {
+        let Some(mut dialog) = self.store_dialog.take() else { return };
+        let new_name = self.editor.patch().name();
+        let mut chosen = None;
+        let mut answer = None;
+        let modal = egui::Modal::new(egui::Id::NULL.with("store")).show(ctx, |ui| {
+            ui.horizontal(|ui| {
+                let caption = ui.label("Channel");
+                let shown = dialog.channel.map_or_else(|| "Choose".to_string(), |c| c.to_string());
+                let combo = egui::ComboBox::from_id_salt("store_channel").selected_text(shown).show_ui(ui, |ui| {
+                    for ch in Channel::ALL {
+                        if ui.selectable_label(dialog.channel == Some(ch), ch.to_string()).clicked() {
+                            chosen = Some(ch);
+                        }
+                    }
+                });
+                let _ = combo.response.labelled_by(caption.id);
+            });
+            ui.add_space(8.0);
+            match (dialog.channel, &dialog.held) {
+                (Some(ch), Some(old)) => {
+                    ui.label(format!("{ch} currently '{}' -> replace with '{new_name}'?", old.name()));
+                }
+                (Some(ch), None) => {
+                    ui.label(format!("Reading {ch}\u{2026}"));
+                }
+                (None, _) => {}
+            }
+            ui.add_space(8.0);
+            ui.horizontal(|ui| {
+                if dialog.held.is_some() && ui.button("Store").clicked() {
+                    answer = Some(true);
+                }
+                if ui.button("Cancel").clicked() {
+                    answer = Some(false);
+                }
+            });
+        });
+        // Escape or a click outside the prompt means Cancel.
+        if answer.is_none() && modal.should_close() {
+            answer = Some(false);
+        }
+        match (answer, dialog.channel) {
+            (Some(true), Some(ch)) => self.store(ch),
+            (Some(_), _) => {}
+            (None, _) => {
+                if let Some(ch) = chosen.filter(|&c| dialog.channel != Some(c)) {
+                    dialog = StoreDialog { channel: Some(ch), held: None };
+                    self.send(Job::Peek(ch));
+                }
+                self.store_dialog = Some(dialog);
+            }
+        }
     }
 
     /// Plays the editor's patch on the amp's current settings. Nothing is stored
@@ -593,6 +723,7 @@ impl KatanaApp {
         self.discard_prompt(&ctx);
         self.save_as_prompt(&ctx);
         self.delete_prompt(&ctx);
+        self.store_prompt(&ctx);
         let now_secs = ctx.input(|i| i.time);
         self.autosave_tick(now_secs, chrono::Local::now().naive_local());
         // Wake up for the next auto-save even when nothing else happens.

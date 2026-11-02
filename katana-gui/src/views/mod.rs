@@ -31,9 +31,6 @@ pub fn dot_label(ui: &mut egui::Ui, color: Color32, text: &str) -> egui::Respons
     .inner
 }
 
-/// Tooltips for actions that later stages bring.
-pub const NEEDS_AMP: &str = "Needs amp control (stage 1)";
-
 /// The Editor tab: signal chain, detail panel and amp strip, scrolling when
 /// the window is too small.
 pub fn editor_tab(ui: &mut egui::Ui, app: &mut KatanaApp, p: &Palette) {
