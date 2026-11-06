@@ -1,15 +1,14 @@
 # Project status and handoff
 
-Last updated: 2026-11-06 (stage 2 verified on the amp). Read this first when picking
+Last updated: 2026-11-06 (stage 2 merged to `main`). Read this first when picking
 the work up.
 
-## Stage 2, editor <-> amp: verified on the amp, awaiting the user's check
+## Stage 2, editor <-> amp: done, merged to `main` 2026-11-06
 
-Work is on the local branch `feature/editor-amp` (not pushed, not merged). Task 9 was
-done with the user at the amp on 2026-11-06; every check passed (evidence:
-`docs/protocol.md`, "GUI end to end"). **Next: the user's hands-on check, then merge
-with the user's approval** (superpowers:finishing-a-development-branch; the final
-message lists every `Ruling:` and `minor (deferred)` line from the ledger).
+Verified on the amp with the user on 2026-11-06 (evidence: `docs/protocol.md`, "GUI end
+to end"); the user's hands-on check passed (open, load to amp, play, tweak, store to a
+channel, save in the library: "All works"). Merged locally into `main`, not pushed.
+**Next:** colour indicators for MOD, FX, DELAY and REVERB, in a dedicated session.
 
 - Spec: `docs/superpowers/specs/2026-10-31-katana-editor-amp-design.md`
 - Plan: `docs/superpowers/plans/2026-10-31-katana-editor-amp.md`
@@ -63,6 +62,7 @@ it says otherwise:
 | Phase 2, stage 2 shell: offline egui editor | done; checked on Linux in a VM | `docs/superpowers/specs/2026-10-22-katana-gui-design.md` | `docs/superpowers/plans/2026-10-26-katana-gui-shell.md` |
 | GUI polish (review minors, text size, 2-row top bar) | done | same | `docs/superpowers/plans/2026-10-28-katana-gui-polish.md` |
 | Stage 3: preset library | done; hands-on check in the Linux VM passed 2026-10-28 | `docs/superpowers/specs/2026-10-28-katana-preset-library-design.md` | `docs/superpowers/plans/2026-10-28-katana-preset-library.md` |
+| Stage 2: editor <-> amp | done, verified on the amp; user's hands-on check passed 2026-11-06 | `docs/superpowers/specs/2026-10-31-katana-editor-amp-design.md` | `docs/superpowers/plans/2026-10-31-katana-editor-amp.md` |
 | Stage 1: amp control (library + CLI) | done, verified on the amp; final review clean; user's hands-on check passed 2026-10-31 (incl. B1 and the Led Zeppelin Collection set) | `docs/superpowers/specs/2026-10-29-katana-amp-control-design.md` | `docs/superpowers/plans/2026-10-29-katana-amp-control.md` |
 
 - 225 tests pass on the Linux machine (`cargo test --workspace`, 2026-10-31); hardware
