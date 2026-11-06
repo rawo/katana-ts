@@ -7,7 +7,7 @@ the work up.
 
 Verified on the amp with the user on 2026-11-06 (evidence: `docs/protocol.md`, "GUI end
 to end"); the user's hands-on check passed (open, load to amp, play, tweak, store to a
-channel, save in the library: "All works"). Merged locally into `main`, not pushed.
+channel, save in the library: "All works"). Merged into `main` and pushed to `origin`. The plan workspace (ledger, review diff, logs) is kept on purpose.
 **Next:** colour indicators for MOD, FX, DELAY and REVERB, in a dedicated session.
 
 - Spec: `docs/superpowers/specs/2026-10-31-katana-editor-amp-design.md`
