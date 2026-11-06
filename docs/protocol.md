@@ -266,6 +266,27 @@ and checked with the hardware tests in `katana-proto/tests/hardware.rs`
     blocks; A4 restored from its backup, byte-identical to before.
   In both comparisons SOLO_DELAY matched too: the channels involved hold the same
   solo-delay settings, so this run doesn't show a solo delay being left behind.
+- **GUI end to end** (2026-11-06, `katana-gui` at `391a790`, the user at the amp, B4 and
+  A3; snapshot of all channels before: `backups/2026-11-06-before-task9/`):
+  - Start: connected within about 1 s, Live off, amp untouched. Live on: editor shows
+    the amp's channel; a panel channel switch A4 → B4 is followed.
+  - Open a Tone Exchange patch with Live on (Black Album Metallica, 'Nothing Clean'):
+    heard at once, amp and tab stay on B4, `dump B4` byte-identical to before; the
+    current patch holds the opened patch.
+  - App → amp edits smooth (gain, volume, fast drags stop at once on release);
+    panel knobs, slow amp-type steps, two fast channel presses and a knob right after
+    a switch are all followed; booster colour then on/off (also with the panel knob
+    at off) agree with the LEDs.
+  - Store to channel… A3: asks first; `dump A3` byte-identical to the saved
+    `task9-test.syx`; the app's A3 backup byte-identical to the snapshot. A3 restored
+    with `katana-cli store <snapshot> A3 --yes`, byte-identical again.
+  - Unplug/replug, a fast replug and a power cycle: "not connected", editor content
+    kept, unsaved edit quick-saved, reconnects and resyncs each time.
+  - Cable pulled during a store to A3: status only "Amp not connected"; no backups
+    written, A3 unchanged (the store had not got past its backup reads).
+  - SIGTERM with the window minimised: exits in 3–8 s (the undrawn-window wait of 3 s,
+    then the worker stops); afterwards `katana-cli monitor` sees nothing for 20 s of
+    knob turns, so editor mode is off.
 - Backups of the scratch channels taken before the tests: `backups/slot{4,5,8,9}-*.syx`
   (2026-10-22) and `backups/2026-10-31-slot{4,5,8,9}.syx` (hardware test
   `backup_scratch_channels`); untracked, local.

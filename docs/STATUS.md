@@ -1,11 +1,61 @@
 # Project status and handoff
 
-Last updated: 2026-10-31 (stage 1 on the Linux machine with the amp). Read this first
-when picking the work up.
+Last updated: 2026-11-06 (stage 2 verified on the amp). Read this first when picking
+the work up.
+
+## Stage 2, editor <-> amp: verified on the amp, awaiting the user's check
+
+Work is on the local branch `feature/editor-amp` (not pushed, not merged). Task 9 was
+done with the user at the amp on 2026-11-06; every check passed (evidence:
+`docs/protocol.md`, "GUI end to end"). **Next: the user's hands-on check, then merge
+with the user's approval** (superpowers:finishing-a-development-branch; the final
+message lists every `Ruling:` and `minor (deferred)` line from the ledger).
+
+- Spec: `docs/superpowers/specs/2026-10-31-katana-editor-amp-design.md`
+- Plan: `docs/superpowers/plans/2026-10-31-katana-editor-amp.md`
+- Ledger: `.superpowers/sdd/2026-10-31-katana-editor-amp/progress.md` (git-ignored,
+  local; `git clean -fdx` would destroy it).
+- Snapshot of all 8 channels and the current sound before Task 9:
+  `backups/2026-11-06-before-task9/` (untracked). A3 was stored and restored; it is
+  byte-identical to the snapshot.
+
+### Done
+
+- Tasks 1-8, the branch review (C1, I1-I13 fixed; I14 partly), and Task 9 on the amp.
+- Seen on the amp: Live on/off, Open with Live on (nothing stored), edits both ways,
+  fast drags, colours vs LEDs, amp-type steps, fast channel presses, Save as, Store to
+  A3 with backups, unplug/replug, fast replug, power cycle, cable pulled during a
+  store, SIGTERM with a minimised window (editor mode off afterwards).
+- Seen on the amp, matching deferred minors: a cable pulled early in a store shows only
+  "Amp not connected". The status line showed no hex address in these tests.
+- Not looked at: whether the amp echoes app writes.
+
+### Follow-ups from Task 9
+
+- MOD, FX, DELAY and REVERB have no colour indicator in the GUI (only the booster
+  has one); to be implemented (the user, 2026-11-06).
+- A quit signal with a minimised window takes 3-8 s (by design: 3 s wait for a frame,
+  then the worker stops).
+
+### Decisions the user can still overrule
+
+- With Live on the app re-reads the AMP block once a second (reverses the Task 2 ruling,
+  because a missed amp-type report could get a wrong sound saved or stored).
+- The whole central panel greys out during jobs, about 1.5 s per channel switch.
+- After a failed store only the channel is reported; the editor keeps what the user
+  wanted to store, and Load to amp puts it back.
+- With a hidden window a quit signal exits without a final auto-save, so up to 5 minutes
+  of edits could be lost.
+- A panel read finishing in the same instant as a click can clear that job's lock.
+
+The user's own decisions: Live off at every start; nothing is stored without an explicit
+Store click (amp memory wear); Open with Live on plays without storing; Save and Store
+stay separate; Load to amp never switches channel.
 
 ## Where things stand
 
-All on `main` (pushed to `origin`):
+All on `main` (pushed to `origin`), so the rest of this file describes `main` unless
+it says otherwise:
 
 | Phase / stage | State | Spec | Plan |
 |---|---|---|---|
@@ -53,8 +103,8 @@ built and verified there.
      was replaced (`katana-cli load <current-sound backup>` gets it back); `ctrlc`
      without its `termination` feature, so SIGTERM/SIGHUP mid-store can leave editor
      mode on until the amp is power-cycled.
-2. **Rest of stage 2, editor ↔ amp** (spec, "Editor ↔ amp model" and
-   "Channel tabs"):
+2. **Rest of stage 2, editor ↔ amp**, built and verified on the amp on
+   `feature/editor-amp` (see the top) (spec, "Editor ↔ amp model" and "Channel tabs"):
    - MIDI I/O off the UI thread (no blocking, no polling storms);
    - Load to amp, Store to channel… (asks first, backs up first), channel tabs,
      Live edit (amp wins when switched on; panel always wins);
@@ -88,6 +138,24 @@ These are git-ignored, so `git pull` does not bring them:
 - `docs/*.pdf` (manuals) are git-ignored too.
 
 ## Known minor issues (deferred, not fixed)
+
+From the stage 2 review (`feature/editor-amp`):
+- The status channel goes stale with Live off (ReadSlot, Peek and LiveOff don't read the
+  selector).
+- A failed tab click stays highlighted, and Store preselects it.
+- The store failure message always says the amp plays part of the new preset, even if
+  the select failed; after a read-back mismatch it doesn't say the channel may be
+  overwritten.
+- An unplug early in a store shows only "not connected".
+- A red Failed stays until a file action.
+- Backup paths aren't shown after a successful store (the CLI prints them).
+- Discard on close with replaced content shows the library file at the next start,
+  depending on the last auto-save.
+- Unplug and replug inside one port check: jobs time out and nothing reopens (suspected).
+- The status line shows a hex address for knob mirrors.
+- A DT1 in 20 00-20 01 outside `PATCH_BLOCKS` would enter the patch (suspected, none in
+  the logs).
+- Ledger "tests:" entries record a doc-test line (0 passed).
 
 From the preset library review:
 - A failing auto-save (e.g. disk full) retries on every frame and replaces other
