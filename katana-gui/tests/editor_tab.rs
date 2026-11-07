@@ -81,9 +81,35 @@ fn delay_card_has_a_tap_light_dark_with_delay_off() {
 #[test]
 fn selecting_block_without_params_says_so() {
     let mut h = harness();
-    h.get_by_label("MOD").click();
+    h.get_by_label("FX").click();
     h.run();
     h.get_by_label("No parameters verified on the amp for this block yet.");
+}
+
+#[test]
+fn mod_type_without_a_mapped_knob_says_so() {
+    let mut h = harness();
+    h.get_by_label("MOD").click();
+    h.run();
+    h.get_by_label("MOD · GREEN variation · type T.WAH");
+    h.get_by_label("The knob's settings for T.WAH are not mapped yet.");
+}
+
+#[test]
+fn mod_shows_the_knob_settings_of_its_colours_type() {
+    let mut h = harness();
+    h.state_mut().edit(find_param("mod1-type").unwrap(), 23).unwrap();
+    h.state_mut().edit(find_param("mod2-type").unwrap(), 25).unwrap();
+    h.get_by_label("MOD").click();
+    h.run();
+    h.get_by_label("CHORUS");
+    h.get_by_label("LOW RATE");
+    h.get_by_label("HIGH RATE");
+    h.get_by_label("MOD RED").click();
+    h.run();
+    assert_eq!(get(&h, "mod-color"), Some(1));
+    h.get_by_label("MOD · RED variation · type PHASER 90E");
+    h.get_by_label("SPEED");
 }
 
 #[test]

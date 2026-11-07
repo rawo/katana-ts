@@ -5,7 +5,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 use eframe::egui;
-use katana_proto::{device, encode_param, Address, Channel, ParamDef, Patch, ProtoError, PARAMS};
+use katana_proto::{all_params, device, encode_param, Address, Channel, ParamDef, Patch, ProtoError};
 
 use crate::amp::{AmpLink, Event, Job};
 use crate::editor::{Editor, Origin};
@@ -228,7 +228,7 @@ impl KatanaApp {
             }
             Event::PanelChange { addr, data } if self.live => {
                 self.editor.apply_amp_change(addr, &data);
-                let what = PARAMS
+                let what = all_params()
                     .iter()
                     .find(|p| p.addr == addr)
                     .map_or_else(|| Address(addr).to_string(), |p| p.name.to_string());

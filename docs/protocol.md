@@ -139,6 +139,9 @@ Only VERIFIED entries.
 | `20 00 04 00` | 1 | BOOSTER colour (`booster-color`); selects BOOSTER(1..3) | U7 | 0–2 | `captures/100-watch-knobs.log` (0,1,2; knob edits moved between blocks) |
 | `20 00 04 03` | 1 | DELAY colour (`delay-color`); selects DELAY(1..3) | U7 | 0–2 | `captures/105-delay-colours-knob.log` (2→0→1→2 with the LED, user's order orange, green, red, orange) |
 | `20 00 04 04` | 1 | REVERB colour (`reverb-color`); selects REVERB(1..3) | U7 | 0–2 | `captures/107-reverb-colours-knob.log` (2→0→1→2 with the LED, user's order orange, green, red, orange) |
+| `20 00 04 01` | 1 | MOD colour (`mod-color`); selects slot FX(1..3) | U7 | 0–2 | `captures/108-mod-colours-knob.log` (1→2→0→1 with the LED, user's order red, orange, green, red) |
+| `20 00 10 00 … 1A 00` | 1 each | FX(1..6) TYPE (`mod1..3-type`, `fx1..3-type`; MOD green/red/orange = FX(1..3), FX = FX(4..6)) | U7 | 0–30 | `captures/108` (patch FX(1..3) = 23, 25, 26 and the knob moved those types' own settings) |
+| `20 00 1C 00 + ofs`, `1E 00`, `20 00`, … | 1 | FX_DETAIL(1..6): each type's settings at its own offset (`modfx.rs` `KNOB`) | U7 | per setting | `captures/108` |
 | `20 00 02 01` | 1 | Cabinet resonance (`cab-resonance`) | U7 | 0–2 | `captures/100-watch-knobs.log` (0,1,2) |
 | `20 00 40 00` | 1 | Contour button (`contour`) | U7 | 0–3 | `captures/101-watch-contour.log` (cycles 0→1→2→3→0) |
 | `20 00 0A 01 / 0C 01 / 0E 01` | 1 | BOOSTER(1/2/3) DRIVE (`booster1..3-drive`) | U7 | 0–120 | `captures/100-watch-knobs.log` (changed in each colour) |
@@ -156,6 +159,22 @@ colour change after the knob had moved, the amp also sent the new colour's HIGH 
 (`06`: green 0A→0C, red 0A→08) and EFFECT LEVEL: it re-applies the knob position.
 TAP sends one TIME DT1 for the current colour per tapped tempo; the TAP LED blinks at
 that time, only with the delay on (the user).
+
+**MOD colours and knob** (VERIFIED 2026-11-07, `captures/108-*`, A3 active, editor
+mode). MOD green/red/orange = FX(1/2/3); each slot's TYPE is at `20 00 10/12/14 00`, its
+settings in FX_DETAIL(1/2/3) at `20 00 1C/1E/20 00`, where every type keeps its
+settings at a fixed offset (the app's 7-bit packed `addr`, e.g. `01 37` → `1D 37` in
+FX_DETAIL(1)). The patch's `ASSIGN_KNOBS` (`20 00 5C 00`…, one byte per type, all 0 =
+PRESET here) picks what the knob moves; with PRESET it moves, not one to one:
+
+| Type | Moves | Example (knob → value) |
+|---|---|---|
+| 23 CHORUS | `01 37` LOW RATE, `01 3B` HIGH RATE | 12→28/18, 97→77/67 |
+| 25 PHASER 90E | `01 45` SPEED | 0→6, 100→80 |
+| 26 FLANGER 117E | `01 48` SPEED | 15→30, 98→85 |
+
+The knob from off turned MOD on (`20 00 08 01` → 1). The knob also reports `20 01 1C 01`.
+Only these three types are mapped so far; the rest follow in batches.
 
 **REVERB colours and knob** (VERIFIED 2026-11-07, `captures/107-*`, A3 active, editor
 mode): green = REVERB(1) `34 xx`, red = REVERB(2) `36 xx`, orange = REVERB(3) `38 xx`.
@@ -330,5 +349,7 @@ From the official app's panel labels (`js/businesslogic/bts/effect_controller.js
 | `cab-resonance` | 0 VINTAGE, 1 MODERN, 2 DEEP | 3 positions in log |
 | `booster-color` | 0 GREEN, 1 RED, 2 ORANGE | button LED observed by the user after `set booster-color 0/1/2` |
 | `reverb-color` | 0 GREEN, 1 RED, 2 ORANGE | panel presses orange, green, red, orange logged as 2, 0, 1, 2 (`107`) |
+| `mod-color` | 0 GREEN, 1 RED, 2 ORANGE | panel presses red, orange, green, red logged as 1, 2, 0, 1 (`108`) |
+| `mod1..3-type`, `fx1..3-type` | 0 T.WAH … 30 PEDAL BEND (`modfx::FX_TYPES`, app `resource.js` order) | 23 CHORUS, 25 PHASER 90E, 26 FLANGER 117E matched the settings the knob moved (`108`) |
 | `delay-color` | 0 GREEN, 1 RED, 2 ORANGE | panel presses orange, green, red, orange logged as 2, 0, 1, 2 (`105`) |
 | `*-sw` | 0 OFF, 1 ON | toggled in log; `set reverb-sw 0` took effect |

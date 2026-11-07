@@ -24,7 +24,11 @@ pub fn detail(ui: &mut egui::Ui, app: &mut KatanaApp, block: &'static BlockDef, 
     ui.add_space(6.0);
     let controls = block.controls(patch);
     if controls.is_empty() {
-        ui.label(RichText::new("No parameters verified on the amp for this block yet.").color(p.dim));
+        let text = match block.type_label(patch) {
+            Some(t) if !block.slots.is_empty() => format!("The knob's settings for {t} are not mapped yet."),
+            _ => "No parameters verified on the amp for this block yet.".to_string(),
+        };
+        ui.label(RichText::new(text).color(p.dim));
         return;
     }
     ui.horizontal_wrapped(|ui| {

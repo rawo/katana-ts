@@ -64,7 +64,7 @@ fn captured_patch_survives_syx_round_trip() {
 fn every_param_lies_in_a_patch_block_with_an_in_range_value() {
     let p = katana_proto::Patch::from_syx(DT1).unwrap();
     assert!(!katana_proto::PARAMS.is_empty());
-    for def in katana_proto::PARAMS {
+    for def in katana_proto::all_params() {
         let v = p.get(def).unwrap_or_else(|| panic!("{} not inside the captured patch", def.name));
         assert!((def.min..=def.max).contains(&v), "{} = {v} outside {}..={}", def.name, def.min, def.max);
     }

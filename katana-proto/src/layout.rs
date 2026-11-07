@@ -1,10 +1,10 @@
 //! What the editor shows for each block of the signal chain. Lists only
 //! parameters from `PARAMS` (verified on the amp).
 
-use crate::{find_param, Patch};
+use crate::{find_param, modfx, Patch};
 
 /// One parameter as the editor shows it.
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Control {
     pub param: &'static str,
     pub label: &'static str,
@@ -26,14 +26,29 @@ pub struct BlockDef {
     pub per_color: &'static [&'static [Control]],
     /// Delay time the TAP light blinks at, indexed by the colour value.
     pub tap: &'static [&'static str],
+    /// MOD/FX slot (`modfx::SLOTS` index), indexed by the colour value: the
+    /// slot's type names the block and picks the knob's settings.
+    pub slots: &'static [usize],
 }
 
 impl BlockDef {
     /// `common` followed by the current variation's controls.
-    pub fn controls(&self, patch: &Patch) -> Vec<&'static Control> {
+    pub fn controls(&self, patch: &Patch) -> Vec<Control> {
         let color = self.color.and_then(find_param).and_then(|p| patch.get(p));
         let variation = color.and_then(|c| self.per_color.get(c as usize)).copied().unwrap_or(&[]);
-        self.common.iter().chain(variation).collect()
+        let mut out: Vec<Control> = self.common.iter().chain(variation).copied().collect();
+        if let Some((slot, fx_type)) = self.slot_type(patch) {
+            out.extend(modfx::knob_targets(slot, fx_type).into_iter().map(|(param, label)| Control { param, label }));
+        }
+        out
+    }
+
+    /// The current colour's MOD/FX slot and its type value.
+    fn slot_type(&self, patch: &Patch) -> Option<(usize, u32)> {
+        let color = patch.get(find_param(self.color?)?)?;
+        let slot = *self.slots.get(color as usize)?;
+        let def = find_param(&format!("{}-type", modfx::SLOTS[slot]))?;
+        Some((slot, patch.get(def)?))
     }
 
     /// The current colour's TAP time in ms, for blocks with a TAP light.
@@ -42,8 +57,11 @@ impl BlockDef {
         patch.get(find_param(self.tap.get(color as usize)?)?)
     }
 
-    /// Value name of `kind`, e.g. "CRUNCH".
+    /// Value name of `kind`, e.g. "CRUNCH", or of the current slot's type.
     pub fn type_label(&self, patch: &Patch) -> Option<&'static str> {
+        if let Some((_, v)) = self.slot_type(patch) {
+            return modfx::FX_TYPES.iter().find(|&&(n, _)| n == v).map(|&(_, name)| name);
+        }
         let p = find_param(self.kind?)?;
         let v = patch.get(p)?;
         p.values?.iter().find(|&&(n, _)| n == v).map(|&(_, name)| name)
@@ -55,7 +73,7 @@ const fn c(param: &'static str, label: &'static str) -> Control {
 }
 
 const fn block(id: &'static str, title: &'static str, switch: Option<&'static str>) -> BlockDef {
-    BlockDef { id, title, switch, kind: None, color: None, common: &[], per_color: &[], tap: &[] }
+    BlockDef { id, title, switch, kind: None, color: None, common: &[], per_color: &[], tap: &[], slots: &[] }
 }
 
 /// The signal chain in processing order. Fixed for now: the patch's chain
@@ -66,7 +84,7 @@ pub const CHAIN: &[BlockDef] = &[
         per_color: &[&[c("booster1-drive", "DRIVE")], &[c("booster2-drive", "DRIVE")], &[c("booster3-drive", "DRIVE")]],
         ..block("booster", "BOOSTER", Some("booster-sw"))
     },
-    block("mod", "MOD", Some("mod-sw")),
+    BlockDef { color: Some("mod-color"), slots: &[0, 1, 2], ..block("mod", "MOD", Some("mod-sw")) },
     BlockDef {
         kind: Some("amp-type"),
         common: &[
@@ -130,7 +148,9 @@ mod tests {
     fn per_color_has_one_entry_per_colour_value() {
         for b in CHAIN.iter().filter(|b| b.color.is_some()) {
             let n = find_param(b.color.unwrap()).unwrap().values.unwrap().len();
-            assert_eq!(b.per_color.len(), n, "{}", b.id);
+            // Either fixed controls or a MOD/FX slot for every colour.
+            let per = if b.slots.is_empty() { b.per_color.len() } else { b.slots.len() };
+            assert_eq!(per, n, "{}", b.id);
         }
     }
 
@@ -174,6 +194,58 @@ mod tests {
             assert_eq!(names, [format!("reverb{n}-level")], "colour {v}");
             let def = find_param(names[0]).unwrap();
             assert_eq!(def.addr, crate::device::addr([0x20, 0x00, block, 0x0A]), "colour {v}");
+        }
+    }
+
+    #[test]
+    fn mod_controls_follow_colour_and_type() {
+        // captures/108: the knob in each colour, with the patch's own types.
+        let m = CHAIN.iter().find(|b| b.id == "mod").unwrap();
+        let color = find_param("mod-color").unwrap();
+        assert_eq!(color.addr, crate::device::addr([0x20, 0x00, 0x04, 0x01]));
+        let a = |b: [u8; 4]| crate::device::addr(b);
+        let mut p = Patch::default_preset();
+        let cases = [
+            (
+                0,
+                "mod1-type",
+                23,
+                "CHORUS",
+                vec![
+                    ("mod1-chorus-low-rate", a([0x20, 0, 0x1D, 0x37])),
+                    ("mod1-chorus-high-rate", a([0x20, 0, 0x1D, 0x3B])),
+                ],
+            ),
+            (1, "mod2-type", 25, "PHASER 90E", vec![("mod2-phaser90e-speed", a([0x20, 0, 0x1F, 0x45]))]),
+            (2, "mod3-type", 26, "FLANGER 117E", vec![("mod3-flanger117e-speed", a([0x20, 0, 0x21, 0x48]))]),
+        ];
+        for (c, type_param, t, label, want) in cases {
+            p.set(color, c).unwrap();
+            p.set(find_param(type_param).unwrap(), t).unwrap();
+            assert_eq!(m.type_label(&p), Some(label), "colour {c}");
+            let got: Vec<_> = m.controls(&p).iter().map(|c| (c.param, find_param(c.param).unwrap().addr)).collect();
+            assert_eq!(got, want, "colour {c}");
+        }
+    }
+
+    #[test]
+    fn mod_type_without_a_mapped_knob_has_no_controls() {
+        let m = CHAIN.iter().find(|b| b.id == "mod").unwrap();
+        let mut p = Patch::default_preset();
+        p.set(find_param("mod-color").unwrap(), 0).unwrap();
+        p.set(find_param("mod1-type").unwrap(), 0).unwrap();
+        assert_eq!(m.type_label(&p), Some("T.WAH"));
+        assert!(m.controls(&p).is_empty());
+    }
+
+    #[test]
+    fn modfx_type_params_sit_in_the_fx_blocks() {
+        let a = |b: [u8; 4]| crate::device::addr(b);
+        for (name, blk) in [("mod1", 0x10), ("mod2", 0x12), ("mod3", 0x14), ("fx1", 0x16), ("fx2", 0x18), ("fx3", 0x1A)]
+        {
+            let t = find_param(&format!("{name}-type")).unwrap();
+            assert_eq!(t.addr, a([0x20, 0, blk, 0]), "{name}");
+            assert_eq!((t.min, t.max, t.values.unwrap().len()), (0, 30, 31), "{name}");
         }
     }
 

@@ -77,6 +77,8 @@ pub const PARAMS: &[ParamDef] = &[
     named(p("delay-color", [0x20, 0x00, 0x04, 0x03], U7, 0, 2), COLORS),
     // Selects REVERB(1..3) (captures/107-reverb-colours-knob.log)
     named(p("reverb-color", [0x20, 0x00, 0x04, 0x04], U7, 0, 2), COLORS),
+    // Selects MOD slot FX(1..3) (captures/108-mod-colours-knob.log)
+    named(p("mod-color", [0x20, 0x00, 0x04, 0x01], U7, 0, 2), COLORS),
     named(p("cab-resonance", [0x20, 0x00, 0x02, 0x01], U7, 0, 2), CAB_RESONANCE),
     // Contour button cycles 0..3 (captures/101-watch-contour.log)
     named(p("contour", [0x20, 0x00, 0x40, 0x00], U7, 0, 3), CONTOUR),
@@ -101,8 +103,15 @@ pub const PARAMS: &[ParamDef] = &[
     p("reverb3-level", [0x20, 0x00, 0x38, 0x0A], U7, 0, 100),
 ];
 
+/// `PARAMS` followed by the generated MOD/FX slot parameters (`modfx`).
+pub fn all_params() -> &'static [ParamDef] {
+    static ALL: std::sync::LazyLock<Vec<ParamDef>> =
+        std::sync::LazyLock::new(|| PARAMS.iter().chain(crate::modfx::GENERATED.iter()).copied().collect());
+    &ALL
+}
+
 pub fn find_param(name: &str) -> Option<&'static ParamDef> {
-    PARAMS.iter().find(|p| p.name.eq_ignore_ascii_case(name))
+    all_params().iter().find(|p| p.name.eq_ignore_ascii_case(name))
 }
 
 pub fn encode_param(p: &ParamDef, value: u32) -> Result<Vec<u8>, ProtoError> {

@@ -324,6 +324,9 @@ nibbles.
 | `booster-color` | 0–2 | `green`, `red`, `orange` (selects booster 1/2/3) |
 | `delay-color` | 0–2 | `green`, `red`, `orange` (selects delay 1/2/3) |
 | `reverb-color` | 0–2 | `green`, `red`, `orange` (selects reverb 1/2/3) |
+| `mod-color` | 0–2 | `green`, `red`, `orange` (selects MOD slot 1/2/3) |
+| `mod1-type` … `mod3-type`, `fx1-type` … `fx3-type` | 0–30 | effect type, e.g. `chorus`, `phaser 90e` |
+| `<slot>-<type>-<setting>`, e.g. `mod1-chorus-low-rate` | per setting | what the MOD/FX knob moves for that type; generated for every slot (`katana-cli params` lists them) |
 | `cab-resonance` | 0–2 | `vintage`, `modern`, `deep` |
 | `contour` | 0–3 | `off`, `1`, `2`, `3` |
 | `booster1-drive` | 0–120 | drive, green variation |

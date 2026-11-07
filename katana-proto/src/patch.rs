@@ -103,7 +103,7 @@ impl Patch {
         for &(a, s) in PATCH_BLOCKS {
             p.mem.apply(Address(a), &vec![0; s as usize]);
         }
-        for def in crate::PARAMS {
+        for def in crate::all_params() {
             p.set(def, def.min).expect("min is in range");
         }
         p.set(crate::find_param("amp-type").expect("amp-type is a param"), 1).expect("CLEAN is in range");
