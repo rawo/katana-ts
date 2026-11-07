@@ -76,6 +76,9 @@ const fn t(key: &'static str, label: &'static str, offset: [u8; 2], min: u32, ma
 
 /// Recorded on the amp, with every knob assignment at PRESET.
 pub const KNOB: &[TypeKnob] = &[
+    // captures/109-fx-colours-knob.log
+    TypeKnob { fx_type: 0, key: "twah", targets: &[t("sens", "SENS", [0x00, 0x02], 0, 100)] },
+    TypeKnob { fx_type: 16, key: "tremolo", targets: &[t("rate", "RATE", [0x01, 0x19], 0, 100)] },
     // captures/108-mod-colours-knob.log
     TypeKnob {
         fx_type: 23,
@@ -83,6 +86,7 @@ pub const KNOB: &[TypeKnob] = &[
         targets: &[t("low-rate", "LOW RATE", [0x01, 0x37], 0, 100), t("high-rate", "HIGH RATE", [0x01, 0x3B], 0, 100)],
     },
     TypeKnob { fx_type: 25, key: "phaser90e", targets: &[t("speed", "SPEED", [0x01, 0x45], 0, 100)] },
+    // MOD (108) and FX (109): the same offset in both
     TypeKnob { fx_type: 26, key: "flanger117e", targets: &[t("speed", "SPEED", [0x01, 0x48], 0, 100)] },
 ];
 

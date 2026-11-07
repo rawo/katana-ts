@@ -79,6 +79,8 @@ pub const PARAMS: &[ParamDef] = &[
     named(p("reverb-color", [0x20, 0x00, 0x04, 0x04], U7, 0, 2), COLORS),
     // Selects MOD slot FX(1..3) (captures/108-mod-colours-knob.log)
     named(p("mod-color", [0x20, 0x00, 0x04, 0x01], U7, 0, 2), COLORS),
+    // Selects FX slot FX(4..6) (captures/109-fx-colours-knob.log)
+    named(p("fx-color", [0x20, 0x00, 0x04, 0x02], U7, 0, 2), COLORS),
     named(p("cab-resonance", [0x20, 0x00, 0x02, 0x01], U7, 0, 2), CAB_RESONANCE),
     // Contour button cycles 0..3 (captures/101-watch-contour.log)
     named(p("contour", [0x20, 0x00, 0x40, 0x00], U7, 0, 3), CONTOUR),

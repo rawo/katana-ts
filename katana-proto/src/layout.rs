@@ -95,7 +95,7 @@ pub const CHAIN: &[BlockDef] = &[
         ],
         ..block("amp", "AMP", None)
     },
-    block("fx", "FX", Some("fx-sw")),
+    BlockDef { color: Some("fx-color"), slots: &[3, 4, 5], ..block("fx", "FX", Some("fx-sw")) },
     BlockDef {
         color: Some("delay-color"),
         per_color: &[
@@ -229,12 +229,34 @@ mod tests {
     }
 
     #[test]
+    fn fx_controls_follow_colour_and_type() {
+        // captures/109: FX green/red/orange = FX(4/5/6), FX_DETAIL at 22/24/26 00.
+        let fx = CHAIN.iter().find(|b| b.id == "fx").unwrap();
+        let color = find_param("fx-color").unwrap();
+        assert_eq!(color.addr, crate::device::addr([0x20, 0x00, 0x04, 0x02]));
+        let a = |b: [u8; 4]| crate::device::addr(b);
+        let mut p = Patch::default_preset();
+        let cases = [
+            (0, "fx1-type", 16, "TREMOLO", vec![("fx1-tremolo-rate", a([0x20, 0, 0x23, 0x19]))]),
+            (1, "fx2-type", 0, "T.WAH", vec![("fx2-twah-sens", a([0x20, 0, 0x24, 0x02]))]),
+            (2, "fx3-type", 26, "FLANGER 117E", vec![("fx3-flanger117e-speed", a([0x20, 0, 0x27, 0x48]))]),
+        ];
+        for (c, type_param, t, label, want) in cases {
+            p.set(color, c).unwrap();
+            p.set(find_param(type_param).unwrap(), t).unwrap();
+            assert_eq!(fx.type_label(&p), Some(label), "colour {c}");
+            let got: Vec<_> = fx.controls(&p).iter().map(|c| (c.param, find_param(c.param).unwrap().addr)).collect();
+            assert_eq!(got, want, "colour {c}");
+        }
+    }
+
+    #[test]
     fn mod_type_without_a_mapped_knob_has_no_controls() {
         let m = CHAIN.iter().find(|b| b.id == "mod").unwrap();
         let mut p = Patch::default_preset();
         p.set(find_param("mod-color").unwrap(), 0).unwrap();
-        p.set(find_param("mod1-type").unwrap(), 0).unwrap();
-        assert_eq!(m.type_label(&p), Some("T.WAH"));
+        p.set(find_param("mod1-type").unwrap(), 1).unwrap();
+        assert_eq!(m.type_label(&p), Some("AUTO WAH"));
         assert!(m.controls(&p).is_empty());
     }
 
