@@ -1,14 +1,63 @@
 # Project status and handoff
 
-Last updated: 2026-11-06 (stage 2 merged to `main`). Read this first when picking
-the work up.
+Last updated: 2026-11-07 (effect colours round in progress on
+`feature/effect-colours`, not merged). Read this first when picking the work up.
+
+## Effect colours round: in progress on `feature/effect-colours`
+
+Scope agreed with the user (2026-11-07, approved in chat, no written spec): mirror in
+the app what is visible on the amp's panel. For DELAY, REVERB, MOD and FX: colour
+lights that work both ways (like the booster), and the settings the effect's knob moves,
+for the current colour. The full Tone Studio settings per effect are the **next**
+round. One effect at a time, each recorded with the user at the amp
+(`katana-cli monitor --editor > captures/1NN-….log`, dump before/after, diff), built
+test-first, then checked by the user.
+
+| Part | State | Evidence |
+|---|---|---|
+| DELAY: colours, TIME/FEEDBACK/EFFECT LEVEL per colour, TAP light (red, blinks at the delay time, only with the delay on) | done, user's check passed | `captures/105-*`, `106-*` |
+| REVERB: colours, EFFECT LEVEL per colour | done, user's check passed | `captures/107-*` |
+| MOD: colours, type line, the knob's settings for the colour's type | done, user's check passed | `captures/108-*` |
+| FX: same as MOD | done, user's check passed | `captures/109-*` |
+| Knob settings per effect type (31 types, MOD and FX share them) | **11 of 31 mapped**: 0–6, 16, 23, 25, 26 | `captures/108`–`110` |
+
+How MOD/FX work: MOD green/red/orange are slots FX(1..3), FX green/red/orange FX(4..6).
+Each slot has a type; the knob (default "PRESET" assignment, `ASSIGN_KNOBS`) moves
+type-specific settings, not one to one. Per-type table: `KNOB` in
+`katana-proto/src/modfx.rs`; parameters are generated for all six slots
+(`<slot>-<type>-<setting>`, `all_params()`). Unmapped types show "The knob's settings
+for … are not mapped yet." Details in `docs/protocol.md`, "MOD colours and knob".
+
+**Next: type batches**, 6 types per batch, the user chose to record every type:
+batch 2 = 7 GUITAR SIM, 8 SLOW GEAR, 9 WAVE SYNTH, 10 OCTAVE, 11 PITCH SHIFTER,
+12 HARMONIST; then 13–15, 17–22, 24, 27–30. Routine: app closed; MOD on green;
+`katana-cli dump captures/1NN-before.syx`; `katana-cli monitor --editor >
+captures/1NN-types-batchK.log` in the background; per type `katana-cli set mod1-type N`
+(current sound only, nothing stored), the user sweeps the MOD knob and says "done";
+note the log line count between types; at the end `katana-cli set mod1-type 23`
+(CHORUS, the patch's own) and stop with `pkill -INT -x katana-cli` (not `pkill -f`:
+that kills the calling shell too). Look the offsets up in the app's `address_map.js`
+(`PATCH_FX_DETAIL`, 7-bit packed `addr`); signed settings need `ofs` (`signed()` in
+`modfx.rs`). The "not mapped" tests use type 30 PEDAL BEND: map it last and then
+replace those tests.
+
+After all types: the user's check in the app, a review of the branch, merge.
+
+Noted for the full-settings round: LIMITER RATIO shows raw steps 0–17 (value names not
+found in the app's files); HIGH CUT (delay) and LOW CUT/DENSITY (reverb) change by
+themselves on a colour change and are not shown; the CLI `set`/`params` show raw values
+(no `ofs`).
+
+The amp's current sound (A3 active) was changed by the recordings and not stored; the
+user said it is fine as it is.
+
 
 ## Stage 2, editor <-> amp: done, merged to `main` 2026-11-06
 
 Verified on the amp with the user on 2026-11-06 (evidence: `docs/protocol.md`, "GUI end
 to end"); the user's hands-on check passed (open, load to amp, play, tweak, store to a
 channel, save in the library: "All works"). Merged into `main` and pushed to `origin`. The plan workspace (ledger, review diff, logs) is kept on purpose.
-**Next:** colour indicators for MOD, FX, DELAY and REVERB, in a dedicated session.
+**Next:** colour indicators for MOD, FX, DELAY and REVERB: in progress, see above.
 
 - Spec: `docs/superpowers/specs/2026-10-31-katana-editor-amp-design.md`
 - Plan: `docs/superpowers/plans/2026-10-31-katana-editor-amp.md`
