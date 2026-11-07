@@ -73,6 +73,8 @@ pub const PARAMS: &[ParamDef] = &[
     named(p("solo-sw", [0x20, 0x00, 0x3A, 0x00], U7, 0, 1), ON_OFF),
     // Variation colour (selects BOOSTER(1..3))
     named(p("booster-color", [0x20, 0x00, 0x04, 0x00], U7, 0, 2), COLORS),
+    // Selects DELAY(1..3) (captures/105-delay-colours-knob.log)
+    named(p("delay-color", [0x20, 0x00, 0x04, 0x03], U7, 0, 2), COLORS),
     named(p("cab-resonance", [0x20, 0x00, 0x02, 0x01], U7, 0, 2), CAB_RESONANCE),
     // Contour button cycles 0..3 (captures/101-watch-contour.log)
     named(p("contour", [0x20, 0x00, 0x40, 0x00], U7, 0, 3), CONTOUR),
@@ -80,9 +82,17 @@ pub const PARAMS: &[ParamDef] = &[
     p("booster1-drive", [0x20, 0x00, 0x0A, 0x01], U7, 0, 120),
     p("booster2-drive", [0x20, 0x00, 0x0C, 0x01], U7, 0, 120),
     p("booster3-drive", [0x20, 0x00, 0x0E, 0x01], U7, 0, 120),
+    // DELAY(1..3) = green/red/orange: the knob edits feedback and level, TAP
+    // the time (captures/105-delay-colours-knob.log, 106-delay-tap.log)
+    p("delay1-time", [0x20, 0x00, 0x28, 0x01], Nibbles4, 1, 2000),
+    p("delay1-feedback", [0x20, 0x00, 0x28, 0x05], U7, 0, 100),
+    p("delay1-level", [0x20, 0x00, 0x28, 0x07], U7, 0, 120),
     p("delay2-time", [0x20, 0x00, 0x2A, 0x01], Nibbles4, 1, 2000),
     p("delay2-feedback", [0x20, 0x00, 0x2A, 0x05], U7, 0, 100),
     p("delay2-level", [0x20, 0x00, 0x2A, 0x07], U7, 0, 120),
+    p("delay3-time", [0x20, 0x00, 0x2C, 0x01], Nibbles4, 1, 2000),
+    p("delay3-feedback", [0x20, 0x00, 0x2C, 0x05], U7, 0, 100),
+    p("delay3-level", [0x20, 0x00, 0x2C, 0x07], U7, 0, 120),
     p("reverb1-level", [0x20, 0x00, 0x34, 0x0A], U7, 0, 100),
 ];
 

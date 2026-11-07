@@ -303,7 +303,7 @@ katana-cli --port "KATANA3 MIDI 1" dump now.syx
 ### Parameters (`set` / `params`)
 
 All verified on the amp (evidence in `docs/protocol.md`). They are current-patch
-parameters. Each is one byte (0–127), except `delay2-time`, which is four 4-bit
+parameters. Each is one byte (0–127), except the `delay1..3-time` ones, which are four 4-bit
 nibbles.
 
 | Name | Range | Values |
@@ -322,14 +322,15 @@ nibbles.
 | `reverb-sw` | 0–1 | `off`, `on` |
 | `solo-sw` | 0–1 | `off`, `on` |
 | `booster-color` | 0–2 | `green`, `red`, `orange` (selects booster 1/2/3) |
+| `delay-color` | 0–2 | `green`, `red`, `orange` (selects delay 1/2/3) |
 | `cab-resonance` | 0–2 | `vintage`, `modern`, `deep` |
 | `contour` | 0–3 | `off`, `1`, `2`, `3` |
 | `booster1-drive` | 0–120 | drive, green variation |
 | `booster2-drive` | 0–120 | drive, red variation |
 | `booster3-drive` | 0–120 | drive, orange variation |
-| `delay2-time` | 1–2000 | ms |
-| `delay2-feedback` | 0–100 | |
-| `delay2-level` | 0–120 | effect level |
+| `delay1-time`, `delay2-time`, `delay3-time` | 1–2000 | ms, green/red/orange variation |
+| `delay1-feedback` … `delay3-feedback` | 0–100 | |
+| `delay1-level` … `delay3-level` | 0–120 | effect level |
 | `reverb1-level` | 0–100 | effect level |
 
 Amp quirk: changing a variation colour makes the amp re-derive that effect's on/off

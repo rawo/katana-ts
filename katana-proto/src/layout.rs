@@ -24,6 +24,8 @@ pub struct BlockDef {
     pub common: &'static [Control],
     /// Indexed by the colour value.
     pub per_color: &'static [&'static [Control]],
+    /// Delay time the TAP light blinks at, indexed by the colour value.
+    pub tap: &'static [&'static str],
 }
 
 impl BlockDef {
@@ -32,6 +34,12 @@ impl BlockDef {
         let color = self.color.and_then(find_param).and_then(|p| patch.get(p));
         let variation = color.and_then(|c| self.per_color.get(c as usize)).copied().unwrap_or(&[]);
         self.common.iter().chain(variation).collect()
+    }
+
+    /// The current colour's TAP time in ms, for blocks with a TAP light.
+    pub fn tap_time(&self, patch: &Patch) -> Option<u32> {
+        let color = patch.get(find_param(self.color?)?)?;
+        patch.get(find_param(self.tap.get(color as usize)?)?)
     }
 
     /// Value name of `kind`, e.g. "CRUNCH".
@@ -47,7 +55,7 @@ const fn c(param: &'static str, label: &'static str) -> Control {
 }
 
 const fn block(id: &'static str, title: &'static str, switch: Option<&'static str>) -> BlockDef {
-    BlockDef { id, title, switch, kind: None, color: None, common: &[], per_color: &[] }
+    BlockDef { id, title, switch, kind: None, color: None, common: &[], per_color: &[], tap: &[] }
 }
 
 /// The signal chain in processing order. Fixed for now: the patch's chain
@@ -71,11 +79,13 @@ pub const CHAIN: &[BlockDef] = &[
     },
     block("fx", "FX", Some("fx-sw")),
     BlockDef {
-        common: &[
-            c("delay2-time", "TIME (DELAY 2)"),
-            c("delay2-feedback", "FEEDBACK (DELAY 2)"),
-            c("delay2-level", "EFFECT LEVEL (DELAY 2)"),
+        color: Some("delay-color"),
+        per_color: &[
+            &[c("delay1-time", "TIME"), c("delay1-feedback", "FEEDBACK"), c("delay1-level", "EFFECT LEVEL")],
+            &[c("delay2-time", "TIME"), c("delay2-feedback", "FEEDBACK"), c("delay2-level", "EFFECT LEVEL")],
+            &[c("delay3-time", "TIME"), c("delay3-feedback", "FEEDBACK"), c("delay3-level", "EFFECT LEVEL")],
         ],
+        tap: &["delay1-time", "delay2-time", "delay3-time"],
         ..block("delay", "DELAY", Some("delay-sw"))
     },
     BlockDef {
@@ -105,7 +115,7 @@ mod tests {
             assert!(find_param(c.param).is_some(), "{} not in PARAMS", c.param);
         }
         for b in CHAIN {
-            for p in [b.switch, b.kind, b.color].into_iter().flatten() {
+            for p in [b.switch, b.kind, b.color].into_iter().flatten().chain(b.tap.iter().copied()) {
                 assert!(find_param(p).is_some(), "{p} not in PARAMS");
             }
         }
@@ -125,6 +135,37 @@ mod tests {
         let mut p = Patch::default_preset();
         p.set(find_param("booster-color").unwrap(), 2).unwrap();
         assert_eq!(booster.controls(&p)[0].param, "booster3-drive");
+    }
+
+    #[test]
+    fn delay_controls_follow_colour() {
+        // captures/105: green edits DELAY(1) 28 xx, red DELAY(2) 2A xx, orange DELAY(3) 2C xx.
+        let delay = CHAIN.iter().find(|b| b.id == "delay").unwrap();
+        let color = find_param("delay-color").unwrap();
+        assert_eq!(color.addr, crate::device::addr([0x20, 0x00, 0x04, 0x03]));
+        let mut p = Patch::default_preset();
+        for (v, n, block) in [(0, 1, 0x28), (1, 2, 0x2A), (2, 3, 0x2C)] {
+            p.set(color, v).unwrap();
+            let names: Vec<_> = delay.controls(&p).iter().map(|c| c.param).collect();
+            let want = [format!("delay{n}-time"), format!("delay{n}-feedback"), format!("delay{n}-level")];
+            assert_eq!(names, want, "colour {v}");
+            let addrs: Vec<_> = names.iter().map(|n| find_param(n).unwrap().addr).collect();
+            let want: Vec<_> =
+                [0x01, 0x05, 0x07].iter().map(|&o| crate::device::addr([0x20, 0x00, block, o])).collect();
+            assert_eq!(addrs, want, "colour {v}");
+        }
+    }
+
+    #[test]
+    fn tap_time_is_the_current_colours_delay_time() {
+        let delay = CHAIN.iter().find(|b| b.id == "delay").unwrap();
+        let mut p = Patch::default_preset();
+        p.set(find_param("delay-color").unwrap(), 1).unwrap();
+        p.set(find_param("delay2-time").unwrap(), 526).unwrap();
+        p.set(find_param("delay3-time").unwrap(), 1186).unwrap();
+        assert_eq!(delay.tap_time(&p), Some(526));
+        let booster = CHAIN.iter().find(|b| b.id == "booster").unwrap();
+        assert_eq!(booster.tap_time(&p), None);
     }
 
     #[test]

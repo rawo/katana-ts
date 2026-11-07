@@ -44,7 +44,13 @@ fn card(ui: &mut egui::Ui, app: &mut KatanaApp, block: &'static BlockDef, p: &Pa
                         ui.label(RichText::new(t).small().color(p.dim));
                     }
                     if let Some(color) = block.color {
-                        leds(ui, app, block.title, color, p);
+                        ui.horizontal(|ui| {
+                            leds(ui, app, block.title, color, p);
+                            if let Some(ms) = block.tap_time(app.editor.patch()) {
+                                let on = block.switch.and_then(find_param).and_then(|d| app.editor.get(d)) == Some(1);
+                                tap_light(ui, block.title, on, ms, p);
+                            }
+                        });
                     }
                     title.inner.id
                 })
@@ -104,6 +110,36 @@ fn leds(ui: &mut egui::Ui, app: &mut KatanaApp, title: &str, param: &str, p: &Pa
     });
 }
 
+/// The TAP light: flashes red once per delay interval, like the amp's TAP button.
+fn tap_light(ui: &mut egui::Ui, title: &str, on: bool, time_ms: u32, p: &Palette) {
+    ui.add_space(6.0);
+    let now = ui.input(|i| i.time);
+    let lit = tap_lit(on, time_ms, now);
+    let (rect, response) = ui.allocate_exact_size(Vec2::splat(12.0), Sense::hover());
+    ui.painter().circle_filled(rect.center(), 5.0, if lit { p.red } else { p.red.gamma_multiply(0.25) });
+    let label = format!("{title} TAP");
+    response.widget_info(|| WidgetInfo::selected(Role::Image, true, lit, &label));
+    response.on_hover_text(format!("TAP {time_ms} ms"));
+    if on {
+        // Wake up for the next flash edge only.
+        let period = f64::from(time_ms.max(1)) / 1000.0;
+        let phase = now.rem_euclid(period);
+        let flash = (period / 4.0).min(0.15);
+        let next = if phase < flash { flash - phase } else { period - phase };
+        ui.ctx().request_repaint_after(std::time::Duration::from_secs_f64(next.max(0.005)));
+    }
+}
+
+/// Whether the TAP light is on `now` seconds into the clock: a short flash at
+/// the start of every delay interval, dark with the delay off.
+pub(crate) fn tap_lit(on: bool, time_ms: u32, now: f64) -> bool {
+    if !on || time_ms == 0 {
+        return false;
+    }
+    let period = f64::from(time_ms) / 1000.0;
+    now.rem_euclid(period) < (period / 4.0).min(0.15)
+}
+
 /// A painted right arrow (the default fonts have no "→").
 fn arrow(ui: &mut egui::Ui, p: &Palette) {
     let (rect, _) = ui.allocate_exact_size(Vec2::new(18.0, 12.0), Sense::hover());
@@ -112,4 +148,24 @@ fn arrow(ui: &mut egui::Ui, p: &Palette) {
     ui.painter().line_segment([l, r], stroke);
     ui.painter().line_segment([r, r + Vec2::new(-5.0, -4.0)], stroke);
     ui.painter().line_segment([r, r + Vec2::new(-5.0, 4.0)], stroke);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::tap_lit;
+
+    #[test]
+    fn tap_light_blinks_once_per_delay_time() {
+        assert!(tap_lit(true, 500, 0.0));
+        assert!(tap_lit(true, 500, 0.1));
+        assert!(!tap_lit(true, 500, 0.3));
+        assert!(tap_lit(true, 500, 0.51));
+        assert!(!tap_lit(true, 2000, 1.0));
+        assert!(tap_lit(true, 2000, 2.05));
+    }
+
+    #[test]
+    fn tap_light_is_dark_with_delay_off() {
+        assert!(!tap_lit(false, 500, 0.0));
+    }
 }

@@ -297,6 +297,28 @@ fn panel_change_updates_editor_and_status() {
 }
 
 #[test]
+fn delay_colour_goes_to_the_amp_with_live_on() {
+    let mut r = rig("delay-colour-out").connected().live();
+    let def = find_param("delay-color").unwrap();
+    r.click("DELAY ORANGE");
+    assert_eq!(r.jobs(), vec![Job::SetParam { addr: def.addr, data: vec![2] }]);
+}
+
+#[test]
+fn delay_colour_and_tap_from_the_panel_follow() {
+    let mut r = rig("delay-colour-in").connected().live();
+    let color = find_param("delay-color").unwrap();
+    r.event(Event::PanelChange { addr: color.addr, data: vec![1] });
+    let time = find_param("delay2-time").unwrap();
+    r.event(Event::PanelChange { addr: time.addr, data: encode_param(time, 526).unwrap() });
+    assert_eq!(r.app().editor.get(color), Some(1));
+    assert_eq!(r.app().editor.get(time), Some(526));
+    r.click("DELAY");
+    r.h.get_by_label("DELAY · RED variation");
+    assert_eq!(r.jobs(), vec![], "panel changes are not sent back");
+}
+
+#[test]
 fn panel_change_outside_known_params_shows_the_address() {
     let mut r = rig("panel-hex").connected().live();
     let addr = katana_proto::device::addr([0x20, 0x01, 0x1C, 0x00]);

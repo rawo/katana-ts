@@ -44,6 +44,29 @@ fn clicking_led_switches_variation() {
 }
 
 #[test]
+fn delay_led_switches_variation_and_its_settings() {
+    let mut h = harness();
+    h.get_by_label("DELAY RED").click();
+    h.run();
+    assert_eq!(get(&h, "delay-color"), Some(1));
+    h.get_by_label("DELAY").click();
+    h.run();
+    h.get_by_label("DELAY · RED variation");
+    for k in ["TIME", "FEEDBACK", "EFFECT LEVEL"] {
+        h.get_by_label(k);
+    }
+}
+
+#[test]
+fn delay_card_has_a_tap_light_dark_with_delay_off() {
+    let mut h = harness();
+    h.state_mut().edit(find_param("delay-sw").unwrap(), 0).unwrap();
+    h.run();
+    assert_eq!(h.get_by_label("DELAY TAP").accesskit_node().toggled(), Some(egui::accesskit::Toggled::False));
+    assert!(h.query_by_label("BOOSTER TAP").is_none());
+}
+
+#[test]
 fn selecting_block_without_params_says_so() {
     let mut h = harness();
     h.get_by_label("MOD").click();
