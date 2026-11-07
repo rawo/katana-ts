@@ -41,7 +41,8 @@ fn card(ui: &mut egui::Ui, app: &mut KatanaApp, block: &'static BlockDef, p: &Pa
                         title
                     });
                     if let Some(t) = block.type_label(app.editor.patch()) {
-                        ui.label(RichText::new(t).small().color(p.dim));
+                        // Not selectable: a selectable label would take the card's click.
+                        ui.add(egui::Label::new(RichText::new(t).small().color(p.dim)).selectable(false));
                     }
                     if let Some(color) = block.color {
                         ui.horizontal(|ui| {
