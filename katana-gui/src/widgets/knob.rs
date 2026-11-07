@@ -49,8 +49,20 @@ pub fn wheel_value(v: u32, notches: i32, min: u32, max: u32) -> u32 {
 }
 
 /// A typed value, if it is a whole number within range.
-pub fn parse_typed(text: &str, min: u32, max: u32) -> Option<u32> {
-    text.trim().parse::<u32>().ok().filter(|v| (min..=max).contains(v))
+/// A typed shown value (raw − `ofs`, may be signed) back to its raw value.
+pub fn parse_typed(text: &str, min: u32, max: u32, ofs: u32) -> Option<u32> {
+    let shown: i64 = text.trim().parse().ok()?;
+    u32::try_from(shown + i64::from(ofs)).ok().filter(|v| (min..=max).contains(v))
+}
+
+/// The raw value as shown: raw − `ofs`, with a "+" when `ofs` makes it signed.
+pub fn shown(raw: u32, ofs: u32) -> String {
+    let v = i64::from(raw) - i64::from(ofs);
+    if ofs > 0 && v > 0 {
+        format!("+{v}")
+    } else {
+        v.to_string()
+    }
 }
 
 pub struct Knob<'a> {
@@ -58,6 +70,8 @@ pub struct Knob<'a> {
     pub value: &'a mut u32,
     pub min: u32,
     pub max: u32,
+    /// Shown value = raw − `ofs`.
+    pub ofs: u32,
     pub palette: &'a Palette,
 }
 
@@ -74,7 +88,7 @@ struct KnobState {
 
 impl egui::Widget for Knob<'_> {
     fn ui(self, ui: &mut egui::Ui) -> egui::Response {
-        let Knob { label, value, min, max, palette: p } = self;
+        let Knob { label, value, min, max, ofs, palette: p } = self;
         let size = Vec2::new(64.0, 84.0);
         let (rect, mut response) = ui.allocate_exact_size(size, Sense::click_and_drag());
         let id = response.id;
@@ -124,7 +138,7 @@ impl egui::Widget for Knob<'_> {
         }
 
         if response.double_clicked() {
-            st.typing = Some(value.to_string());
+            st.typing = Some(shown(*value, ofs));
             st.drag = None;
         }
 
@@ -148,13 +162,13 @@ impl egui::Widget for Knob<'_> {
             }
             if edit.lost_focus() {
                 let entered = ui.input(|i| i.key_pressed(Key::Enter));
-                commit = Some(if entered { parse_typed(text, min, max) } else { None });
+                commit = Some(if entered { parse_typed(text, min, max, ofs) } else { None });
             }
         } else {
             painter.text(
                 value_rect.center(),
                 Align2::CENTER_CENTER,
-                value.to_string(),
+                shown(*value, ofs),
                 FontId::proportional(13.0),
                 p.text,
             );
@@ -170,7 +184,7 @@ impl egui::Widget for Knob<'_> {
         if *value != old {
             response.mark_changed();
         }
-        let v = *value as f64;
+        let v = *value as f64 - f64::from(ofs);
         response.widget_info(|| egui::WidgetInfo::slider(true, v, label));
         response
     }
@@ -223,14 +237,30 @@ mod tests {
 
     #[test]
     fn parse_typed_accepts_in_range() {
-        assert_eq!(parse_typed(" 42 ", 0, 100), Some(42));
+        assert_eq!(parse_typed(" 42 ", 0, 100, 0), Some(42));
     }
 
     #[test]
     fn parse_typed_rejects_bad_input() {
-        assert_eq!(parse_typed("abc", 0, 100), None);
-        assert_eq!(parse_typed("101", 0, 100), None);
-        assert_eq!(parse_typed("-1", 0, 100), None);
-        assert_eq!(parse_typed("", 0, 100), None);
+        assert_eq!(parse_typed("abc", 0, 100, 0), None);
+        assert_eq!(parse_typed("101", 0, 100, 0), None);
+        assert_eq!(parse_typed("-1", 0, 100, 0), None);
+        assert_eq!(parse_typed("", 0, 100, 0), None);
+    }
+
+    #[test]
+    fn parse_typed_takes_signed_values_with_an_offset() {
+        assert_eq!(parse_typed("-5", 0, 40, 20), Some(15));
+        assert_eq!(parse_typed("+20", 0, 40, 20), Some(40));
+        assert_eq!(parse_typed("21", 0, 40, 20), None);
+        assert_eq!(parse_typed("-21", 0, 40, 20), None);
+    }
+
+    #[test]
+    fn shown_value_is_signed_with_an_offset() {
+        assert_eq!(shown(15, 20), "-5");
+        assert_eq!(shown(20, 20), "0");
+        assert_eq!(shown(25, 20), "+5");
+        assert_eq!(shown(42, 0), "42");
     }
 }

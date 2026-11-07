@@ -251,12 +251,21 @@ mod tests {
     }
 
     #[test]
+    fn signed_settings_carry_their_offset() {
+        // App map: GEQ_500Hz ofs 20, -20..20 (sent as 0..40).
+        let g = find_param("mod1-geq-500hz").unwrap();
+        assert_eq!(g.addr, crate::device::addr([0x20, 0, 0x1C, 0x23]));
+        assert_eq!((g.min, g.max, g.ofs), (0, 40, 20));
+        assert_eq!(find_param("gain").unwrap().ofs, 0);
+    }
+
+    #[test]
     fn mod_type_without_a_mapped_knob_has_no_controls() {
         let m = CHAIN.iter().find(|b| b.id == "mod").unwrap();
         let mut p = Patch::default_preset();
         p.set(find_param("mod-color").unwrap(), 0).unwrap();
-        p.set(find_param("mod1-type").unwrap(), 1).unwrap();
-        assert_eq!(m.type_label(&p), Some("AUTO WAH"));
+        p.set(find_param("mod1-type").unwrap(), 30).unwrap();
+        assert_eq!(m.type_label(&p), Some("PEDAL BEND"));
         assert!(m.controls(&p).is_empty());
     }
 

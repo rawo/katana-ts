@@ -58,8 +58,11 @@ pub struct KnobTarget {
     pub label: &'static str,
     /// Offset inside `FX_DETAIL(n)` as the app's address map writes it (7-bit packed).
     pub offset: [u8; 2],
+    /// Raw range.
     pub min: u32,
     pub max: u32,
+    /// Shown value = raw − `ofs`.
+    pub ofs: u32,
 }
 
 /// What the knob moves for one type.
@@ -71,13 +74,38 @@ pub struct TypeKnob {
 }
 
 const fn t(key: &'static str, label: &'static str, offset: [u8; 2], min: u32, max: u32) -> KnobTarget {
-    KnobTarget { key, label, offset, min, max }
+    KnobTarget { key, label, offset, min, max, ofs: 0 }
+}
+
+/// A signed setting shown as −`ofs`..+`ofs`, sent as 0..2·`ofs`.
+const fn signed(key: &'static str, label: &'static str, offset: [u8; 2], ofs: u32) -> KnobTarget {
+    KnobTarget { key, label, offset, min: 0, max: 2 * ofs, ofs }
 }
 
 /// Recorded on the amp, with every knob assignment at PRESET.
 pub const KNOB: &[TypeKnob] = &[
     // captures/109-fx-colours-knob.log
     TypeKnob { fx_type: 0, key: "twah", targets: &[t("sens", "SENS", [0x00, 0x02], 0, 100)] },
+    // captures/110-types-batch1.log (MOD green)
+    TypeKnob { fx_type: 1, key: "awah", targets: &[t("rate", "RATE", [0x00, 0x0A], 0, 100)] },
+    TypeKnob { fx_type: 2, key: "pedalwah", targets: &[t("pedal-max", "PEDAL MAX", [0x00, 0x11], 0, 100)] },
+    TypeKnob {
+        fx_type: 3,
+        key: "comp",
+        targets: &[t("sustain", "SUSTAIN", [0x00, 0x15], 0, 100), t("level", "LEVEL", [0x00, 0x18], 0, 100)],
+    },
+    // Ratio steps 0..17; the app's value names (1:1 …) are not found yet.
+    TypeKnob { fx_type: 4, key: "limiter", targets: &[t("ratio", "RATIO", [0x00, 0x1C], 0, 17)] },
+    TypeKnob {
+        fx_type: 5,
+        key: "geq",
+        targets: &[signed("500hz", "500Hz", [0x00, 0x23], 20), signed("1khz", "1kHz", [0x00, 0x24], 20)],
+    },
+    TypeKnob {
+        fx_type: 6,
+        key: "peq",
+        targets: &[signed("lowmid-gain", "LOW-MID GAIN", [0x00, 0x2E], 20), signed("level", "LEVEL", [0x00, 0x34], 20)],
+    },
     TypeKnob { fx_type: 16, key: "tremolo", targets: &[t("rate", "RATE", [0x01, 0x19], 0, 100)] },
     // captures/108-mod-colours-knob.log
     TypeKnob {
@@ -109,6 +137,7 @@ pub(crate) static GENERATED: LazyLock<Vec<ParamDef>> = LazyLock::new(|| {
             min: 0,
             max: 30,
             values: Some(FX_TYPES),
+            ofs: 0,
         });
         for k in KNOB {
             for tg in k.targets {
@@ -120,6 +149,7 @@ pub(crate) static GENERATED: LazyLock<Vec<ParamDef>> = LazyLock::new(|| {
                     min: tg.min,
                     max: tg.max,
                     values: None,
+                    ofs: tg.ofs,
                 });
             }
         }

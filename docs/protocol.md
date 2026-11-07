@@ -175,13 +175,22 @@ PRESET here) picks what the knob moves; with PRESET it moves, not one to one:
 | 26 FLANGER 117E | `01 48` SPEED | 15→30, 98→85 (MOD); 5→24, 87→74 (FX, `109`) |
 | 16 TREMOLO | `01 19` RATE | 7→34, 100→89 (FX, `109`) |
 | 0 T.WAH | `00 02` SENS | 5→14, 100→76 (FX, `109`) |
+| 1 AUTO WAH | `00 0A` RATE | `110` |
+| 2 PEDAL WAH | `00 11` PEDAL MAX | `110` |
+| 3 COMP | `00 15` SUSTAIN, `00 18` LEVEL | `110` |
+| 4 LIMITER | `00 1C` RATIO (steps 0–17; value names not found in the app's files) | `110` |
+| 5 GRAPHIC EQ | `00 23` 500Hz, `00 24` 1kHz (−20..+20 dB, sent as 0..40, app `ofs` 20) | `110` |
+| 6 PARAMETRIC EQ | `00 2E` LOW-MID GAIN, `00 34` LEVEL (−20..+20, `ofs` 20) | `110` |
 
 The knob from off turned MOD on (`20 00 08 01` → 1). The knob also reports `20 01 1C 01`.
 **FX** (`captures/109-*`): FX green/red/orange = FX(4/5/6), TYPE at `20 00 16/18/1A 00`,
 FX_DETAIL(4/5/6) at `20 00 22/24/26 00`; the same per-type offsets as MOD (FLANGER 117E
 moved `01 48` in both). The knob reports `20 01 1C 02`. In `109` the DELAY knob and one
 REVERB knob step were also moved (not part of the test).
-Five types are mapped so far; the rest follow in batches.
+Type batches (`captures/110-types-batch1.log`, …): MOD green, the type set on the
+current patch with `katana-cli set mod1-type N` (not stored), the user sweeping the knob.
+After a type change the amp sometimes sends the whole patch unasked (`110`, after types
+1 and 3). Eleven types are mapped so far.
 
 **REVERB colours and knob** (VERIFIED 2026-11-07, `captures/107-*`, A3 active, editor
 mode): green = REVERB(1) `34 xx`, red = REVERB(2) `36 xx`, orange = REVERB(3) `38 xx`.

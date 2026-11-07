@@ -64,7 +64,7 @@ pub fn param_control(
             })
             .response
         }
-        None => ui.add(Knob { label, value: &mut new, min: def.min, max: def.max, palette: p }),
+        None => ui.add(Knob { label, value: &mut new, min: def.min, max: def.max, ofs: def.ofs, palette: p }),
     };
     if new != value {
         let r = app.edit(def, new);

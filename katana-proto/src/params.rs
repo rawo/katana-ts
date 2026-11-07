@@ -32,10 +32,12 @@ pub struct ParamDef {
     pub max: u32,
     /// Names for enumerated values.
     pub values: Option<&'static [(u32, &'static str)]>,
+    /// Shown value = raw − `ofs` (app map `ofs`, e.g. 20 for −20..20 dB).
+    pub ofs: u32,
 }
 
 const fn p(name: &'static str, a: [u8; 4], encoding: Encoding, min: u32, max: u32) -> ParamDef {
-    ParamDef { name, addr: addr(a), encoding, min, max, values: None }
+    ParamDef { name, addr: addr(a), encoding, min, max, values: None, ofs: 0 }
 }
 
 const fn named(def: ParamDef, values: &'static [(u32, &'static str)]) -> ParamDef {
@@ -154,7 +156,8 @@ mod tests {
     use super::*;
     use crate::{device, encode, Address, Command, FakeAmp, MemoryMap, Patch, ProtoError};
 
-    const P: ParamDef = ParamDef { name: "TEST", addr: 0x10, encoding: Encoding::U7, min: 0, max: 100, values: None };
+    const P: ParamDef =
+        ParamDef { name: "TEST", addr: 0x10, encoding: Encoding::U7, min: 0, max: 100, values: None, ofs: 0 };
 
     #[test]
     fn set_sends_single_dt1() {
@@ -179,7 +182,7 @@ mod tests {
     }
 
     const NIB: ParamDef =
-        ParamDef { name: "NIB", addr: 0x20, encoding: Encoding::Nibbles4, min: 1, max: 2000, values: None };
+        ParamDef { name: "NIB", addr: 0x20, encoding: Encoding::Nibbles4, min: 1, max: 2000, values: None, ofs: 0 };
 
     #[test]
     fn nibbles4_encodes_high_nibble_first() {

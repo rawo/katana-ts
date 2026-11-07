@@ -79,13 +79,21 @@ fn delay_card_has_a_tap_light_dark_with_delay_off() {
 }
 
 #[test]
+fn clicking_a_cards_type_text_selects_the_card() {
+    let mut h = harness();
+    h.get_by_label("CLEAN").click();
+    h.run();
+    assert_eq!(h.state().selected_block, "amp");
+}
+
+#[test]
 fn mod_type_without_a_mapped_knob_says_so() {
     let mut h = harness();
-    h.state_mut().edit(find_param("mod1-type").unwrap(), 1).unwrap();
+    h.state_mut().edit(find_param("mod1-type").unwrap(), 30).unwrap();
     h.get_by_label("MOD").click();
     h.run();
-    h.get_by_label("MOD · GREEN variation · type AUTO WAH");
-    h.get_by_label("The knob's settings for AUTO WAH are not mapped yet.");
+    h.get_by_label("MOD · GREEN variation · type PEDAL BEND");
+    h.get_by_label("The knob's settings for PEDAL BEND are not mapped yet.");
 }
 
 #[test]
