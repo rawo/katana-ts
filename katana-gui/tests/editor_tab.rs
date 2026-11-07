@@ -58,6 +58,18 @@ fn delay_led_switches_variation_and_its_settings() {
 }
 
 #[test]
+fn reverb_led_switches_variation_and_its_level() {
+    let mut h = harness();
+    h.get_by_label("REVERB ORANGE").click();
+    h.run();
+    assert_eq!(get(&h, "reverb-color"), Some(2));
+    h.get_by_label("REVERB").click();
+    h.run();
+    h.get_by_label("REVERB · ORANGE variation");
+    h.get_by_label("EFFECT LEVEL");
+}
+
+#[test]
 fn delay_card_has_a_tap_light_dark_with_delay_off() {
     let mut h = harness();
     h.state_mut().edit(find_param("delay-sw").unwrap(), 0).unwrap();

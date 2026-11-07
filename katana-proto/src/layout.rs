@@ -89,7 +89,12 @@ pub const CHAIN: &[BlockDef] = &[
         ..block("delay", "DELAY", Some("delay-sw"))
     },
     BlockDef {
-        common: &[c("reverb1-level", "EFFECT LEVEL (REVERB 1)")],
+        color: Some("reverb-color"),
+        per_color: &[
+            &[c("reverb1-level", "EFFECT LEVEL")],
+            &[c("reverb2-level", "EFFECT LEVEL")],
+            &[c("reverb3-level", "EFFECT LEVEL")],
+        ],
         ..block("reverb", "REVERB", Some("reverb-sw"))
     },
 ];
@@ -153,6 +158,22 @@ mod tests {
             let want: Vec<_> =
                 [0x01, 0x05, 0x07].iter().map(|&o| crate::device::addr([0x20, 0x00, block, o])).collect();
             assert_eq!(addrs, want, "colour {v}");
+        }
+    }
+
+    #[test]
+    fn reverb_level_follows_colour() {
+        // captures/107: green edits REVERB(1) 34 0A, red REVERB(2) 36 0A, orange REVERB(3) 38 0A.
+        let reverb = CHAIN.iter().find(|b| b.id == "reverb").unwrap();
+        let color = find_param("reverb-color").unwrap();
+        assert_eq!(color.addr, crate::device::addr([0x20, 0x00, 0x04, 0x04]));
+        let mut p = Patch::default_preset();
+        for (v, n, block) in [(0, 1, 0x34), (1, 2, 0x36), (2, 3, 0x38)] {
+            p.set(color, v).unwrap();
+            let names: Vec<_> = reverb.controls(&p).iter().map(|c| c.param).collect();
+            assert_eq!(names, [format!("reverb{n}-level")], "colour {v}");
+            let def = find_param(names[0]).unwrap();
+            assert_eq!(def.addr, crate::device::addr([0x20, 0x00, block, 0x0A]), "colour {v}");
         }
     }
 

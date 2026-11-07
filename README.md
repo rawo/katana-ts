@@ -323,6 +323,7 @@ nibbles.
 | `solo-sw` | 0–1 | `off`, `on` |
 | `booster-color` | 0–2 | `green`, `red`, `orange` (selects booster 1/2/3) |
 | `delay-color` | 0–2 | `green`, `red`, `orange` (selects delay 1/2/3) |
+| `reverb-color` | 0–2 | `green`, `red`, `orange` (selects reverb 1/2/3) |
 | `cab-resonance` | 0–2 | `vintage`, `modern`, `deep` |
 | `contour` | 0–3 | `off`, `1`, `2`, `3` |
 | `booster1-drive` | 0–120 | drive, green variation |
@@ -331,7 +332,7 @@ nibbles.
 | `delay1-time`, `delay2-time`, `delay3-time` | 1–2000 | ms, green/red/orange variation |
 | `delay1-feedback` … `delay3-feedback` | 0–100 | |
 | `delay1-level` … `delay3-level` | 0–120 | effect level |
-| `reverb1-level` | 0–100 | effect level |
+| `reverb1-level` … `reverb3-level` | 0–100 | effect level, green/red/orange variation |
 
 Amp quirk: changing a variation colour makes the amp re-derive that effect's on/off
 from the physical knob a moment later. Send the colour first, then on/off.

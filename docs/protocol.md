@@ -138,13 +138,14 @@ Only VERIFIED entries.
 | `20 00 3A 00` | 1 | SOLO on/off (`solo-sw`) | U7 | 0–1 | `captures/100-watch-knobs.log` (toggled) |
 | `20 00 04 00` | 1 | BOOSTER colour (`booster-color`); selects BOOSTER(1..3) | U7 | 0–2 | `captures/100-watch-knobs.log` (0,1,2; knob edits moved between blocks) |
 | `20 00 04 03` | 1 | DELAY colour (`delay-color`); selects DELAY(1..3) | U7 | 0–2 | `captures/105-delay-colours-knob.log` (2→0→1→2 with the LED, user's order orange, green, red, orange) |
+| `20 00 04 04` | 1 | REVERB colour (`reverb-color`); selects REVERB(1..3) | U7 | 0–2 | `captures/107-reverb-colours-knob.log` (2→0→1→2 with the LED, user's order orange, green, red, orange) |
 | `20 00 02 01` | 1 | Cabinet resonance (`cab-resonance`) | U7 | 0–2 | `captures/100-watch-knobs.log` (0,1,2) |
 | `20 00 40 00` | 1 | Contour button (`contour`) | U7 | 0–3 | `captures/101-watch-contour.log` (cycles 0→1→2→3→0) |
 | `20 00 0A 01 / 0C 01 / 0E 01` | 1 | BOOSTER(1/2/3) DRIVE (`booster1..3-drive`) | U7 | 0–120 | `captures/100-watch-knobs.log` (changed in each colour) |
 | `20 00 28 01 / 2A 01 / 2C 01` | 4 | DELAY(1/2/3) TIME (`delay1..3-time`), set by TAP | 4 nibbles, high first | 1–2000 ms | `captures/100-watch-knobs.log` (382→489); `captures/106-delay-tap.log` (one DT1 per tapped tempo: orange 1186, green 332, red 526) |
 | `20 00 28 05 / 2A 05 / 2C 05` | 1 | DELAY(1/2/3) FEEDBACK (`delay1..3-feedback`) | U7 | 0–100 | `captures/105-delay-colours-knob.log` (knob in each colour) |
 | `20 00 28 07 / 2A 07 / 2C 07` | 1 | DELAY(1/2/3) EFFECT LEVEL (`delay1..3-level`) | U7 | 0–120 | `captures/105-delay-colours-knob.log` (knob in each colour) |
-| `20 00 34 0A` | 1 | REVERB(1) EFFECT LEVEL (`reverb1-level`) | U7 | 0–100 | `captures/100-watch-knobs.log` (swept 0→100) |
+| `20 00 34 0A / 36 0A / 38 0A` | 1 | REVERB(1/2/3) EFFECT LEVEL (`reverb1..3-level`) | U7 | 0–100 | `captures/100-watch-knobs.log` (swept 0→100); `captures/107-reverb-colours-knob.log` (knob in each colour) |
 | `20 01 1C 00–04` | 1 each | Panel knob positions BOOSTER/MOD/FX/DELAY/REVERB (read-only per app; −1 = off) | U7, ofs 1 | −1–100 | `captures/100-watch-knobs.log` (observed; not settable) |
 
 **DELAY colours and knob** (VERIFIED 2026-11-07, `captures/105-*`, `106-*`, A3 active,
@@ -155,6 +156,14 @@ colour change after the knob had moved, the amp also sent the new colour's HIGH 
 (`06`: green 0A→0C, red 0A→08) and EFFECT LEVEL: it re-applies the knob position.
 TAP sends one TIME DT1 for the current colour per tapped tempo; the TAP LED blinks at
 that time, only with the delay on (the user).
+
+**REVERB colours and knob** (VERIFIED 2026-11-07, `captures/107-*`, A3 active, editor
+mode): green = REVERB(1) `34 xx`, red = REVERB(2) `36 xx`, orange = REVERB(3) `38 xx`.
+The knob changes only EFFECT LEVEL (`0A`) of the current colour, plus `20 01 1C 04`;
+at 0 it switches the reverb off. On a colour change the amp sends one 4-byte DT1 to
+the new colour's `07`–`0A` (LOW CUT, HIGH CUT, DENSITY, EFFECT LEVEL; seen
+`0E 09 05 12` in green and red, where LOW CUT 02→0E and DENSITY 08→05 changed).
+Nothing else of the reverb is on the panel (the user).
 
 Panel knobs for effects drive several parameters at once: e.g. turning BOOSTER
 changes `BOOSTER(n) DRIVE` and `EFFECT_LEVEL` together, where `n` is chosen by
@@ -320,5 +329,6 @@ From the official app's panel labels (`js/businesslogic/bts/effect_controller.js
 | `contour` | 0 OFF, 1, 2, 3 | button cycle 0→3→0 in `101-watch-contour.log`; `set contour 2` took effect |
 | `cab-resonance` | 0 VINTAGE, 1 MODERN, 2 DEEP | 3 positions in log |
 | `booster-color` | 0 GREEN, 1 RED, 2 ORANGE | button LED observed by the user after `set booster-color 0/1/2` |
+| `reverb-color` | 0 GREEN, 1 RED, 2 ORANGE | panel presses orange, green, red, orange logged as 2, 0, 1, 2 (`107`) |
 | `delay-color` | 0 GREEN, 1 RED, 2 ORANGE | panel presses orange, green, red, orange logged as 2, 0, 1, 2 (`105`) |
 | `*-sw` | 0 OFF, 1 ON | toggled in log; `set reverb-sw 0` took effect |

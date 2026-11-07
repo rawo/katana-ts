@@ -75,6 +75,8 @@ pub const PARAMS: &[ParamDef] = &[
     named(p("booster-color", [0x20, 0x00, 0x04, 0x00], U7, 0, 2), COLORS),
     // Selects DELAY(1..3) (captures/105-delay-colours-knob.log)
     named(p("delay-color", [0x20, 0x00, 0x04, 0x03], U7, 0, 2), COLORS),
+    // Selects REVERB(1..3) (captures/107-reverb-colours-knob.log)
+    named(p("reverb-color", [0x20, 0x00, 0x04, 0x04], U7, 0, 2), COLORS),
     named(p("cab-resonance", [0x20, 0x00, 0x02, 0x01], U7, 0, 2), CAB_RESONANCE),
     // Contour button cycles 0..3 (captures/101-watch-contour.log)
     named(p("contour", [0x20, 0x00, 0x40, 0x00], U7, 0, 3), CONTOUR),
@@ -93,7 +95,10 @@ pub const PARAMS: &[ParamDef] = &[
     p("delay3-time", [0x20, 0x00, 0x2C, 0x01], Nibbles4, 1, 2000),
     p("delay3-feedback", [0x20, 0x00, 0x2C, 0x05], U7, 0, 100),
     p("delay3-level", [0x20, 0x00, 0x2C, 0x07], U7, 0, 120),
+    // REVERB(1..3) = green/red/orange: the knob edits the level (captures/107)
     p("reverb1-level", [0x20, 0x00, 0x34, 0x0A], U7, 0, 100),
+    p("reverb2-level", [0x20, 0x00, 0x36, 0x0A], U7, 0, 100),
+    p("reverb3-level", [0x20, 0x00, 0x38, 0x0A], U7, 0, 100),
 ];
 
 pub fn find_param(name: &str) -> Option<&'static ParamDef> {

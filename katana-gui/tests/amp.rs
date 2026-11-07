@@ -319,6 +319,19 @@ fn delay_colour_and_tap_from_the_panel_follow() {
 }
 
 #[test]
+fn reverb_colour_both_ways_with_live_on() {
+    let mut r = rig("reverb-colour").connected().live();
+    let color = find_param("reverb-color").unwrap();
+    r.click("REVERB RED");
+    assert_eq!(r.jobs(), vec![Job::SetParam { addr: color.addr, data: vec![1] }]);
+    r.event(Event::PanelChange { addr: color.addr, data: vec![0] });
+    assert_eq!(r.app().editor.get(color), Some(0));
+    r.click("REVERB");
+    r.h.get_by_label("REVERB · GREEN variation");
+    assert_eq!(r.jobs(), vec![], "panel changes are not sent back");
+}
+
+#[test]
 fn panel_change_outside_known_params_shows_the_address() {
     let mut r = rig("panel-hex").connected().live();
     let addr = katana_proto::device::addr([0x20, 0x01, 0x1C, 0x00]);
