@@ -19,7 +19,7 @@ test-first, then checked by the user.
 | REVERB: colours, EFFECT LEVEL per colour | done, user's check passed | `captures/107-*` |
 | MOD: colours, type line, the knob's settings for the colour's type | done, user's check passed | `captures/108-*` |
 | FX: same as MOD | done, user's check passed | `captures/109-*` |
-| Knob settings per effect type (31 types, MOD and FX share them) | **all 31 mapped** (2026-11-10) | `captures/108`–`113` |
+| Knob settings per effect type (31 types, MOD and FX share them) | **all 31 mapped**, user's check passed 2026-11-10 (knob and colours in sync both ways) | `captures/108`–`113` |
 
 How MOD/FX work: MOD green/red/orange are slots FX(1..3), FX green/red/orange FX(4..6).
 Each slot has a type; the knob (default "PRESET" assignment, `ASSIGN_KNOBS`) moves
@@ -36,7 +36,8 @@ TYPE and HARMONIST HARMONY1 are value lists (names from the app's
 default font lacks; the drop-down shows about 200 px, longer lists scroll). The "not
 mapped yet" message is gone (no type left to show it).
 
-**Next:** the user's check in the app, a review of the branch, merge.
+**Next:** a review of the whole branch, then merge. The user's check in the app passed
+2026-11-10: knob settings and colours stay in sync both ways.
 
 Noted for the full-settings round: a TYPE drop-down for MOD and FX (the user,
 2026-11-10; today the type is shown but read-only, set with `katana-cli set
