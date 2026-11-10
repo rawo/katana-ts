@@ -1,9 +1,8 @@
 # Project status and handoff
 
-Last updated: 2026-11-10 (effect colours round: all types mapped, on
-`feature/effect-colours`, not merged). Read this first when picking the work up.
+Last updated: 2026-11-10 (effect colours round done, merged into `main` and pushed). Read this first when picking the work up.
 
-## Effect colours round: in progress on `feature/effect-colours`
+## Effect colours round: done, merged to `main` 2026-11-10
 
 Scope agreed with the user (2026-11-07, approved in chat, no written spec): mirror in
 the app what is visible on the amp's panel. For DELAY, REVERB, MOD and FX: colour
@@ -36,8 +35,10 @@ TYPE and HARMONIST HARMONY1 are value lists (names from the app's
 default font lacks; the drop-down shows about 200 px, longer lists scroll). The "not
 mapped yet" message is gone (no type left to show it).
 
-**Next:** a review of the whole branch, then merge. The user's check in the app passed
-2026-11-10: knob settings and colours stay in sync both ways.
+The user's check in the app passed 2026-11-10: knob settings and colours stay in sync
+both ways. Reviewed, fixed, merged (fast-forward) into `main` and pushed 2026-11-10;
+branch deleted. **Next round:** the full Tone Studio settings per effect, with a TYPE
+drop-down for MOD and FX (see the notes below).
 
 Branch review 2026-11-10 (fresh reviewer, whole branch): ready with fixes, no critical
 issues. Fixed: the TAP light repainted ~200 times a second at short delay times (now
