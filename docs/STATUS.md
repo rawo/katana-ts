@@ -38,7 +38,11 @@ mapped yet" message is gone (no type left to show it).
 
 **Next:** the user's check in the app, a review of the branch, merge.
 
-Noted for the full-settings round: LIMITER RATIO shows raw steps 0–17 (value names not
+Noted for the full-settings round: a TYPE drop-down for MOD and FX (the user,
+2026-11-10; today the type is shown but read-only, set with `katana-cli set
+mod1-type N`). With Live on the app does not see writes from other programs (e.g.
+`katana-cli set`): the amp does not report them and only the AMP block is re-read;
+switching Live off and on, or a `katana-cli watch`, brings them in. LIMITER RATIO shows raw steps 0–17 (value names not
 found in the app's files); HIGH CUT (delay) and LOW CUT/DENSITY (reverb) change by
 themselves on a colour change and are not shown; the CLI `set`/`params` show raw values
 (no `ofs`).
