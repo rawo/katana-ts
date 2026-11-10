@@ -19,7 +19,7 @@ test-first, then checked by the user.
 | REVERB: colours, EFFECT LEVEL per colour | done, user's check passed | `captures/107-*` |
 | MOD: colours, type line, the knob's settings for the colour's type | done, user's check passed | `captures/108-*` |
 | FX: same as MOD | done, user's check passed | `captures/109-*` |
-| Knob settings per effect type (31 types, MOD and FX share them) | **17 of 31 mapped**: 0–12, 16, 23, 25, 26 | `captures/108`–`111` |
+| Knob settings per effect type (31 types, MOD and FX share them) | **23 of 31 mapped**: 0–19, 23, 25, 26 | `captures/108`–`112` |
 
 How MOD/FX work: MOD green/red/orange are slots FX(1..3), FX green/red/orange FX(4..6).
 Each slot has a type; the knob (default "PRESET" assignment, `ASSIGN_KNOBS`) moves
@@ -31,9 +31,10 @@ for … are not mapped yet." Details in `docs/protocol.md`, "MOD colours and kno
 **Next: type batches**, 6 types per batch, the user chose to record every type.
 Batch 2 (7–12) done 2026-11-10, `captures/111-*`: one setting per type; GUITAR SIM
 TYPE and HARMONIST HARMONY1 are value lists (names from the app's
-`export/layout.div`, shown as a drop-down; "->" instead of an arrow). Batch 3 =
-13 AC.PROCESSOR, 14 PHASER, 15 FLANGER, 17 ROTARY, 18 UNI-V, 19 SLICER; batch 4 =
-20–22, 24, 27–29; 30 last. Routine: app closed; MOD on green;
+`export/layout.div`, shown as a drop-down; "->" instead of an arrow). Batch 3
+(13–15, 17–19) done 2026-11-10, `captures/112-*`: RATE for each, except
+AC.PROCESSOR (TREBLE, PRESENCE, LEVEL together). Left: 20 VIBRATO, 21 RING MOD,
+22 HUMANIZER, 24 AC.GUITAR SIM, 27 WAH 95E, 28 DC-30, 29 HEAVY OCTAVE; 30 last. Routine: app closed; MOD on green;
 `katana-cli dump captures/1NN-before.syx`; `katana-cli monitor --editor >
 captures/1NN-types-batchK.log` in the background; per type `katana-cli set mod1-type N`
 (current sound only, nothing stored), the user sweeps the MOD knob and says "done";

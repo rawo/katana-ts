@@ -288,6 +288,37 @@ mod tests {
     }
 
     #[test]
+    fn type_batch_3_knob_settings() {
+        // captures/112-types-batch3.log (MOD green); FX_DETAIL 01 xx = 20 00 1D xx.
+        type Want = (&'static str, u32, (u32, u32, u32));
+        let a = |o: u8| crate::device::addr([0x20, 0, 0x1D, o]);
+        let cases: [(u32, &[Want]); 6] = [
+            (
+                13,
+                &[
+                    ("mod1-acprocess-treble", a(0x06), (0, 100, 50)),
+                    ("mod1-acprocess-presence", a(0x07), (0, 100, 50)),
+                    ("mod1-acprocess-level", a(0x08), (0, 100, 0)),
+                ],
+            ),
+            (14, &[("mod1-phaser-rate", a(0x0A), (0, 100, 0))]),
+            (15, &[("mod1-flanger-rate", a(0x11), (0, 100, 0))]),
+            (17, &[("mod1-rotary-rate", a(0x1C), (0, 100, 0))]),
+            (18, &[("mod1-univ-rate", a(0x1F), (0, 100, 0))]),
+            (19, &[("mod1-slicer-rate", a(0x23), (0, 100, 0))]),
+        ];
+        for (t, want) in cases {
+            for &(name, addr, range) in want {
+                let d = find_param(name).unwrap_or_else(|| panic!("{name}"));
+                assert_eq!(d.addr, addr, "{name}");
+                assert_eq!((d.min, d.max, d.ofs), range, "{name}");
+            }
+            let got: Vec<_> = crate::modfx::knob_targets(0, t).iter().map(|x| x.0).collect();
+            assert_eq!(got, want.iter().map(|w| w.0).collect::<Vec<_>>(), "type {t}");
+        }
+    }
+
+    #[test]
     fn mod_type_without_a_mapped_knob_has_no_controls() {
         let m = CHAIN.iter().find(|b| b.id == "mod").unwrap();
         let mut p = Patch::default_preset();

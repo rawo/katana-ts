@@ -173,6 +173,22 @@ pub const KNOB: &[TypeKnob] = &[
     TypeKnob { fx_type: 10, key: "octave", targets: &[t("effect-level", "EFFECT LEVEL", [0x00, 0x46], 0, 100)] },
     TypeKnob { fx_type: 11, key: "pitchshift", targets: &[signed("pitch1", "PITCH 1", [0x00, 0x4A], 24)] },
     TypeKnob { fx_type: 12, key: "harmonist", targets: &[list("harmony1", "HARMONY 1", [0x00, 0x5C], HARMONIES)] },
+    // captures/112-types-batch3.log (MOD green); AC.PROCESSOR's knob moves three
+    // settings (TREBLE -17..+24, PRESENCE 0..+48, LEVEL 37..48 seen).
+    TypeKnob {
+        fx_type: 13,
+        key: "acprocess",
+        targets: &[
+            signed("treble", "TREBLE", [0x01, 0x06], 50),
+            signed("presence", "PRESENCE", [0x01, 0x07], 50),
+            t("level", "LEVEL", [0x01, 0x08], 0, 100),
+        ],
+    },
+    TypeKnob { fx_type: 14, key: "phaser", targets: &[t("rate", "RATE", [0x01, 0x0A], 0, 100)] },
+    TypeKnob { fx_type: 15, key: "flanger", targets: &[t("rate", "RATE", [0x01, 0x11], 0, 100)] },
+    TypeKnob { fx_type: 17, key: "rotary", targets: &[t("rate", "RATE", [0x01, 0x1C], 0, 100)] },
+    TypeKnob { fx_type: 18, key: "univ", targets: &[t("rate", "RATE", [0x01, 0x1F], 0, 100)] },
+    TypeKnob { fx_type: 19, key: "slicer", targets: &[t("rate", "RATE", [0x01, 0x23], 0, 100)] },
     TypeKnob { fx_type: 16, key: "tremolo", targets: &[t("rate", "RATE", [0x01, 0x19], 0, 100)] },
     // captures/108-mod-colours-knob.log
     TypeKnob {
