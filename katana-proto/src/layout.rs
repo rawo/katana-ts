@@ -260,6 +260,34 @@ mod tests {
     }
 
     #[test]
+    fn type_batch_2_knob_settings() {
+        // captures/111-types-batch2.log (MOD green), offsets and ranges from the
+        // app's address map, value names from its layout.
+        let a = |o: u8| crate::device::addr([0x20, 0, 0x1C, o]);
+        let cases = [
+            (7, "mod1-guitarsim-type", a(0x35), (0, 7, 0)),
+            (8, "mod1-slowgear-rise-time", a(0x3B), (0, 100, 0)),
+            (9, "mod1-wavesynth-resonance", a(0x3F), (0, 100, 0)),
+            (10, "mod1-octave-effect-level", a(0x46), (0, 100, 0)),
+            (11, "mod1-pitchshift-pitch1", a(0x4A), (0, 48, 24)),
+            (12, "mod1-harmonist-harmony1", a(0x5C), (0, 29, 0)),
+        ];
+        for (t, name, addr, range) in cases {
+            let d = find_param(name).unwrap_or_else(|| panic!("{name}"));
+            assert_eq!(d.addr, addr, "{name}");
+            assert_eq!((d.min, d.max, d.ofs), range, "{name}");
+            assert_eq!(crate::modfx::knob_targets(0, t).iter().map(|x| x.0).collect::<Vec<_>>(), [name]);
+        }
+        let gs = find_param("fx2-guitarsim-type").unwrap().values.unwrap();
+        assert_eq!(gs.len(), 8);
+        assert_eq!((gs[0], gs[7]), ((0, "S->H"), (7, "P->AC")));
+        let hr = find_param("mod1-harmonist-harmony1").unwrap().values.unwrap();
+        assert_eq!(hr.len(), 30);
+        assert_eq!((hr[0], hr[14], hr[28], hr[29]), ((0, "-2oct"), (14, "UNISON"), (28, "+2oct"), (29, "USER")));
+        assert!(find_param("mod1-slowgear-rise-time").unwrap().values.is_none());
+    }
+
+    #[test]
     fn mod_type_without_a_mapped_knob_has_no_controls() {
         let m = CHAIN.iter().find(|b| b.id == "mod").unwrap();
         let mut p = Patch::default_preset();

@@ -63,6 +63,8 @@ pub struct KnobTarget {
     pub max: u32,
     /// Shown value = raw − `ofs`.
     pub ofs: u32,
+    /// Value names, for settings that pick from a list.
+    pub values: Option<&'static [(u32, &'static str)]>,
 }
 
 /// What the knob moves for one type.
@@ -74,13 +76,69 @@ pub struct TypeKnob {
 }
 
 const fn t(key: &'static str, label: &'static str, offset: [u8; 2], min: u32, max: u32) -> KnobTarget {
-    KnobTarget { key, label, offset, min, max, ofs: 0 }
+    KnobTarget { key, label, offset, min, max, ofs: 0, values: None }
 }
 
 /// A signed setting shown as −`ofs`..+`ofs`, sent as 0..2·`ofs`.
 const fn signed(key: &'static str, label: &'static str, offset: [u8; 2], ofs: u32) -> KnobTarget {
-    KnobTarget { key, label, offset, min: 0, max: 2 * ofs, ofs }
+    KnobTarget { key, label, offset, min: 0, max: 2 * ofs, ofs, values: None }
 }
+
+/// A setting that picks one of `values` (raw 0..len−1).
+const fn list(
+    key: &'static str,
+    label: &'static str,
+    offset: [u8; 2],
+    values: &'static [(u32, &'static str)],
+) -> KnobTarget {
+    KnobTarget { key, label, offset, min: 0, max: values.len() as u32 - 1, ofs: 0, values: Some(values) }
+}
+
+/// GUITAR SIM TYPE (app layout; "->" because egui's default font has no arrow).
+const GUITARSIM_TYPES: &[(u32, &str)] = &[
+    (0, "S->H"),
+    (1, "H->S"),
+    (2, "H->HF"),
+    (3, "S->HOLLOW"),
+    (4, "H->HOLLOW"),
+    (5, "S->AC"),
+    (6, "H->AC"),
+    (7, "P->AC"),
+];
+
+/// HARMONIST HARMONY (app layout).
+const HARMONIES: &[(u32, &str)] = &[
+    (0, "-2oct"),
+    (1, "-14th"),
+    (2, "-13th"),
+    (3, "-12th"),
+    (4, "-11th"),
+    (5, "-10th"),
+    (6, "-9th"),
+    (7, "-1oct"),
+    (8, "-7th"),
+    (9, "-6th"),
+    (10, "-5th"),
+    (11, "-4th"),
+    (12, "-3rd"),
+    (13, "-2nd"),
+    (14, "UNISON"),
+    (15, "+2nd"),
+    (16, "+3rd"),
+    (17, "+4th"),
+    (18, "+5th"),
+    (19, "+6th"),
+    (20, "+7th"),
+    (21, "+1oct"),
+    (22, "+9th"),
+    (23, "+10th"),
+    (24, "+11th"),
+    (25, "+12th"),
+    (26, "+13th"),
+    (27, "+14th"),
+    (28, "+2oct"),
+    (29, "USER"),
+];
 
 /// Recorded on the amp, with every knob assignment at PRESET.
 pub const KNOB: &[TypeKnob] = &[
@@ -106,6 +164,15 @@ pub const KNOB: &[TypeKnob] = &[
         key: "peq",
         targets: &[signed("lowmid-gain", "LOW-MID GAIN", [0x00, 0x2E], 20), signed("level", "LEVEL", [0x00, 0x34], 20)],
     },
+    // captures/111-types-batch2.log (MOD green); the knob covers only part of
+    // some ranges (GUITAR SIM S->H..H->HF, RISE TIME/RESONANCE 0..80,
+    // PITCH1 -12..+12, HARMONY1 -6th..+6th).
+    TypeKnob { fx_type: 7, key: "guitarsim", targets: &[list("type", "TYPE", [0x00, 0x35], GUITARSIM_TYPES)] },
+    TypeKnob { fx_type: 8, key: "slowgear", targets: &[t("rise-time", "RISE TIME", [0x00, 0x3B], 0, 100)] },
+    TypeKnob { fx_type: 9, key: "wavesynth", targets: &[t("resonance", "RESONANCE", [0x00, 0x3F], 0, 100)] },
+    TypeKnob { fx_type: 10, key: "octave", targets: &[t("effect-level", "EFFECT LEVEL", [0x00, 0x46], 0, 100)] },
+    TypeKnob { fx_type: 11, key: "pitchshift", targets: &[signed("pitch1", "PITCH 1", [0x00, 0x4A], 24)] },
+    TypeKnob { fx_type: 12, key: "harmonist", targets: &[list("harmony1", "HARMONY 1", [0x00, 0x5C], HARMONIES)] },
     TypeKnob { fx_type: 16, key: "tremolo", targets: &[t("rate", "RATE", [0x01, 0x19], 0, 100)] },
     // captures/108-mod-colours-knob.log
     TypeKnob {
@@ -148,7 +215,7 @@ pub(crate) static GENERATED: LazyLock<Vec<ParamDef>> = LazyLock::new(|| {
                     encoding: Encoding::U7,
                     min: tg.min,
                     max: tg.max,
-                    values: None,
+                    values: tg.values,
                     ofs: tg.ofs,
                 });
             }
