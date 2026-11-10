@@ -202,6 +202,8 @@ PRESET here) picks what the knob moves; with PRESET it moves, not one to one:
 | 29 HEAVY OCTAVE | `01 5A` 1OCT LEVEL | `113` |
 | 30 PEDAL BEND | `01 5D` PITCH (`ofs` 24; knob −12..+12) | `113` |
 
+The app shows these PRESET settings whatever `ASSIGN_KNOBS` says; a patch with a custom
+knob assignment (Tone Studio) moves other settings (known limitation, not yet handled).
 The knob from off turned MOD on (`20 00 08 01` → 1). The knob also reports `20 01 1C 01`.
 **FX** (`captures/109-*`): FX green/red/orange = FX(4/5/6), TYPE at `20 00 16/18/1A 00`,
 FX_DETAIL(4/5/6) at `20 00 22/24/26 00`; the same per-type offsets as MOD (FLANGER 117E

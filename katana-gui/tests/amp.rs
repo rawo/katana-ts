@@ -332,6 +332,31 @@ fn reverb_colour_both_ways_with_live_on() {
 }
 
 #[test]
+fn mod_colour_goes_to_the_amp_with_live_on() {
+    let mut r = rig("mod-colour-out").connected().live();
+    let def = find_param("mod-color").unwrap();
+    r.click("MOD RED");
+    assert_eq!(r.jobs(), vec![Job::SetParam { addr: def.addr, data: vec![1] }]);
+}
+
+#[test]
+fn fx_colour_type_and_knob_setting_from_the_panel_follow() {
+    let mut r = rig("fx-colour-in").connected().live();
+    let color = find_param("fx-color").unwrap();
+    let kind = find_param("fx2-type").unwrap();
+    let rate = find_param("fx2-tremolo-rate").unwrap();
+    r.event(Event::PanelChange { addr: kind.addr, data: vec![16] });
+    r.event(Event::PanelChange { addr: color.addr, data: vec![1] });
+    r.event(Event::PanelChange { addr: rate.addr, data: vec![77] });
+    assert_eq!(r.app().editor.get(color), Some(1));
+    assert_eq!(r.app().editor.get(rate), Some(77));
+    r.click("FX");
+    r.h.get_by_label("FX · RED variation · type TREMOLO");
+    assert_eq!(r.h.get_by_label("RATE").accesskit_node().numeric_value(), Some(77.0));
+    assert_eq!(r.jobs(), vec![], "panel changes are not sent back");
+}
+
+#[test]
 fn panel_change_outside_known_params_shows_the_address() {
     let mut r = rig("panel-hex").connected().live();
     let addr = katana_proto::device::addr([0x20, 0x01, 0x1C, 0x00]);

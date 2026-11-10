@@ -214,15 +214,25 @@ mod tests {
 
     #[test]
     fn param_names_are_unique() {
-        let mut names: Vec<_> = PARAMS.iter().map(|p| p.name).collect();
+        // `find_param` ignores case and returns the first match.
+        let mut names: Vec<_> = all_params().iter().map(|p| p.name.to_ascii_lowercase()).collect();
         names.sort();
         names.dedup();
-        assert_eq!(names.len(), PARAMS.len());
+        assert_eq!(names.len(), all_params().len());
+    }
+
+    #[test]
+    fn param_bytes_do_not_overlap() {
+        let mut spans: Vec<_> = all_params().iter().map(|p| (p.addr, p.addr + p.encoding.len(), p.name)).collect();
+        spans.sort();
+        for w in spans.windows(2) {
+            assert!(w[0].1 <= w[1].0, "{} and {} share bytes", w[0].2, w[1].2);
+        }
     }
 
     #[test]
     fn param_values_lie_within_range() {
-        for p in PARAMS {
+        for p in all_params() {
             for &(v, name) in p.values.unwrap_or(&[]) {
                 assert!((p.min..=p.max).contains(&v), "{}: {name} = {v} out of range", p.name);
             }

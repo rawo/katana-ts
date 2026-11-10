@@ -351,6 +351,12 @@ mod tests {
     }
 
     #[test]
+    fn knob_table_lists_each_type_once_in_order() {
+        let types: Vec<u32> = crate::modfx::KNOB.iter().map(|k| k.fx_type).collect();
+        assert_eq!(types, (0..=30).collect::<Vec<_>>());
+    }
+
+    #[test]
     fn every_modfx_type_has_knob_settings_in_every_slot() {
         for slot in 0..6 {
             for &(t, name) in crate::modfx::FX_TYPES {

@@ -39,11 +39,21 @@ mapped yet" message is gone (no type left to show it).
 **Next:** a review of the whole branch, then merge. The user's check in the app passed
 2026-11-10: knob settings and colours stay in sync both ways.
 
+Branch review 2026-11-10 (fresh reviewer, whole branch): ready with fixes, no critical
+issues. Fixed: the TAP light repainted ~200 times a second at short delay times (now
+steady below 150 ms, no repaints; dark at 0); name and byte-overlap tests now cover
+the generated parameters; `KNOB` sorted by type with a test; MOD/FX Live tests.
+
 Noted for the full-settings round: a TYPE drop-down for MOD and FX (the user,
 2026-11-10; today the type is shown but read-only, set with `katana-cli set
 mod1-type N`). With Live on the app does not see writes from other programs (e.g.
 `katana-cli set`): the amp does not report them and only the AMP block is re-read;
-switching Live off and on, or a `katana-cli watch`, brings them in. LIMITER RATIO shows raw steps 0–17 (value names not
+switching Live off and on, or a `katana-cli watch`, brings them in. The knob settings
+shown assume the knob's PRESET assignment: a patch whose `ASSIGN_KNOBS` (`20 00 5C 00`)
+points a knob elsewhere shows settings the knob doesn't move (also the booster) — check
+the byte and say so. A slot type 31..127 (damaged patch) shows "No parameters verified…"
+instead of "type ? (n)". `knob_targets`/`slot_type` look names up by string every frame:
+index `GENERATED` before the TYPE drop-down adds more. LIMITER RATIO shows raw steps 0–17 (value names not
 found in the app's files); HIGH CUT (delay) and LOW CUT/DENSITY (reverb) change by
 themselves on a colour change and are not shown; the CLI `set`/`params` show raw values
 (no `ofs`).
@@ -116,8 +126,9 @@ it says otherwise:
 
 - 225 tests pass on the Linux machine (`cargo test --workspace`, 2026-10-31); hardware
   tests: `cargo test -p katana-proto --features hardware-tests` (amp needed).
-- `cargo clippy --workspace --all-targets` shows 3 known warnings in `katana-proto`
-  (2× `is_multiple_of`, 1× `chunks_exact`); no new ones should be added.
+- `cargo clippy --workspace --all-targets` shows 3 known warnings (`katana-proto` capture.rs:
+  `chunks_exact`, `is_multiple_of`; `katana-cli` cmd/mod.rs: `is_multiple_of`); no new ones
+  should be added.
 - The GUI has not yet run on the Linux machine itself (real GPU, real amp). Only the
   VM, with software OpenGL.
 

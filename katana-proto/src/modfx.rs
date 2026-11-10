@@ -186,20 +186,34 @@ pub const KNOB: &[TypeKnob] = &[
     },
     TypeKnob { fx_type: 14, key: "phaser", targets: &[t("rate", "RATE", [0x01, 0x0A], 0, 100)] },
     TypeKnob { fx_type: 15, key: "flanger", targets: &[t("rate", "RATE", [0x01, 0x11], 0, 100)] },
+    // captures/109-fx-colours-knob.log (FX)
+    TypeKnob { fx_type: 16, key: "tremolo", targets: &[t("rate", "RATE", [0x01, 0x19], 0, 100)] },
+    // captures/112 again
     TypeKnob { fx_type: 17, key: "rotary", targets: &[t("rate", "RATE", [0x01, 0x1C], 0, 100)] },
     TypeKnob { fx_type: 18, key: "univ", targets: &[t("rate", "RATE", [0x01, 0x1F], 0, 100)] },
     TypeKnob { fx_type: 19, key: "slicer", targets: &[t("rate", "RATE", [0x01, 0x23], 0, 100)] },
-    TypeKnob { fx_type: 16, key: "tremolo", targets: &[t("rate", "RATE", [0x01, 0x19], 0, 100)] },
     // captures/113-types-batch4.log (MOD green); seen: HUMANIZER RATE 40..80,
     // AC.GUITAR SIM LOW -10..+10, PEDAL BEND PITCH -12..+12.
     TypeKnob { fx_type: 20, key: "vibrato", targets: &[t("rate", "RATE", [0x01, 0x27], 0, 100)] },
     TypeKnob { fx_type: 21, key: "ringmod", targets: &[t("frequency", "FREQUENCY", [0x01, 0x2B], 0, 100)] },
     TypeKnob { fx_type: 22, key: "humanizer", targets: &[t("rate", "RATE", [0x01, 0x32], 0, 100)] },
+    // captures/108-mod-colours-knob.log
+    TypeKnob {
+        fx_type: 23,
+        key: "chorus",
+        targets: &[t("low-rate", "LOW RATE", [0x01, 0x37], 0, 100), t("high-rate", "HIGH RATE", [0x01, 0x3B], 0, 100)],
+    },
+    // captures/113
     TypeKnob {
         fx_type: 24,
         key: "acsim",
         targets: &[t("body", "BODY", [0x01, 0x41], 0, 100), signed("low", "LOW", [0x01, 0x42], 50)],
     },
+    // captures/108-mod-colours-knob.log
+    TypeKnob { fx_type: 25, key: "phaser90e", targets: &[t("speed", "SPEED", [0x01, 0x45], 0, 100)] },
+    // MOD (108) and FX (109): the same offset in both
+    TypeKnob { fx_type: 26, key: "flanger117e", targets: &[t("speed", "SPEED", [0x01, 0x48], 0, 100)] },
+    // captures/113
     TypeKnob { fx_type: 27, key: "wah95e", targets: &[t("pedal-max", "PEDAL MAX", [0x01, 0x4C], 0, 100)] },
     TypeKnob {
         fx_type: 28,
@@ -211,15 +225,6 @@ pub const KNOB: &[TypeKnob] = &[
     },
     TypeKnob { fx_type: 29, key: "heavyoctave", targets: &[t("1oct-level", "1OCT LEVEL", [0x01, 0x5A], 0, 100)] },
     TypeKnob { fx_type: 30, key: "pedalbend", targets: &[signed("pitch", "PITCH", [0x01, 0x5D], 24)] },
-    // captures/108-mod-colours-knob.log
-    TypeKnob {
-        fx_type: 23,
-        key: "chorus",
-        targets: &[t("low-rate", "LOW RATE", [0x01, 0x37], 0, 100), t("high-rate", "HIGH RATE", [0x01, 0x3B], 0, 100)],
-    },
-    TypeKnob { fx_type: 25, key: "phaser90e", targets: &[t("speed", "SPEED", [0x01, 0x45], 0, 100)] },
-    // MOD (108) and FX (109): the same offset in both
-    TypeKnob { fx_type: 26, key: "flanger117e", targets: &[t("speed", "SPEED", [0x01, 0x48], 0, 100)] },
 ];
 
 fn block(first: u8, slot: usize) -> u32 {
