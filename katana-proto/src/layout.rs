@@ -319,13 +319,49 @@ mod tests {
     }
 
     #[test]
-    fn mod_type_without_a_mapped_knob_has_no_controls() {
+    fn type_batch_4_knob_settings() {
+        // captures/113-types-batch4.log (MOD green); FX_DETAIL 01 xx = 20 00 1D xx.
+        type Want = (&'static str, u32, (u32, u32, u32));
+        let a = |o: u8| crate::device::addr([0x20, 0, 0x1D, o]);
+        let cases: [(u32, &[Want]); 8] = [
+            (20, &[("mod1-vibrato-rate", a(0x27), (0, 100, 0))]),
+            (21, &[("mod1-ringmod-frequency", a(0x2B), (0, 100, 0))]),
+            (22, &[("mod1-humanizer-rate", a(0x32), (0, 100, 0))]),
+            (24, &[("mod1-acsim-body", a(0x41), (0, 100, 0)), ("mod1-acsim-low", a(0x42), (0, 100, 50))]),
+            (27, &[("mod1-wah95e-pedal-max", a(0x4C), (0, 100, 0))]),
+            (
+                28,
+                &[
+                    ("mod1-dc30-chorus-intensity", a(0x51), (0, 100, 0)),
+                    ("mod1-dc30-echo-volume", a(0x57), (0, 100, 0)),
+                ],
+            ),
+            (29, &[("mod1-heavyoctave-1oct-level", a(0x5A), (0, 100, 0))]),
+            (30, &[("mod1-pedalbend-pitch", a(0x5D), (0, 48, 24))]),
+        ];
+        for (t, want) in cases {
+            for &(name, addr, range) in want {
+                let d = find_param(name).unwrap_or_else(|| panic!("{name}"));
+                assert_eq!(d.addr, addr, "{name}");
+                assert_eq!((d.min, d.max, d.ofs), range, "{name}");
+            }
+            let got: Vec<_> = crate::modfx::knob_targets(0, t).iter().map(|x| x.0).collect();
+            assert_eq!(got, want.iter().map(|w| w.0).collect::<Vec<_>>(), "type {t}");
+        }
+    }
+
+    #[test]
+    fn every_modfx_type_has_knob_settings_in_every_slot() {
+        for slot in 0..6 {
+            for &(t, name) in crate::modfx::FX_TYPES {
+                assert!(!crate::modfx::knob_targets(slot, t).is_empty(), "slot {slot}, {name}");
+            }
+        }
         let m = CHAIN.iter().find(|b| b.id == "mod").unwrap();
         let mut p = Patch::default_preset();
-        p.set(find_param("mod-color").unwrap(), 0).unwrap();
         p.set(find_param("mod1-type").unwrap(), 30).unwrap();
         assert_eq!(m.type_label(&p), Some("PEDAL BEND"));
-        assert!(m.controls(&p).is_empty());
+        assert_eq!(m.controls(&p).len(), 1);
     }
 
     #[test]

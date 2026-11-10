@@ -181,6 +181,26 @@ PRESET here) picks what the knob moves; with PRESET it moves, not one to one:
 | 4 LIMITER | `00 1C` RATIO (steps 0–17; value names not found in the app's files) | `110` |
 | 5 GRAPHIC EQ | `00 23` 500Hz, `00 24` 1kHz (−20..+20 dB, sent as 0..40, app `ofs` 20) | `110` |
 | 6 PARAMETRIC EQ | `00 2E` LOW-MID GAIN, `00 34` LEVEL (−20..+20, `ofs` 20) | `110` |
+| 7 GUITAR SIM | `00 35` TYPE (list S->H … P->AC; knob covers S->H..H->HF) | `111` |
+| 8 SLOW GEAR | `00 3B` RISE TIME (knob 0..80) | `111` |
+| 9 WAVE SYNTH | `00 3F` RESONANCE (knob 0..80) | `111` |
+| 10 OCTAVE | `00 46` EFFECT LEVEL | `111` |
+| 11 PITCH SHIFTER | `00 4A` PITCH1 (−24..+24, `ofs` 24; knob −12..+12) | `111` |
+| 12 HARMONIST | `00 5C` HARMONY1 (list −2oct … +2oct, USER; knob −6th..+6th) | `111` |
+| 13 AC.PROCESSOR | `01 06` TREBLE, `01 07` PRESENCE (`ofs` 50), `01 08` LEVEL; one DT1 sometimes carries all three | `112` |
+| 14 PHASER | `01 0A` RATE (knob 10..80) | `112` |
+| 15 FLANGER | `01 11` RATE (knob 10..60) | `112` |
+| 17 ROTARY | `01 1C` RATE (knob 0..90) | `112` |
+| 18 UNI-V | `01 1F` RATE | `112` |
+| 19 SLICER | `01 23` RATE | `112` |
+| 20 VIBRATO | `01 27` RATE | `113` |
+| 21 RING MOD | `01 2B` FREQUENCY | `113` |
+| 22 HUMANIZER | `01 32` RATE (knob 40..80) | `113` |
+| 24 AC.GUITAR SIM | `01 41` BODY, `01 42` LOW (`ofs` 50; knob −10..+10) | `113` |
+| 27 WAH 95E | `01 4C` PEDAL MAX | `113` |
+| 28 DC-30 | `01 51` CHORUS INTENSITY, `01 57` ECHO VOLUME | `113` |
+| 29 HEAVY OCTAVE | `01 5A` 1OCT LEVEL | `113` |
+| 30 PEDAL BEND | `01 5D` PITCH (`ofs` 24; knob −12..+12) | `113` |
 
 The knob from off turned MOD on (`20 00 08 01` → 1). The knob also reports `20 01 1C 01`.
 **FX** (`captures/109-*`): FX green/red/orange = FX(4/5/6), TYPE at `20 00 16/18/1A 00`,
@@ -190,7 +210,8 @@ REVERB knob step were also moved (not part of the test).
 Type batches (`captures/110-types-batch1.log`, …): MOD green, the type set on the
 current patch with `katana-cli set mod1-type N` (not stored), the user sweeping the knob.
 After a type change the amp sometimes sends the whole patch unasked (`110`, after types
-1 and 3). Eleven types are mapped so far.
+1 and 3). All 31 types are mapped (2026-11-10, `110`–`113`); value names of
+GUITAR SIM TYPE and HARMONY come from the app's `export/layout.div`.
 
 **REVERB colours and knob** (VERIFIED 2026-11-07, `captures/107-*`, A3 active, editor
 mode): green = REVERB(1) `34 xx`, red = REVERB(2) `36 xx`, orange = REVERB(3) `38 xx`.

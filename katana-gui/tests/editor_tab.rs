@@ -87,13 +87,18 @@ fn clicking_a_cards_type_text_selects_the_card() {
 }
 
 #[test]
-fn mod_type_without_a_mapped_knob_says_so() {
+fn mod_knob_setting_with_value_names_picks_by_name() {
     let mut h = harness();
-    h.state_mut().edit(find_param("mod1-type").unwrap(), 30).unwrap();
+    h.state_mut().edit(find_param("mod1-type").unwrap(), 12).unwrap();
     h.get_by_label("MOD").click();
     h.run();
-    h.get_by_label("MOD · GREEN variation · type PEDAL BEND");
-    h.get_by_label("The knob's settings for PEDAL BEND are not mapped yet.");
+    h.get_by_label("MOD · GREEN variation · type HARMONIST");
+    h.get_by_label("HARMONY 1").click();
+    h.run();
+    // The drop-down shows ~200 px; items below need scrolling.
+    h.get_by_label("-1oct").click();
+    h.run();
+    assert_eq!(get(&h, "mod1-harmonist-harmony1"), Some(7));
 }
 
 #[test]

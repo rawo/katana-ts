@@ -4,8 +4,8 @@
 //! keeps its own settings at a fixed offset.
 //!
 //! The panel knob of MOD and FX moves, per type, the settings in `KNOB`
-//! (the knob's default "PRESET" assignment). Only types recorded on the amp
-//! are listed; parameters are generated for every slot.
+//! (the knob's default "PRESET" assignment). Every type was recorded on the
+//! amp (captures/108–113); parameters are generated for every slot.
 
 use std::sync::LazyLock;
 
@@ -190,6 +190,27 @@ pub const KNOB: &[TypeKnob] = &[
     TypeKnob { fx_type: 18, key: "univ", targets: &[t("rate", "RATE", [0x01, 0x1F], 0, 100)] },
     TypeKnob { fx_type: 19, key: "slicer", targets: &[t("rate", "RATE", [0x01, 0x23], 0, 100)] },
     TypeKnob { fx_type: 16, key: "tremolo", targets: &[t("rate", "RATE", [0x01, 0x19], 0, 100)] },
+    // captures/113-types-batch4.log (MOD green); seen: HUMANIZER RATE 40..80,
+    // AC.GUITAR SIM LOW -10..+10, PEDAL BEND PITCH -12..+12.
+    TypeKnob { fx_type: 20, key: "vibrato", targets: &[t("rate", "RATE", [0x01, 0x27], 0, 100)] },
+    TypeKnob { fx_type: 21, key: "ringmod", targets: &[t("frequency", "FREQUENCY", [0x01, 0x2B], 0, 100)] },
+    TypeKnob { fx_type: 22, key: "humanizer", targets: &[t("rate", "RATE", [0x01, 0x32], 0, 100)] },
+    TypeKnob {
+        fx_type: 24,
+        key: "acsim",
+        targets: &[t("body", "BODY", [0x01, 0x41], 0, 100), signed("low", "LOW", [0x01, 0x42], 50)],
+    },
+    TypeKnob { fx_type: 27, key: "wah95e", targets: &[t("pedal-max", "PEDAL MAX", [0x01, 0x4C], 0, 100)] },
+    TypeKnob {
+        fx_type: 28,
+        key: "dc30",
+        targets: &[
+            t("chorus-intensity", "CHORUS INTENSITY", [0x01, 0x51], 0, 100),
+            t("echo-volume", "ECHO VOLUME", [0x01, 0x57], 0, 100),
+        ],
+    },
+    TypeKnob { fx_type: 29, key: "heavyoctave", targets: &[t("1oct-level", "1OCT LEVEL", [0x01, 0x5A], 0, 100)] },
+    TypeKnob { fx_type: 30, key: "pedalbend", targets: &[signed("pitch", "PITCH", [0x01, 0x5D], 24)] },
     // captures/108-mod-colours-knob.log
     TypeKnob {
         fx_type: 23,

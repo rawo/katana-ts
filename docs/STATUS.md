@@ -1,6 +1,6 @@
 # Project status and handoff
 
-Last updated: 2026-11-10 (effect colours round in progress on
+Last updated: 2026-11-10 (effect colours round: all types mapped, on
 `feature/effect-colours`, not merged). Read this first when picking the work up.
 
 ## Effect colours round: in progress on `feature/effect-colours`
@@ -19,33 +19,24 @@ test-first, then checked by the user.
 | REVERB: colours, EFFECT LEVEL per colour | done, user's check passed | `captures/107-*` |
 | MOD: colours, type line, the knob's settings for the colour's type | done, user's check passed | `captures/108-*` |
 | FX: same as MOD | done, user's check passed | `captures/109-*` |
-| Knob settings per effect type (31 types, MOD and FX share them) | **23 of 31 mapped**: 0–19, 23, 25, 26 | `captures/108`–`112` |
+| Knob settings per effect type (31 types, MOD and FX share them) | **all 31 mapped** (2026-11-10) | `captures/108`–`113` |
 
 How MOD/FX work: MOD green/red/orange are slots FX(1..3), FX green/red/orange FX(4..6).
 Each slot has a type; the knob (default "PRESET" assignment, `ASSIGN_KNOBS`) moves
 type-specific settings, not one to one. Per-type table: `KNOB` in
 `katana-proto/src/modfx.rs`; parameters are generated for all six slots
-(`<slot>-<type>-<setting>`, `all_params()`). Unmapped types show "The knob's settings
-for … are not mapped yet." Details in `docs/protocol.md`, "MOD colours and knob".
+(`<slot>-<type>-<setting>`, `all_params()`). Details in `docs/protocol.md`, "MOD colours and knob".
 
-**Next: type batches**, 6 types per batch, the user chose to record every type.
-Batch 2 (7–12) done 2026-11-10, `captures/111-*`: one setting per type; GUITAR SIM
+**Type batches: done 2026-11-10.** Every type was recorded at the amp (MOD green,
+`katana-cli set mod1-type N`, the user sweeping the knob): batch 1 (1–6, `110`),
+batch 2 (7–12, `111`), batch 3 (13–15, 17–19, `112`), batch 4 (20–22, 24, 27–30,
+`113`). Offsets per type in `docs/protocol.md`, "MOD colours and knob". GUITAR SIM
 TYPE and HARMONIST HARMONY1 are value lists (names from the app's
-`export/layout.div`, shown as a drop-down; "->" instead of an arrow). Batch 3
-(13–15, 17–19) done 2026-11-10, `captures/112-*`: RATE for each, except
-AC.PROCESSOR (TREBLE, PRESENCE, LEVEL together). Left: 20 VIBRATO, 21 RING MOD,
-22 HUMANIZER, 24 AC.GUITAR SIM, 27 WAH 95E, 28 DC-30, 29 HEAVY OCTAVE; 30 last. Routine: app closed; MOD on green;
-`katana-cli dump captures/1NN-before.syx`; `katana-cli monitor --editor >
-captures/1NN-types-batchK.log` in the background; per type `katana-cli set mod1-type N`
-(current sound only, nothing stored), the user sweeps the MOD knob and says "done";
-note the log line count between types; at the end `katana-cli set mod1-type 23`
-(CHORUS, the patch's own) and stop with `pkill -INT -x katana-cli` (not `pkill -f`:
-that kills the calling shell too). Look the offsets up in the app's `address_map.js`
-(`PATCH_FX_DETAIL`, 7-bit packed `addr`); signed settings need `ofs` (`signed()` in
-`modfx.rs`). The "not mapped" tests use type 30 PEDAL BEND: map it last and then
-replace those tests.
+`export/layout.div`, a drop-down in the GUI; "->" instead of an arrow, which egui's
+default font lacks; the drop-down shows about 200 px, longer lists scroll). The "not
+mapped yet" message is gone (no type left to show it).
 
-After all types: the user's check in the app, a review of the branch, merge.
+**Next:** the user's check in the app, a review of the branch, merge.
 
 Noted for the full-settings round: LIMITER RATIO shows raw steps 0–17 (value names not
 found in the app's files); HIGH CUT (delay) and LOW CUT/DENSITY (reverb) change by
