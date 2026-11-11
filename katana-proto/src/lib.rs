@@ -29,6 +29,7 @@ pub mod memmap;
 pub mod midi;
 pub mod modfx;
 pub mod params;
+pub mod settings;
 pub mod patch;
 pub mod transport;
 pub mod tsl;

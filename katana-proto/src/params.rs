@@ -189,10 +189,17 @@ pub const PARAMS: &[ParamDef] = &[
     p("reverb3-level", [0x20, 0x00, 0x38, 0x0A], U7, 0, 100),
 ];
 
-/// `PARAMS` followed by the generated MOD/FX slot parameters (`modfx`).
+/// `PARAMS`, the generated MOD/FX slot parameters (`modfx`), then every other
+/// setting from Tone Studio's tables (`settings`).
 pub fn all_params() -> &'static [ParamDef] {
-    static ALL: std::sync::LazyLock<Vec<ParamDef>> =
-        std::sync::LazyLock::new(|| PARAMS.iter().chain(crate::modfx::GENERATED.iter()).copied().collect());
+    static ALL: std::sync::LazyLock<Vec<ParamDef>> = std::sync::LazyLock::new(|| {
+        PARAMS
+            .iter()
+            .chain(crate::modfx::GENERATED.iter())
+            .chain(crate::settings::GENERATED.iter())
+            .copied()
+            .collect()
+    });
     &ALL
 }
 
