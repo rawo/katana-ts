@@ -19,7 +19,12 @@ Spec `docs/superpowers/specs/2026-11-10-katana-full-editor-design.md`, plan
 - Checked on the amp on the Mac 2026-11-11: `katana-cli check-settings` wrote and read
   back all 1222 new settings, nothing excluded; the REVERB button's switch behaviour
   per mode recorded (`docs/protocol.md`, "Settings check", "DELAY 2 / REVERB switches").
-- Still to do: whole-branch review, the user's hands-on check (Mac, then Linux), merge.
+- Whole-branch review done ("with fixes"; both important findings fixed, 9 minors
+  deferred, see the ledger). The user's check on the Mac found knobs stepping down in
+  a row; fixed (e7e5571); "All is aligned now" (2026-11-11).
+- **Later, its own round (the user, 2026-11-11):** UI fine-tuning and user experience.
+  With this many knobs the editor is becoming overwhelming; needs a design pass.
+- Still to do: rest of the user's hands-on check (Mac, then Linux), merge.
 
 ## Effect colours round: done, merged to `main` 2026-11-10
 
