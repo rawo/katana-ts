@@ -146,9 +146,16 @@ fn colour_panel(ui: &mut egui::Ui, app: &mut KatanaApp, block: &'static BlockDef
 
 /// The panel's settings for `color`, grouped by their labels' first word.
 pub(crate) fn settings_list(ui: &mut egui::Ui, app: &mut KatanaApp, panel: Panel, color: u32, p: &Palette) {
-    let controls = panel_controls(panel, color, app.editor.patch());
+    let patch = app.editor.patch();
+    let controls = panel_controls(panel, color, patch);
     if controls.is_empty() {
-        ui.label(RichText::new("No parameters verified on the amp for this block yet.").color(p.dim));
+        // A type value the amp has no type for (e.g. from an old .syx).
+        let unknown = type_def(panel, color).and_then(|d| patch.get(d).filter(|&v| v > d.max));
+        let text = match unknown {
+            Some(v) => format!("Unknown type ? ({v}): nothing to show. Pick a TYPE to edit this colour."),
+            None => "No parameters verified on the amp for this block yet.".to_string(),
+        };
+        ui.label(RichText::new(text).color(p.dim));
         return;
     }
     for (name, group) in groups(&controls) {

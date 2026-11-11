@@ -600,3 +600,15 @@ fn a_click_still_selects_a_card() {
     press(&mut h, at, false);
     assert_eq!(h.state().selected_block, "fx");
 }
+
+#[test]
+fn an_unknown_type_value_says_so() {
+    let mut p = Patch::default_preset();
+    p.mem.apply(Address(find_param("mod1-type").unwrap().addr), &[31]);
+    let mut app = KatanaApp::new();
+    app.editor.open_bytes(&p.to_syx(), "odd.syx".into()).unwrap();
+    let mut h = harness_sized([1600.0, 960.0], app);
+    select(&mut h, "MOD");
+    h.get_by_label_contains("Unknown type ? (31)");
+    assert!(h.query_by_label_contains("No parameters verified").is_none());
+}

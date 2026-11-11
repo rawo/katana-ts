@@ -41,7 +41,7 @@ pub fn chain(ui: &mut egui::Ui, app: &mut KatanaApp, p: &Palette) {
     });
     if app.chain_drag.is_some() && ui.input(|i| i.pointer.any_released()) {
         let at = ui.input(|i| i.pointer.interact_pos());
-        if let Some((_, d)) = spots.iter().find(|(r, _)| at.is_some_and(|at| r.expand(4.0).contains(at))) {
+        if let Some((_, d)) = spots.iter().find(|(r, _)| spot_hit(*r, at)) {
             if let Some(def) = find_param(d.edit.0) {
                 let r = app.edit(def, d.edit.1);
                 debug_assert!(r.is_ok());
@@ -55,10 +55,18 @@ fn title_of(b: chain::Block) -> &'static str {
     CHAIN.iter().find(|d| d.id == b.id()).map_or("", |d| d.title)
 }
 
+/// Whether the pointer is over a drop spot (with a little slack); the same
+/// test brightens the spot and takes the drop.
+pub(crate) fn spot_hit(spot: egui::Rect, pointer: Option<egui::Pos2>) -> bool {
+    pointer.is_some_and(|at| spot.expand(4.0).contains(at))
+}
+
 /// A lit gap a dragged card can be dropped into.
 fn drop_spot(ui: &mut egui::Ui, dragged: &str, before: &str, p: &Palette) -> egui::Rect {
     let (rect, r) = ui.allocate_exact_size(Vec2::new(14.0, 64.0), Sense::hover());
-    ui.painter().rect_filled(rect, CornerRadius::same(4), p.accent.gamma_multiply(if r.hovered() { 1.0 } else { 0.5 }));
+    // Not `hovered()`: that is false while another widget (the card) is dragged.
+    let lit = spot_hit(rect, ui.input(|i| i.pointer.latest_pos()));
+    ui.painter().rect_filled(rect, CornerRadius::same(4), p.accent.gamma_multiply(if lit { 1.0 } else { 0.5 }));
     let name = format!("Drop {dragged} before {before}");
     r.widget_info(|| WidgetInfo::labeled(Role::Button, true, &name));
     rect
@@ -244,7 +252,17 @@ fn arrow(ui: &mut egui::Ui, p: &Palette) {
 
 #[cfg(test)]
 mod tests {
-    use super::{tap_lit, tap_wake};
+    use super::{spot_hit, tap_lit, tap_wake};
+    use eframe::egui::{pos2, Rect};
+
+    #[test]
+    fn a_drop_spot_takes_the_pointer_a_little_outside_it_too() {
+        let spot = Rect::from_min_max(pos2(100.0, 0.0), pos2(114.0, 64.0));
+        assert!(spot_hit(spot, Some(pos2(107.0, 30.0))));
+        assert!(spot_hit(spot, Some(pos2(97.0, 30.0))), "4 px slack");
+        assert!(!spot_hit(spot, Some(pos2(90.0, 30.0))));
+        assert!(!spot_hit(spot, None));
+    }
 
     #[test]
     fn tap_light_blinks_once_per_delay_time() {
