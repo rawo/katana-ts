@@ -378,8 +378,10 @@ def block_table(out, b, lists, verified, *, skip_options=False, with_ui=True, ro
     out.append("|---|---|---|---|---|---|---|---|")
     for p in rows if rows is not None else b["params"]:
         a = b["base"] + lin(p["off"])
-        app = ", ".join(f"`{n}`" if inst == b["name"] else f"`{n}` ({inst})"
-                        for inst, n in verified.get((b["table"], p["off"]), []))
+        names = verified.get((b["table"], p["off"]), [])
+        app = ", ".join(f"`{n}`" if inst == b["name"] else f"`{n}` ({inst})" for inst, n in names[:3])
+        if len(names) > 3:
+            app += f" +{len(names) - 3} more"
         out.append("| `{}` | {} | {} | {} | {} | {} | {} | {} |".format(
             fmt_addr(a), short(p["id"], b["table"]), enc(p), rng(p), esc(str(p["init"]).strip()),
             esc(labels(p)) if with_ui else "", esc(values(p, lists, skip_options)), app))
@@ -390,9 +392,33 @@ def instances(blocks, table):
     return [b for b in blocks if b["table"] == table]
 
 
+def checked_settings(m, params_rs):
+    """Linear address -> app parameter name, for every setting the app has
+    verified on the amp: `params.rs`, plus the generated settings (all
+    checked by `katana-cli check-settings`) minus `settings::EXCLUDED`."""
+    out = verified_map(params_rs)
+    settings_rs = Path(params_rs).with_name("settings.rs").read_text()
+    excluded = set(re.findall(r'"([^"]+)"', settings_rs.split("pub const EXCLUDED")[1].split(";")[0]))
+    blocks = [b for b in m["blocks"] if b["area"] == "PATCH"]
+    for table, names in RUST_TABLES:
+        inst = [b for b in blocks if b["table"] == "PATCH_" + table]
+        for p in inst[0]["params"]:
+            short_id = short(p["id"], "PATCH_" + table)
+            if (table in RUST_ONLY and short_id not in RUST_ONLY[table]) or not p["controls"]:
+                continue
+            if table == "SOLO_DELAY":
+                continue  # write-protected: never checked
+            key = short_id.lower().replace("_", "-")
+            for name, b in zip(names, inst):
+                a = b["base"] + lin(p["off"])
+                if f"{name}-{key}" not in excluded:
+                    out.setdefault(a, f"{name}-{key}")
+    return out
+
+
 def render(m, params_rs, version):
     blocks = m["blocks"]
-    checked = verified_map(params_rs)
+    checked = checked_settings(m, params_rs)
     verified = by_setting(blocks, checked)
     lists = Lists()
     out = []
@@ -427,7 +453,8 @@ def render(m, params_rs, version):
       "[Value lists](#value-lists) at the end, referenced as `L1`, `L2`, ….")
     w("")
     w(f"Patch: {len(patch)} blocks, {distinct} distinct settings ({shown} with a Tone Studio control). "
-      f"The app checks {len(checked)} of them today.")
+      f"The app has checked {len(verified)} of them on the amp ({len(checked)} addresses, counting every "
+      "colour's copy).")
     w("")
 
     w("## Areas")

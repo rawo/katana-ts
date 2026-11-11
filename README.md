@@ -145,11 +145,28 @@ default preset: everything off or 0, amp type CLEAN.
     first, so a failed save leaves the old file as it was.
 - **Window:** at least 1200×720, so the whole signal chain fits.
 - **Editor tab:**
-  - The signal chain IN → BOOSTER → MOD → AMP → FX → DELAY → REVERB → OUT. Each
-    block shows its on/off switch (click to toggle) and, where known, its type and
-    variation lights (click a light to pick GREEN, RED or ORANGE).
-  - Click a block to see its parameters in the panel below.
-  - The amp knobs (GAIN … PRESENCE) are always visible.
+  - The signal chain, in the patch's order: BOOSTER, MOD, FX, DELAY and the AMP in
+    one of the amp's nine orders, EQ 1 / EQ 2 before or after the AMP, then
+    DELAY 2 / REVERB and SOLO. Each block shows its on/off switch (click to
+    toggle) and, where it has them, its type and variation lights (click a light
+    to make the amp play GREEN, RED or ORANGE).
+  - **Change the order** by dragging BOOSTER, MOD, FX, DELAY, EQ 1 or EQ 2: only
+    the spots the amp allows light up; drop on one to move the block there,
+    anywhere else to leave it.
+  - Click a block to see all its settings in the panel below. Colour blocks show
+    three tabs, GREEN / RED / ORANGE, each with its own type; the outlined tab is
+    the colour the amp plays. Clicking a tab only shows that colour (the sound
+    doesn't change). Under the tabs: the TYPE drop-down and every setting of that
+    type, as in BOSS Tone Studio. A small ring marks settings the amp's own
+    panel knob also moves.
+  - **DELAY 2 / REVERB** is one block: its MODE (DELAY / DLY+REV / REVERB, per
+    colour), then DELAY 2 and REVERB side by side; the half the mode doesn't play
+    is dimmed but stays editable.
+  - **EQ 1 / EQ 2:** POSITION (AMP IN / AMP OUT), TYPE (PARAMETRIC or GE-10 with
+    ten sliders). **SOLO:** level, SOLO EQ, and the solo delay as text (the amp
+    doesn't accept changes to it over USB).
+  - Always visible: the amp knobs (GAIN … PRESENCE, RESONANCE), BLOOM, VARIATION
+    and CONTOUR OFF/1/2/3 with the selected contour's TYPE and FREQ SHIFT.
 - **Knobs:** drag up or down (200 px sweeps the full range); the mouse wheel moves
   one step; double-click to type a value, Enter to accept, Escape to cancel.
   While you scroll the page, the wheel keeps scrolling past knobs; rest on a knob
@@ -174,8 +191,9 @@ default preset: everything off or 0, amp type CLEAN.
   library files that couldn't be read and were skipped), and the **Theme** picker
   (Dark or Light).
 
-Only parameters verified on the amp appear (see the table below). Blocks with none
-yet say so.
+Only settings verified on the amp appear: the table below, plus every setting from
+Tone Studio's tables, which `katana-cli check-settings` wrote and read back on the
+amp (all 1222 passed, `docs/protocol.md`, "Settings check").
 
 ### With the amp
 
@@ -255,6 +273,7 @@ Global options (they work with every command):
 | `load <FILE>` | yes | Writes a `.syx` patch (from `dump`) into the amp's current patch. The whole file is checked first; nothing is sent if it isn't a complete Gen 3 patch. SOLO_DELAY settings can't be written (the amp ignores them). |
 | `set <NAME> <VALUE>` | yes | Sets one parameter of the current patch. `VALUE` is a number or a value name (case-insensitive), e.g. `set amp-type crunch`. Out-of-range values are rejected before anything is sent. |
 | `params` | yes | Lists the known parameters with range and current value. |
+| `check-settings [--table <T>] [--yes]` | yes | Writes and reads back every setting from Tone Studio's tables the app hadn't verified before (or one table, e.g. `REVERB`), then restores the current sound. Backs the current sound up first, asks unless `--yes`, never stores. Lists each failure. |
 | `verify [--slot <N>]` | yes | Proves writes land: writes a different stored patch into the current patch, reads it back, restores the original and reads that back. `--slot N` (1–10) picks stored patch PATCH(N); by default it uses the first one that differs from the current patch. |
 | `watch [--map <PATH>] [--interval-ms <MS>]` | yes | Polls the current patch and prints each parameter that changes, until Ctrl-C. Turn knobs on the amp to see their addresses. |
 
@@ -337,6 +356,7 @@ nibbles.
 | `delay1-feedback` … `delay3-feedback` | 0–100 | |
 | `delay1-level` … `delay3-level` | 0–120 | effect level |
 | `reverb1-level` … `reverb3-level` | 0–100 | effect level, green/red/orange variation |
+| `<instance>-<setting>`, e.g. `reverb1-layer-mode`, `delay4-time`, `geq1-1khz`, `other-chain` | per setting | every other setting the editor shows, from Tone Studio's tables (`katana-proto/src/settings_gen.rs`, `docs/settings.md`); `delay4..6` are DELAY 2, `sw-delay2-sw` its switch. `katana-cli params` lists them |
 
 Amp quirk: changing a variation colour makes the amp re-derive that effect's on/off
 from the physical knob a moment later. Send the colour first, then on/off.
@@ -356,5 +376,8 @@ katana-cli diff a.tsv b.tsv
 ## Docs
 
 - `docs/protocol.md`: the verified protocol facts and amp quirks.
+- `docs/settings.md`: every setting BOSS Tone Studio knows for the amp, generated by
+  `scripts/bts_settings.py` (which also writes `katana-proto/src/settings_gen.rs`
+  with `--rust`).
 - `docs/superpowers/specs/`: design specs (protocol, GUI).
 - `docs/superpowers/plans/`: implementation plans.

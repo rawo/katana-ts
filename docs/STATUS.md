@@ -1,6 +1,25 @@
 # Project status and handoff
 
-Last updated: 2026-11-10 (effect colours round done, merged into `main` and pushed). Read this first when picking the work up.
+Last updated: 2026-11-11 (full editor round built on `feature/full-editor`; effect colours round merged into `main` and pushed 2026-11-10). Read this first when picking the work up.
+
+## Full editor round: built on `feature/full-editor`, waiting for review and the user's check
+
+Spec `docs/superpowers/specs/2026-11-10-katana-full-editor-design.md`, plan
+`docs/superpowers/plans/2026-11-11-katana-full-editor.md`, ledger (rulings)
+`.superpowers/sdd/2026-11-11-katana-full-editor/progress.md` (git-ignored).
+
+- Every BOSS Tone Studio setting of BOOSTER, MOD, FX, DELAY, DELAY 2, REVERB, SOLO,
+  EQ 1/2, CONTOUR and the AMP (RESONANCE, BLOOM, VARIATION), in all three colours:
+  colour tabs (view only), TYPE drop-downs for every colour block, a mark on what the
+  panel knob also moves. DELAY 2 / REVERB is one block with its layer MODE.
+- The chain follows the patch (CHAIN, EQ positions) and can be reordered by dragging,
+  only into orders the amp allows (Tone Studio's tables).
+- Settings come from Tone Studio's data: `scripts/bts_settings.py` writes
+  `docs/settings.md` and, with `--rust`, `katana-proto/src/settings_gen.rs`.
+- Checked on the amp on the Mac 2026-11-11: `katana-cli check-settings` wrote and read
+  back all 1222 new settings, nothing excluded; the REVERB button's switch behaviour
+  per mode recorded (`docs/protocol.md`, "Settings check", "DELAY 2 / REVERB switches").
+- Still to do: whole-branch review, the user's hands-on check (Mac, then Linux), merge.
 
 ## Effect colours round: done, merged to `main` 2026-11-10
 

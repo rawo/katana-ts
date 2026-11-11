@@ -16,7 +16,7 @@ Reading the tables:
 - Tone Studio control: the control's label and its page in Tone Studio's layout.
 - Values: the control's value names, display format or value list. Long lists are in [Value lists](#value-lists) at the end, referenced as `L1`, `L2`, ….
 
-Patch: 80 blocks, 802 distinct settings (771 with a Tone Studio control). The app checks 35 of them today.
+Patch: 80 blocks, 802 distinct settings (771 with a Tone Studio control). The app has checked 307 of them on the amp (1497 addresses, counting every colour's copy).
 
 ## Areas
 
@@ -92,9 +92,9 @@ CHAIN is edited by dragging blocks on the chain page; its 9 values are the chain
 
 | Address | Setting | Bytes | Range | Default | Tone Studio control | Values | App |
 |---|---|---|---|---|---|---|---|
-| `20 00 02 00` | CHAIN | 1 | 0–8 | 2 | (editor-chain) |  |  |
+| `20 00 02 00` | CHAIN | 1 | 0–8 | 2 | (editor-chain) |  | `other-chain` |
 | `20 00 02 01` | CABINET_RESONANCE | 1 | 0–2 | 1 | CAB RESONANCE (panel-cab-res) | 0 VINTAGE, 1 MODERN, 2 DEEP | `cab-resonance` |
-| `20 00 02 02` | MASTER_KEY | 1 | 0–11 | 0 | MASTER KEY (modfx-harmonist-content) | L1: C (Am) … B (G#m) (12 steps) |  |
+| `20 00 02 02` | MASTER_KEY | 1 | 0–11 | 0 | MASTER KEY (modfx-harmonist-content) | L1: C (Am) … B (G#m) (12 steps) | `other-master-key` |
 
 ### Chain orders
 
@@ -147,10 +147,10 @@ AMP TYPE 0–5 = ACOUSTIC, CLEAN, PUSHED, CRUNCH, LEAD, BROWN (verified, `params
 | `20 00 06 03` | MIDDLE | 1 | 0–100 | 50 | MIDDLE (editor-panel) |  | `middle` |
 | `20 00 06 04` | TREBLE | 1 | 0–100 | 50 | TREBLE (editor-panel) |  | `treble` |
 | `20 00 06 05` | PRESENCE | 1 | 0–100 | 50 | PRESENCE (editor-panel) |  | `presence` |
-| `20 00 06 06` | POWERAMP_VARIATION | 1 | 0–1 | 0 | BLOOM (editor-panel) |  |  |
+| `20 00 06 06` | POWERAMP_VARIATION | 1 | 0–1 | 0 | BLOOM (editor-panel) |  | `amp-poweramp-variation` |
 | `20 00 06 07` | TYPE | 1 | 0–5 | 1 | AMP TYPE (editor-panel) |  | `amp-type` |
-| `20 00 06 08` | RESONANCE | 1 | 0–100 | 50 | RESONANCE (editor-panel) |  |  |
-| `20 00 06 09` | PREAMP_VARIATION | 1 | 0–1 | 0 | (editor-panel) |  |  |
+| `20 00 06 08` | RESONANCE | 1 | 0–100 | 50 | RESONANCE (editor-panel) |  | `amp-resonance` |
+| `20 00 06 09` | PREAMP_VARIATION | 1 | 0–1 | 0 | (editor-panel) |  | `amp-preamp-variation` |
 
 ### SW
 
@@ -162,7 +162,7 @@ REVERB LAYER MODE decides whether the REVERB button runs DELAY 2, reverb, or bot
 | `20 00 08 01` | MOD_SW | 1 | 0–1 | 0 | (modfx-mod-header) |  | `mod-sw` |
 | `20 00 08 02` | FX_SW | 1 | 0–1 | 0 | (modfx-fx-header) |  | `fx-sw` |
 | `20 00 08 03` | DELAY_SW | 1 | 0–1 | 0 | (delay-delay1-header) |  | `delay-sw` |
-| `20 00 08 04` | DELAY2_SW | 1 | 0–1 | 0 | (delay-delay2-header) |  |  |
+| `20 00 08 04` | DELAY2_SW | 1 | 0–1 | 0 | (delay-delay2-header) |  | `sw-delay2-sw` |
 | `20 00 08 05` | REVERB_SW | 1 | 0–1 | 0 | (editor-reverb-content) |  | `reverb-sw` |
 
 ## Patch: booster
@@ -173,14 +173,14 @@ Addresses below are for BOOSTER(1); other instances: BOOSTER(2) `20 00 0C 00`, B
 
 | Address | Setting | Bytes | Range | Default | Tone Studio control | Values | App |
 |---|---|---|---|---|---|---|---|
-| `20 00 0A 00` | TYPE | 1 | 0–22 | 9 | BOOSTER TYPE (editor-booster-content-frame); (editor-effects-booster) | 0 MID BOOST, 1 CLEAN BOOST, 2 TREBLE BOOST, 3 CRUNCH OD, 4 NATURAL OD, 5 WARM OD, 6 FAT DS, 7 METAL DS, 8 OCT FUZZ, 9 BLUES DRIVE, 10 OVERDRIVE, 11 T-SCREAM, 12 TURBO OD, 13 DISTORTION, 14 RAT, 15 GUV DS, 16 DST+, 17 METAL ZONE, 18 '60S FUZZ, 19 MUFF FUZZ, 20 HM-2, 21 METAL CORE, 22 CENTA OD |  |
+| `20 00 0A 00` | TYPE | 1 | 0–22 | 9 | BOOSTER TYPE (editor-booster-content-frame); (editor-effects-booster) | 0 MID BOOST, 1 CLEAN BOOST, 2 TREBLE BOOST, 3 CRUNCH OD, 4 NATURAL OD, 5 WARM OD, 6 FAT DS, 7 METAL DS, 8 OCT FUZZ, 9 BLUES DRIVE, 10 OVERDRIVE, 11 T-SCREAM, 12 TURBO OD, 13 DISTORTION, 14 RAT, 15 GUV DS, 16 DST+, 17 METAL ZONE, 18 '60S FUZZ, 19 MUFF FUZZ, 20 HM-2, 21 METAL CORE, 22 CENTA OD | `booster1-type`, `booster2-type` (BOOSTER(2)), `booster3-type` (BOOSTER(3)) |
 | `20 00 0A 01` | DRIVE | 1 | 0–120 | 50 | DRIVE (booster-content) |  | `booster1-drive`, `booster2-drive` (BOOSTER(2)), `booster3-drive` (BOOSTER(3)) |
-| `20 00 0A 02` | BOTTOM | 1 | -50–50 (raw 0–100) | 10 | BOTTOM (booster-content) | -50 … +50 |  |
-| `20 00 0A 03` | TONE | 1 | -50–50 (raw 0–100) | 0 | TONE (booster-content) | -50 … +50 |  |
-| `20 00 0A 04` | SOLO_SW | 1 | 0–1 | 0 | SOLO SW (booster-content) | 0 OFF, 1 ON |  |
-| `20 00 0A 05` | SOLO_LEVEL | 1 | 0–100 | 50 | SOLO LEVEL (booster-content) |  |  |
-| `20 00 0A 06` | EFFECT_LEVEL | 1 | 0–100 | 40 | EFFECT LEVEL (booster-content) |  |  |
-| `20 00 0A 07` | DIRECT_MIX | 1 | 0–100 | 0 | DIRECT MIX (booster-content) |  |  |
+| `20 00 0A 02` | BOTTOM | 1 | -50–50 (raw 0–100) | 10 | BOTTOM (booster-content) | -50 … +50 | `booster1-bottom`, `booster2-bottom` (BOOSTER(2)), `booster3-bottom` (BOOSTER(3)) |
+| `20 00 0A 03` | TONE | 1 | -50–50 (raw 0–100) | 0 | TONE (booster-content) | -50 … +50 | `booster1-tone`, `booster2-tone` (BOOSTER(2)), `booster3-tone` (BOOSTER(3)) |
+| `20 00 0A 04` | SOLO_SW | 1 | 0–1 | 0 | SOLO SW (booster-content) | 0 OFF, 1 ON | `booster1-solo-sw`, `booster2-solo-sw` (BOOSTER(2)), `booster3-solo-sw` (BOOSTER(3)) |
+| `20 00 0A 05` | SOLO_LEVEL | 1 | 0–100 | 50 | SOLO LEVEL (booster-content) |  | `booster1-solo-level`, `booster2-solo-level` (BOOSTER(2)), `booster3-solo-level` (BOOSTER(3)) |
+| `20 00 0A 06` | EFFECT_LEVEL | 1 | 0–100 | 40 | EFFECT LEVEL (booster-content) |  | `booster1-effect-level`, `booster2-effect-level` (BOOSTER(2)), `booster3-effect-level` (BOOSTER(3)) |
+| `20 00 0A 07` | DIRECT_MIX | 1 | 0–100 | 0 | DIRECT MIX (booster-content) |  | `booster1-direct-mix`, `booster2-direct-mix` (BOOSTER(2)), `booster3-direct-mix` (BOOSTER(3)) |
 
 ## Patch: MOD and FX
 
@@ -191,7 +191,7 @@ Settings blocks: FX_DETAIL(1) `20 00 1C 00`, FX_DETAIL(2) `20 00 1E 00`, FX_DETA
 
 | Address | Setting | Bytes | Range | Default | Tone Studio control | Values | App |
 |---|---|---|---|---|---|---|---|
-| `20 00 10 00` | TYPE | 1 | 0–30 | 23 | (editor-effects-mod); (editor-effects-fx); MOD TYPE (modfx-mod-type) … | see type list |  |
+| `20 00 10 00` | TYPE | 1 | 0–30 | 23 | (editor-effects-mod); (editor-effects-fx); MOD TYPE (modfx-mod-type) … | see type list | `mod1-type`, `mod2-type` (FX(2)), `mod3-type` (FX(3)) +3 more |
 
 ### Type list
 
@@ -235,146 +235,146 @@ Tone Studio's list order (`list_order`) differs from the values; the menu shows 
 
 | Address | Setting | Bytes | Range | Default | Tone Studio control | Values | App |
 |---|---|---|---|---|---|---|---|
-| `20 00 1C 00` | TWAH_MODE | 1 | 0–1 | 1 | MODE (modfx-twah) | 0 LPF, 1 BPF |  |
-| `20 00 1C 01` | TWAH_POLARITY | 1 | 0–1 | 1 | POLAR (modfx-twah) | 0 DOWN, 1 UP |  |
-| `20 00 1C 02` | TWAH_SENS | 1 | 0–100 | 50 | SENS (modfx-twah) |  |  |
-| `20 00 1C 03` | TWAH_FREQ | 1 | 0–100 | 35 | FREQ (modfx-twah) |  |  |
-| `20 00 1C 04` | TWAH_PEAK | 1 | 0–100 | 35 | PEAK (modfx-twah) |  |  |
-| `20 00 1C 05` | TWAH_DIRECT_MIX | 1 | 0–100 | 0 | DIRECT MIX (modfx-twah) |  |  |
-| `20 00 1C 06` | TWAH_EFFECT_LEVEL | 1 | 0–100 | 50 | EFFECT LEVEL (modfx-twah) |  |  |
+| `20 00 1C 00` | TWAH_MODE | 1 | 0–1 | 1 | MODE (modfx-twah) | 0 LPF, 1 BPF | `mod1-twah-mode`, `mod2-twah-mode` (FX_DETAIL(2)), `mod3-twah-mode` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 01` | TWAH_POLARITY | 1 | 0–1 | 1 | POLAR (modfx-twah) | 0 DOWN, 1 UP | `mod1-twah-polarity`, `mod2-twah-polarity` (FX_DETAIL(2)), `mod3-twah-polarity` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 02` | TWAH_SENS | 1 | 0–100 | 50 | SENS (modfx-twah) |  | `mod1-twah-sens`, `mod2-twah-sens` (FX_DETAIL(2)), `mod3-twah-sens` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 03` | TWAH_FREQ | 1 | 0–100 | 35 | FREQ (modfx-twah) |  | `mod1-twah-freq`, `mod2-twah-freq` (FX_DETAIL(2)), `mod3-twah-freq` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 04` | TWAH_PEAK | 1 | 0–100 | 35 | PEAK (modfx-twah) |  | `mod1-twah-peak`, `mod2-twah-peak` (FX_DETAIL(2)), `mod3-twah-peak` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 05` | TWAH_DIRECT_MIX | 1 | 0–100 | 0 | DIRECT MIX (modfx-twah) |  | `mod1-twah-direct-mix`, `mod2-twah-direct-mix` (FX_DETAIL(2)), `mod3-twah-direct-mix` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 06` | TWAH_EFFECT_LEVEL | 1 | 0–100 | 50 | EFFECT LEVEL (modfx-twah) |  | `mod1-twah-effect-level`, `mod2-twah-effect-level` (FX_DETAIL(2)), `mod3-twah-effect-level` (FX_DETAIL(3)) +3 more |
 
 ### 1 AUTO WAH
 
 | Address | Setting | Bytes | Range | Default | Tone Studio control | Values | App |
 |---|---|---|---|---|---|---|---|
-| `20 00 1C 07` | AWAH_MODE | 1 | 0–1 | 1 | MODE (modfx-autowah) | 0 LPF, 1 BPF |  |
-| `20 00 1C 08` | AWAH_FREQ | 1 | 0–100 | 35 | FREQ (modfx-autowah) |  |  |
-| `20 00 1C 09` | AWAH_PEAK | 1 | 0–100 | 50 | PEAK (modfx-autowah) |  |  |
-| `20 00 1C 0A` | AWAH_RATE | 1 | 0–100 | 50 | RATE (modfx-autowah) |  |  |
-| `20 00 1C 0B` | AWAH_DEPTH | 1 | 0–100 | 60 | DEPTH (modfx-autowah) |  |  |
-| `20 00 1C 0C` | AWAH_DIRECT_MIX | 1 | 0–100 | 0 | DIRECT MIX (modfx-autowah) |  |  |
-| `20 00 1C 0D` | AWAH_EFFECT_LEVEL | 1 | 0–100 | 50 | EFFECT LEVEL (modfx-autowah) |  |  |
+| `20 00 1C 07` | AWAH_MODE | 1 | 0–1 | 1 | MODE (modfx-autowah) | 0 LPF, 1 BPF | `mod1-awah-mode`, `mod2-awah-mode` (FX_DETAIL(2)), `mod3-awah-mode` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 08` | AWAH_FREQ | 1 | 0–100 | 35 | FREQ (modfx-autowah) |  | `mod1-awah-freq`, `mod2-awah-freq` (FX_DETAIL(2)), `mod3-awah-freq` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 09` | AWAH_PEAK | 1 | 0–100 | 50 | PEAK (modfx-autowah) |  | `mod1-awah-peak`, `mod2-awah-peak` (FX_DETAIL(2)), `mod3-awah-peak` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 0A` | AWAH_RATE | 1 | 0–100 | 50 | RATE (modfx-autowah) |  | `mod1-awah-rate`, `mod2-awah-rate` (FX_DETAIL(2)), `mod3-awah-rate` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 0B` | AWAH_DEPTH | 1 | 0–100 | 60 | DEPTH (modfx-autowah) |  | `mod1-awah-depth`, `mod2-awah-depth` (FX_DETAIL(2)), `mod3-awah-depth` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 0C` | AWAH_DIRECT_MIX | 1 | 0–100 | 0 | DIRECT MIX (modfx-autowah) |  | `mod1-awah-direct-mix`, `mod2-awah-direct-mix` (FX_DETAIL(2)), `mod3-awah-direct-mix` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 0D` | AWAH_EFFECT_LEVEL | 1 | 0–100 | 50 | EFFECT LEVEL (modfx-autowah) |  | `mod1-awah-effect-level`, `mod2-awah-effect-level` (FX_DETAIL(2)), `mod3-awah-effect-level` (FX_DETAIL(3)) +3 more |
 
 ### 2 PEDAL WAH
 
 | Address | Setting | Bytes | Range | Default | Tone Studio control | Values | App |
 |---|---|---|---|---|---|---|---|
-| `20 00 1C 0E` | PEDALWAH_WAH_TYPE | 1 | 0–5 | 0 | TYPE (modfx-pedalwah) | 0 CRY WAH, 1 VO WAH, 2 FAT WAH, 3 LIGHT WAH, 4 7STRING WAH, 5 RESO WAH |  |
-| `20 00 1C 0F` | PEDALWAH_PEDAL_POSITION | 1 | 0–100 | 100 | PEDAL POS (modfx-pedalwah) |  |  |
-| `20 00 1C 10` | PEDALWAH_PEDAL_MIN | 1 | 0–100 | 0 | PEDAL MIN (modfx-pedalwah) |  |  |
-| `20 00 1C 11` | PEDALWAH_PEDAL_MAX | 1 | 0–100 | 100 | PEDAL MAX (modfx-pedalwah) |  |  |
-| `20 00 1C 12` | PEDALWAH_EFFECT_LEVEL | 1 | 0–100 | 100 | EFFECT LEVEL (modfx-pedalwah) |  |  |
-| `20 00 1C 13` | PEDALWAH_DIRECT_MIX | 1 | 0–100 | 0 | DIRECT MIX (modfx-pedalwah) |  |  |
+| `20 00 1C 0E` | PEDALWAH_WAH_TYPE | 1 | 0–5 | 0 | TYPE (modfx-pedalwah) | 0 CRY WAH, 1 VO WAH, 2 FAT WAH, 3 LIGHT WAH, 4 7STRING WAH, 5 RESO WAH | `mod1-pedalwah-wah-type`, `mod2-pedalwah-wah-type` (FX_DETAIL(2)), `mod3-pedalwah-wah-type` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 0F` | PEDALWAH_PEDAL_POSITION | 1 | 0–100 | 100 | PEDAL POS (modfx-pedalwah) |  | `mod1-pedalwah-pedal-position`, `mod2-pedalwah-pedal-position` (FX_DETAIL(2)), `mod3-pedalwah-pedal-position` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 10` | PEDALWAH_PEDAL_MIN | 1 | 0–100 | 0 | PEDAL MIN (modfx-pedalwah) |  | `mod1-pedalwah-pedal-min`, `mod2-pedalwah-pedal-min` (FX_DETAIL(2)), `mod3-pedalwah-pedal-min` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 11` | PEDALWAH_PEDAL_MAX | 1 | 0–100 | 100 | PEDAL MAX (modfx-pedalwah) |  | `mod1-pedalwah-pedal-max`, `mod2-pedalwah-pedal-max` (FX_DETAIL(2)), `mod3-pedalwah-pedal-max` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 12` | PEDALWAH_EFFECT_LEVEL | 1 | 0–100 | 100 | EFFECT LEVEL (modfx-pedalwah) |  | `mod1-pedalwah-effect-level`, `mod2-pedalwah-effect-level` (FX_DETAIL(2)), `mod3-pedalwah-effect-level` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 13` | PEDALWAH_DIRECT_MIX | 1 | 0–100 | 0 | DIRECT MIX (modfx-pedalwah) |  | `mod1-pedalwah-direct-mix`, `mod2-pedalwah-direct-mix` (FX_DETAIL(2)), `mod3-pedalwah-direct-mix` (FX_DETAIL(3)) +3 more |
 
 ### 3 COMP
 
 | Address | Setting | Bytes | Range | Default | Tone Studio control | Values | App |
 |---|---|---|---|---|---|---|---|
-| `20 00 1C 14` | COMP_TYPE | 1 | 0–6 | 0 | TYPE (modfx-comp) | 0 BOSS COMP, 1 HI-BAND, 2 LIGHT, 3 D-COMP, 4 ORANGE, 5 FAT, 6 MILD |  |
-| `20 00 1C 15` | COMP_SUSTAIN | 1 | 0–100 | 50 | SUSTAIN (modfx-comp) |  |  |
-| `20 00 1C 16` | COMP_ATTACK | 1 | 0–100 | 50 | ATTACK (modfx-comp) |  |  |
-| `20 00 1C 17` | COMP_TONE | 1 | -50–50 (raw 0–100) | 0 | TONE (modfx-comp) | -50 … +50 |  |
-| `20 00 1C 18` | COMP_LEVEL | 1 | 0–100 | 50 | LEVEL (modfx-comp) |  |  |
+| `20 00 1C 14` | COMP_TYPE | 1 | 0–6 | 0 | TYPE (modfx-comp) | 0 BOSS COMP, 1 HI-BAND, 2 LIGHT, 3 D-COMP, 4 ORANGE, 5 FAT, 6 MILD | `mod1-comp-type`, `mod2-comp-type` (FX_DETAIL(2)), `mod3-comp-type` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 15` | COMP_SUSTAIN | 1 | 0–100 | 50 | SUSTAIN (modfx-comp) |  | `mod1-comp-sustain`, `mod2-comp-sustain` (FX_DETAIL(2)), `mod3-comp-sustain` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 16` | COMP_ATTACK | 1 | 0–100 | 50 | ATTACK (modfx-comp) |  | `mod1-comp-attack`, `mod2-comp-attack` (FX_DETAIL(2)), `mod3-comp-attack` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 17` | COMP_TONE | 1 | -50–50 (raw 0–100) | 0 | TONE (modfx-comp) | -50 … +50 | `mod1-comp-tone`, `mod2-comp-tone` (FX_DETAIL(2)), `mod3-comp-tone` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 18` | COMP_LEVEL | 1 | 0–100 | 50 | LEVEL (modfx-comp) |  | `mod1-comp-level`, `mod2-comp-level` (FX_DETAIL(2)), `mod3-comp-level` (FX_DETAIL(3)) +3 more |
 
 ### 4 LIMITER
 
 | Address | Setting | Bytes | Range | Default | Tone Studio control | Values | App |
 |---|---|---|---|---|---|---|---|
-| `20 00 1C 19` | LIMITER_TYPE | 1 | 0–2 | 0 | TYPE (modfx-limiter) | 0 BOSS LIMITER, 1 RACK 160D, 2 VTG RACK U |  |
-| `20 00 1C 1A` | LIMITER_ATTACK | 1 | 0–100 | 0 | ATTACK (modfx-limiter) |  |  |
-| `20 00 1C 1B` | LIMITER_THRESHOLD | 1 | 0–100 | 30 | THRESHOLD (modfx-limiter) |  |  |
-| `20 00 1C 1C` | LIMITER_RATIO | 1 | 0–17 | 11 | RATIO (modfx-limiter) | L2: 1:1 … INF:1 (18 steps) |  |
-| `20 00 1C 1D` | LIMITER_RELEASE | 1 | 0–100 | 10 | RELEASE (modfx-limiter) |  |  |
-| `20 00 1C 1E` | LIMITER_LEVEL | 1 | 0–100 | 30 | LEVEL (modfx-limiter) |  |  |
+| `20 00 1C 19` | LIMITER_TYPE | 1 | 0–2 | 0 | TYPE (modfx-limiter) | 0 BOSS LIMITER, 1 RACK 160D, 2 VTG RACK U | `mod1-limiter-type`, `mod2-limiter-type` (FX_DETAIL(2)), `mod3-limiter-type` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 1A` | LIMITER_ATTACK | 1 | 0–100 | 0 | ATTACK (modfx-limiter) |  | `mod1-limiter-attack`, `mod2-limiter-attack` (FX_DETAIL(2)), `mod3-limiter-attack` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 1B` | LIMITER_THRESHOLD | 1 | 0–100 | 30 | THRESHOLD (modfx-limiter) |  | `mod1-limiter-threshold`, `mod2-limiter-threshold` (FX_DETAIL(2)), `mod3-limiter-threshold` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 1C` | LIMITER_RATIO | 1 | 0–17 | 11 | RATIO (modfx-limiter) | L2: 1:1 … INF:1 (18 steps) | `mod1-limiter-ratio`, `mod2-limiter-ratio` (FX_DETAIL(2)), `mod3-limiter-ratio` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 1D` | LIMITER_RELEASE | 1 | 0–100 | 10 | RELEASE (modfx-limiter) |  | `mod1-limiter-release`, `mod2-limiter-release` (FX_DETAIL(2)), `mod3-limiter-release` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 1E` | LIMITER_LEVEL | 1 | 0–100 | 30 | LEVEL (modfx-limiter) |  | `mod1-limiter-level`, `mod2-limiter-level` (FX_DETAIL(2)), `mod3-limiter-level` (FX_DETAIL(3)) +3 more |
 
 ### 5 GRAPHIC EQ
 
 | Address | Setting | Bytes | Range | Default | Tone Studio control | Values | App |
 |---|---|---|---|---|---|---|---|
-| `20 00 1C 1F` | GEQ_31Hz | 1 | -20–20 (raw 0–40) | 0 | 31Hz (modfx-geq) | -20 dB … +20 dB |  |
-| `20 00 1C 20` | GEQ_62Hz | 1 | -20–20 (raw 0–40) | 0 | 62Hz (modfx-geq) | -20 dB … +20 dB |  |
-| `20 00 1C 21` | GEQ_125Hz | 1 | -20–20 (raw 0–40) | 0 | 125Hz (modfx-geq) | -20 dB … +20 dB |  |
-| `20 00 1C 22` | GEQ_250Hz | 1 | -20–20 (raw 0–40) | 0 | 250Hz (modfx-geq) | -20 dB … +20 dB |  |
-| `20 00 1C 23` | GEQ_500Hz | 1 | -20–20 (raw 0–40) | 0 | 500Hz (modfx-geq) | -20 dB … +20 dB |  |
-| `20 00 1C 24` | GEQ_1kHz | 1 | -20–20 (raw 0–40) | 0 | 1kHz (modfx-geq) | -20 dB … +20 dB |  |
-| `20 00 1C 25` | GEQ_2kHz | 1 | -20–20 (raw 0–40) | 0 | 2kHz (modfx-geq) | -20 dB … +20 dB |  |
-| `20 00 1C 26` | GEQ_4kHz | 1 | -20–20 (raw 0–40) | 0 | 4kHz (modfx-geq) | -20 dB … +20 dB |  |
-| `20 00 1C 27` | GEQ_8kHz | 1 | -20–20 (raw 0–40) | 0 | 8kHz (modfx-geq) | -20 dB … +20 dB |  |
-| `20 00 1C 28` | GEQ_16kHz | 1 | -20–20 (raw 0–40) | 0 | 16kHz (modfx-geq) | -20 dB … +20 dB |  |
-| `20 00 1C 29` | GEQ_LEVEL | 1 | -20–20 (raw 0–40) | 0 | LEVEL (modfx-geq) | -20 dB … +20 dB |  |
+| `20 00 1C 1F` | GEQ_31Hz | 1 | -20–20 (raw 0–40) | 0 | 31Hz (modfx-geq) | -20 dB … +20 dB | `mod1-geq-31hz`, `mod2-geq-31hz` (FX_DETAIL(2)), `mod3-geq-31hz` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 20` | GEQ_62Hz | 1 | -20–20 (raw 0–40) | 0 | 62Hz (modfx-geq) | -20 dB … +20 dB | `mod1-geq-62hz`, `mod2-geq-62hz` (FX_DETAIL(2)), `mod3-geq-62hz` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 21` | GEQ_125Hz | 1 | -20–20 (raw 0–40) | 0 | 125Hz (modfx-geq) | -20 dB … +20 dB | `mod1-geq-125hz`, `mod2-geq-125hz` (FX_DETAIL(2)), `mod3-geq-125hz` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 22` | GEQ_250Hz | 1 | -20–20 (raw 0–40) | 0 | 250Hz (modfx-geq) | -20 dB … +20 dB | `mod1-geq-250hz`, `mod2-geq-250hz` (FX_DETAIL(2)), `mod3-geq-250hz` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 23` | GEQ_500Hz | 1 | -20–20 (raw 0–40) | 0 | 500Hz (modfx-geq) | -20 dB … +20 dB | `mod1-geq-500hz`, `mod2-geq-500hz` (FX_DETAIL(2)), `mod3-geq-500hz` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 24` | GEQ_1kHz | 1 | -20–20 (raw 0–40) | 0 | 1kHz (modfx-geq) | -20 dB … +20 dB | `mod1-geq-1khz`, `mod2-geq-1khz` (FX_DETAIL(2)), `mod3-geq-1khz` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 25` | GEQ_2kHz | 1 | -20–20 (raw 0–40) | 0 | 2kHz (modfx-geq) | -20 dB … +20 dB | `mod1-geq-2khz`, `mod2-geq-2khz` (FX_DETAIL(2)), `mod3-geq-2khz` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 26` | GEQ_4kHz | 1 | -20–20 (raw 0–40) | 0 | 4kHz (modfx-geq) | -20 dB … +20 dB | `mod1-geq-4khz`, `mod2-geq-4khz` (FX_DETAIL(2)), `mod3-geq-4khz` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 27` | GEQ_8kHz | 1 | -20–20 (raw 0–40) | 0 | 8kHz (modfx-geq) | -20 dB … +20 dB | `mod1-geq-8khz`, `mod2-geq-8khz` (FX_DETAIL(2)), `mod3-geq-8khz` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 28` | GEQ_16kHz | 1 | -20–20 (raw 0–40) | 0 | 16kHz (modfx-geq) | -20 dB … +20 dB | `mod1-geq-16khz`, `mod2-geq-16khz` (FX_DETAIL(2)), `mod3-geq-16khz` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 29` | GEQ_LEVEL | 1 | -20–20 (raw 0–40) | 0 | LEVEL (modfx-geq) | -20 dB … +20 dB | `mod1-geq-level`, `mod2-geq-level` (FX_DETAIL(2)), `mod3-geq-level` (FX_DETAIL(3)) +3 more |
 
 ### 6 PARAMETRIC EQ
 
 | Address | Setting | Bytes | Range | Default | Tone Studio control | Values | App |
 |---|---|---|---|---|---|---|---|
-| `20 00 1C 2A` | PEQ_LOW_CUT | 1 | 0–17 | 0 | LOW CUT (modfx-peq) | L3: FLAT … 800 Hz (18 steps) |  |
-| `20 00 1C 2B` | PEQ_LOW_GAIN | 1 | -20–20 (raw 0–40) | 0 | LOW GAIN (modfx-peq) | -20 dB … +20 dB |  |
-| `20 00 1C 2C` | PEQ_LOWMID_FREQ | 1 | 0–27 | 13 | LOW-MID FREQ (modfx-peq) | L4: 20.0 Hz … 10.0 kHz (28 steps) |  |
-| `20 00 1C 2D` | PEQ_LOWMID_Q | 1 | 0–5 | 1 | LOW-MID Q (modfx-peq) | 0 0.5, 1 1, 2 2, 3 4, 4 8, 5 16 |  |
-| `20 00 1C 2E` | PEQ_LOWMID_GAIN | 1 | -20–20 (raw 0–40) | 0 | LOW-MID GAIN (modfx-peq) | -20 dB … +20 dB |  |
-| `20 00 1C 2F` | PEQ_HIGHMID_FREQ | 1 | 0–27 | 23 | HIGH-MID FREQ (modfx-peq) | L4: 20.0 Hz … 10.0 kHz (28 steps) |  |
-| `20 00 1C 30` | PEQ_HIGHMID_Q | 1 | 0–5 | 1 | HIGH-MID Q (modfx-peq) | 0 0.5, 1 1, 2 2, 3 4, 4 8, 5 16 |  |
-| `20 00 1C 31` | PEQ_HIGHMID_GAIN | 1 | -20–20 (raw 0–40) | 0 | HIGH-MID GAIN (modfx-peq) | -20 dB … +20 dB |  |
-| `20 00 1C 32` | PEQ_HIGH_GAIN | 1 | -20–20 (raw 0–40) | 0 | HIGH GAIN (modfx-peq) | -20 dB … +20 dB |  |
-| `20 00 1C 33` | PEQ_HIGH_CUT | 1 | 0–14 | 14 | HIGH CUT (modfx-peq) | L5: 630 Hz … FLAT (15 steps) |  |
-| `20 00 1C 34` | PEQ_LEVEL | 1 | -20–20 (raw 0–40) | 0 | LEVEL (modfx-peq) | -20 dB … +20 dB |  |
+| `20 00 1C 2A` | PEQ_LOW_CUT | 1 | 0–17 | 0 | LOW CUT (modfx-peq) | L3: FLAT … 800 Hz (18 steps) | `mod1-peq-low-cut`, `mod2-peq-low-cut` (FX_DETAIL(2)), `mod3-peq-low-cut` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 2B` | PEQ_LOW_GAIN | 1 | -20–20 (raw 0–40) | 0 | LOW GAIN (modfx-peq) | -20 dB … +20 dB | `mod1-peq-low-gain`, `mod2-peq-low-gain` (FX_DETAIL(2)), `mod3-peq-low-gain` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 2C` | PEQ_LOWMID_FREQ | 1 | 0–27 | 13 | LOW-MID FREQ (modfx-peq) | L4: 20.0 Hz … 10.0 kHz (28 steps) | `mod1-peq-lowmid-freq`, `mod2-peq-lowmid-freq` (FX_DETAIL(2)), `mod3-peq-lowmid-freq` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 2D` | PEQ_LOWMID_Q | 1 | 0–5 | 1 | LOW-MID Q (modfx-peq) | 0 0.5, 1 1, 2 2, 3 4, 4 8, 5 16 | `mod1-peq-lowmid-q`, `mod2-peq-lowmid-q` (FX_DETAIL(2)), `mod3-peq-lowmid-q` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 2E` | PEQ_LOWMID_GAIN | 1 | -20–20 (raw 0–40) | 0 | LOW-MID GAIN (modfx-peq) | -20 dB … +20 dB | `mod1-peq-lowmid-gain`, `mod2-peq-lowmid-gain` (FX_DETAIL(2)), `mod3-peq-lowmid-gain` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 2F` | PEQ_HIGHMID_FREQ | 1 | 0–27 | 23 | HIGH-MID FREQ (modfx-peq) | L4: 20.0 Hz … 10.0 kHz (28 steps) | `mod1-peq-highmid-freq`, `mod2-peq-highmid-freq` (FX_DETAIL(2)), `mod3-peq-highmid-freq` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 30` | PEQ_HIGHMID_Q | 1 | 0–5 | 1 | HIGH-MID Q (modfx-peq) | 0 0.5, 1 1, 2 2, 3 4, 4 8, 5 16 | `mod1-peq-highmid-q`, `mod2-peq-highmid-q` (FX_DETAIL(2)), `mod3-peq-highmid-q` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 31` | PEQ_HIGHMID_GAIN | 1 | -20–20 (raw 0–40) | 0 | HIGH-MID GAIN (modfx-peq) | -20 dB … +20 dB | `mod1-peq-highmid-gain`, `mod2-peq-highmid-gain` (FX_DETAIL(2)), `mod3-peq-highmid-gain` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 32` | PEQ_HIGH_GAIN | 1 | -20–20 (raw 0–40) | 0 | HIGH GAIN (modfx-peq) | -20 dB … +20 dB | `mod1-peq-high-gain`, `mod2-peq-high-gain` (FX_DETAIL(2)), `mod3-peq-high-gain` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 33` | PEQ_HIGH_CUT | 1 | 0–14 | 14 | HIGH CUT (modfx-peq) | L5: 630 Hz … FLAT (15 steps) | `mod1-peq-high-cut`, `mod2-peq-high-cut` (FX_DETAIL(2)), `mod3-peq-high-cut` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 34` | PEQ_LEVEL | 1 | -20–20 (raw 0–40) | 0 | LEVEL (modfx-peq) | -20 dB … +20 dB | `mod1-peq-level`, `mod2-peq-level` (FX_DETAIL(2)), `mod3-peq-level` (FX_DETAIL(3)) +3 more |
 
 ### 7 GUITAR SIM
 
 | Address | Setting | Bytes | Range | Default | Tone Studio control | Values | App |
 |---|---|---|---|---|---|---|---|
-| `20 00 1C 35` | GUITARSIM_TYPE | 1 | 0–7 | 0 | TYPE (modfx-guitarsim) | 0 S->H, 1 H->S, 2 H->HF, 3 S->HOLLOW, 4 H->HOLLOW, 5 S->AC, 6 H->AC, 7 P->AC |  |
-| `20 00 1C 36` | GUITARSIM_LOW | 1 | -50–50 (raw 0–100) | 0 | LOW (modfx-guitarsim) | -50 … +50 |  |
-| `20 00 1C 37` | GUITARSIM_HIGH | 1 | -50–50 (raw 0–100) | 0 | HIGH (modfx-guitarsim) | -50 … +50 |  |
-| `20 00 1C 38` | GUITARSIM_LEVEL | 1 | 0–100 | 50 | LEVEL (modfx-guitarsim) |  |  |
-| `20 00 1C 39` | GUITARSIM_BODY | 1 | 0–100 | 50 | BODY (modfx-guitarsim) |  |  |
+| `20 00 1C 35` | GUITARSIM_TYPE | 1 | 0–7 | 0 | TYPE (modfx-guitarsim) | 0 S->H, 1 H->S, 2 H->HF, 3 S->HOLLOW, 4 H->HOLLOW, 5 S->AC, 6 H->AC, 7 P->AC | `mod1-guitarsim-type`, `mod2-guitarsim-type` (FX_DETAIL(2)), `mod3-guitarsim-type` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 36` | GUITARSIM_LOW | 1 | -50–50 (raw 0–100) | 0 | LOW (modfx-guitarsim) | -50 … +50 | `mod1-guitarsim-low`, `mod2-guitarsim-low` (FX_DETAIL(2)), `mod3-guitarsim-low` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 37` | GUITARSIM_HIGH | 1 | -50–50 (raw 0–100) | 0 | HIGH (modfx-guitarsim) | -50 … +50 | `mod1-guitarsim-high`, `mod2-guitarsim-high` (FX_DETAIL(2)), `mod3-guitarsim-high` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 38` | GUITARSIM_LEVEL | 1 | 0–100 | 50 | LEVEL (modfx-guitarsim) |  | `mod1-guitarsim-level`, `mod2-guitarsim-level` (FX_DETAIL(2)), `mod3-guitarsim-level` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 39` | GUITARSIM_BODY | 1 | 0–100 | 50 | BODY (modfx-guitarsim) |  | `mod1-guitarsim-body`, `mod2-guitarsim-body` (FX_DETAIL(2)), `mod3-guitarsim-body` (FX_DETAIL(3)) +3 more |
 
 ### 8 SLOW GEAR
 
 | Address | Setting | Bytes | Range | Default | Tone Studio control | Values | App |
 |---|---|---|---|---|---|---|---|
-| `20 00 1C 3A` | SLOWGEAR_SENS | 1 | 0–100 | 45 | SENS (modfx-slowgear) |  |  |
-| `20 00 1C 3B` | SLOWGEAR_RISE_TIME | 1 | 0–100 | 50 | RISE TIME (modfx-slowgear) |  |  |
-| `20 00 1C 3C` | SLOWGEAR_LEVEL | 1 | 0–100 | 60 | LEVEL (modfx-slowgear) |  |  |
+| `20 00 1C 3A` | SLOWGEAR_SENS | 1 | 0–100 | 45 | SENS (modfx-slowgear) |  | `mod1-slowgear-sens`, `mod2-slowgear-sens` (FX_DETAIL(2)), `mod3-slowgear-sens` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 3B` | SLOWGEAR_RISE_TIME | 1 | 0–100 | 50 | RISE TIME (modfx-slowgear) |  | `mod1-slowgear-rise-time`, `mod2-slowgear-rise-time` (FX_DETAIL(2)), `mod3-slowgear-rise-time` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 3C` | SLOWGEAR_LEVEL | 1 | 0–100 | 60 | LEVEL (modfx-slowgear) |  | `mod1-slowgear-level`, `mod2-slowgear-level` (FX_DETAIL(2)), `mod3-slowgear-level` (FX_DETAIL(3)) +3 more |
 
 ### 9 WAVE SYNTH
 
 | Address | Setting | Bytes | Range | Default | Tone Studio control | Values | App |
 |---|---|---|---|---|---|---|---|
-| `20 00 1C 3D` | WAVESYNTH_WAVE | 1 | 0–1 | 0 | WAVE (modfx-wavesynth) | 0 SAW, 1 SQUARE |  |
-| `20 00 1C 3E` | WAVESYNTH_CUTOFF | 1 | 0–100 | 40 | CUTOFF (modfx-wavesynth) |  |  |
-| `20 00 1C 3F` | WAVESYNTH_RESONANCE | 1 | 0–100 | 30 | RESONANCE (modfx-wavesynth) |  |  |
-| `20 00 1C 40` | WAVESYNTH_FILTER_SENS | 1 | 0–100 | 40 | FILTER SENS (modfx-wavesynth) |  |  |
-| `20 00 1C 41` | WAVESYNTH_FILTER_DECAY | 1 | 0–100 | 50 | FILTER DECAY (modfx-wavesynth) |  |  |
-| `20 00 1C 42` | WAVESYNTH_FILTER_DEPTH | 1 | 0–100 | 50 | FILTER DEPTH (modfx-wavesynth) |  |  |
-| `20 00 1C 43` | WAVESYNTH_SYNTH_LEVEL | 1 | 0–100 | 25 | SYNTH LEVEL (modfx-wavesynth) |  |  |
-| `20 00 1C 44` | WAVESYNTH_DIRECT_MIX | 1 | 0–100 | 0 | DIRECT MIX (modfx-wavesynth) |  |  |
+| `20 00 1C 3D` | WAVESYNTH_WAVE | 1 | 0–1 | 0 | WAVE (modfx-wavesynth) | 0 SAW, 1 SQUARE | `mod1-wavesynth-wave`, `mod2-wavesynth-wave` (FX_DETAIL(2)), `mod3-wavesynth-wave` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 3E` | WAVESYNTH_CUTOFF | 1 | 0–100 | 40 | CUTOFF (modfx-wavesynth) |  | `mod1-wavesynth-cutoff`, `mod2-wavesynth-cutoff` (FX_DETAIL(2)), `mod3-wavesynth-cutoff` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 3F` | WAVESYNTH_RESONANCE | 1 | 0–100 | 30 | RESONANCE (modfx-wavesynth) |  | `mod1-wavesynth-resonance`, `mod2-wavesynth-resonance` (FX_DETAIL(2)), `mod3-wavesynth-resonance` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 40` | WAVESYNTH_FILTER_SENS | 1 | 0–100 | 40 | FILTER SENS (modfx-wavesynth) |  | `mod1-wavesynth-filter-sens`, `mod2-wavesynth-filter-sens` (FX_DETAIL(2)), `mod3-wavesynth-filter-sens` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 41` | WAVESYNTH_FILTER_DECAY | 1 | 0–100 | 50 | FILTER DECAY (modfx-wavesynth) |  | `mod1-wavesynth-filter-decay`, `mod2-wavesynth-filter-decay` (FX_DETAIL(2)), `mod3-wavesynth-filter-decay` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 42` | WAVESYNTH_FILTER_DEPTH | 1 | 0–100 | 50 | FILTER DEPTH (modfx-wavesynth) |  | `mod1-wavesynth-filter-depth`, `mod2-wavesynth-filter-depth` (FX_DETAIL(2)), `mod3-wavesynth-filter-depth` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 43` | WAVESYNTH_SYNTH_LEVEL | 1 | 0–100 | 25 | SYNTH LEVEL (modfx-wavesynth) |  | `mod1-wavesynth-synth-level`, `mod2-wavesynth-synth-level` (FX_DETAIL(2)), `mod3-wavesynth-synth-level` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 44` | WAVESYNTH_DIRECT_MIX | 1 | 0–100 | 0 | DIRECT MIX (modfx-wavesynth) |  | `mod1-wavesynth-direct-mix`, `mod2-wavesynth-direct-mix` (FX_DETAIL(2)), `mod3-wavesynth-direct-mix` (FX_DETAIL(3)) +3 more |
 
 ### 10 OCTAVE
 
 | Address | Setting | Bytes | Range | Default | Tone Studio control | Values | App |
 |---|---|---|---|---|---|---|---|
-| `20 00 1C 45` | OCTAVE_RANGE | 1 | 0–3 | 0 | RANGE (modfx-octave) | 0 RANGE1, 1 RANGE2, 2 RANGE3, 3 RANGE4 |  |
-| `20 00 1C 46` | OCTAVE_EFFECT_LEVEL | 1 | 0–100 | 62 | EFFECT LEVEL (modfx-octave) |  |  |
-| `20 00 1C 47` | OCTAVE_DIRECT_MIX | 1 | 0–100 | 100 | DIRECT MIX (modfx-octave) |  |  |
+| `20 00 1C 45` | OCTAVE_RANGE | 1 | 0–3 | 0 | RANGE (modfx-octave) | 0 RANGE1, 1 RANGE2, 2 RANGE3, 3 RANGE4 | `mod1-octave-range`, `mod2-octave-range` (FX_DETAIL(2)), `mod3-octave-range` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 46` | OCTAVE_EFFECT_LEVEL | 1 | 0–100 | 62 | EFFECT LEVEL (modfx-octave) |  | `mod1-octave-effect-level`, `mod2-octave-effect-level` (FX_DETAIL(2)), `mod3-octave-effect-level` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 47` | OCTAVE_DIRECT_MIX | 1 | 0–100 | 100 | DIRECT MIX (modfx-octave) |  | `mod1-octave-direct-mix`, `mod2-octave-direct-mix` (FX_DETAIL(2)), `mod3-octave-direct-mix` (FX_DETAIL(3)) +3 more |
 
 ### 11 PITCH SHIFTER
 
 | Address | Setting | Bytes | Range | Default | Tone Studio control | Values | App |
 |---|---|---|---|---|---|---|---|
-| `20 00 1C 48` | PITCHSHIFT_VOICE | 1 | 0–1 | 0 | VOICE (modfx-pshift) | 0 1VOICE, 1 2VOICE |  |
-| `20 00 1C 49` | PITCHSHIFT_MODE1 | 1 | 0–3 | 1 | PS1:MODE (modfx-pshift) | 0 FAST, 1 MEDIUM, 2 SLOW, 3 MONO |  |
-| `20 00 1C 4A` | PITCHSHIFT_PITCH1 | 1 | -24–24 (raw 0–48) | 0 | PS1:PITCH (modfx-pshift) | -24 … +24 |  |
-| `20 00 1C 4B` | PITCHSHIFT_FINE1 | 1 | -50–50 (raw 0–100) | 10 | PS1:FINE (modfx-pshift) | -50 … +50 |  |
-| `20 00 1C 4C` | PITCHSHIFT_PRE_DELAY1 | 4 (nibbles) | 0–300 | 0 | PS1:PRE DELAY (modfx-pshift) | 0 ms … 300 ms |  |
-| `20 00 1C 50` | PITCHSHIFT_LEVEL1 | 1 | 0–100 | 70 | PS1:LEVEL (modfx-pshift) |  |  |
-| `20 00 1C 51` | PITCHSHIFT_MODE2 | 1 | 0–3 | 1 | PS2:MODE (modfx-pshift) | 0 FAST, 1 MEDIUM, 2 SLOW, 3 MONO |  |
-| `20 00 1C 52` | PITCHSHIFT_PITCH2 | 1 | -24–24 (raw 0–48) | 0 | PS2:PITCH (modfx-pshift) | -24 … +24 |  |
-| `20 00 1C 53` | PITCHSHIFT_FINE2 | 1 | -50–50 (raw 0–100) | -10 | PS2:FINE (modfx-pshift) | -50 … +50 |  |
-| `20 00 1C 54` | PITCHSHIFT_PRE_DELAY2 | 4 (nibbles) | 0–300 | 0 | PS2:PRE DELAY (modfx-pshift) | 0 ms … 300 ms |  |
-| `20 00 1C 58` | PITCHSHIFT_LEVEL2 | 1 | 0–100 | 70 | PS2:LEVEL (modfx-pshift) |  |  |
-| `20 00 1C 59` | PITCHSHIFT_FEEDBACK1 | 1 | 0–100 | 0 | PS1:FEEDBACK (modfx-pshift) |  |  |
-| `20 00 1C 5A` | PITCHSHIFT_DIRECT_MIX | 1 | 0–100 | 100 | DIRECT MIX (modfx-pshift) |  |  |
+| `20 00 1C 48` | PITCHSHIFT_VOICE | 1 | 0–1 | 0 | VOICE (modfx-pshift) | 0 1VOICE, 1 2VOICE | `mod1-pitchshift-voice`, `mod2-pitchshift-voice` (FX_DETAIL(2)), `mod3-pitchshift-voice` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 49` | PITCHSHIFT_MODE1 | 1 | 0–3 | 1 | PS1:MODE (modfx-pshift) | 0 FAST, 1 MEDIUM, 2 SLOW, 3 MONO | `mod1-pitchshift-mode1`, `mod2-pitchshift-mode1` (FX_DETAIL(2)), `mod3-pitchshift-mode1` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 4A` | PITCHSHIFT_PITCH1 | 1 | -24–24 (raw 0–48) | 0 | PS1:PITCH (modfx-pshift) | -24 … +24 | `mod1-pitchshift-pitch1`, `mod2-pitchshift-pitch1` (FX_DETAIL(2)), `mod3-pitchshift-pitch1` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 4B` | PITCHSHIFT_FINE1 | 1 | -50–50 (raw 0–100) | 10 | PS1:FINE (modfx-pshift) | -50 … +50 | `mod1-pitchshift-fine1`, `mod2-pitchshift-fine1` (FX_DETAIL(2)), `mod3-pitchshift-fine1` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 4C` | PITCHSHIFT_PRE_DELAY1 | 4 (nibbles) | 0–300 | 0 | PS1:PRE DELAY (modfx-pshift) | 0 ms … 300 ms | `mod1-pitchshift-pre-delay1`, `mod2-pitchshift-pre-delay1` (FX_DETAIL(2)), `mod3-pitchshift-pre-delay1` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 50` | PITCHSHIFT_LEVEL1 | 1 | 0–100 | 70 | PS1:LEVEL (modfx-pshift) |  | `mod1-pitchshift-level1`, `mod2-pitchshift-level1` (FX_DETAIL(2)), `mod3-pitchshift-level1` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 51` | PITCHSHIFT_MODE2 | 1 | 0–3 | 1 | PS2:MODE (modfx-pshift) | 0 FAST, 1 MEDIUM, 2 SLOW, 3 MONO | `mod1-pitchshift-mode2`, `mod2-pitchshift-mode2` (FX_DETAIL(2)), `mod3-pitchshift-mode2` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 52` | PITCHSHIFT_PITCH2 | 1 | -24–24 (raw 0–48) | 0 | PS2:PITCH (modfx-pshift) | -24 … +24 | `mod1-pitchshift-pitch2`, `mod2-pitchshift-pitch2` (FX_DETAIL(2)), `mod3-pitchshift-pitch2` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 53` | PITCHSHIFT_FINE2 | 1 | -50–50 (raw 0–100) | -10 | PS2:FINE (modfx-pshift) | -50 … +50 | `mod1-pitchshift-fine2`, `mod2-pitchshift-fine2` (FX_DETAIL(2)), `mod3-pitchshift-fine2` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 54` | PITCHSHIFT_PRE_DELAY2 | 4 (nibbles) | 0–300 | 0 | PS2:PRE DELAY (modfx-pshift) | 0 ms … 300 ms | `mod1-pitchshift-pre-delay2`, `mod2-pitchshift-pre-delay2` (FX_DETAIL(2)), `mod3-pitchshift-pre-delay2` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 58` | PITCHSHIFT_LEVEL2 | 1 | 0–100 | 70 | PS2:LEVEL (modfx-pshift) |  | `mod1-pitchshift-level2`, `mod2-pitchshift-level2` (FX_DETAIL(2)), `mod3-pitchshift-level2` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 59` | PITCHSHIFT_FEEDBACK1 | 1 | 0–100 | 0 | PS1:FEEDBACK (modfx-pshift) |  | `mod1-pitchshift-feedback1`, `mod2-pitchshift-feedback1` (FX_DETAIL(2)), `mod3-pitchshift-feedback1` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 5A` | PITCHSHIFT_DIRECT_MIX | 1 | 0–100 | 100 | DIRECT MIX (modfx-pshift) |  | `mod1-pitchshift-direct-mix`, `mod2-pitchshift-direct-mix` (FX_DETAIL(2)), `mod3-pitchshift-direct-mix` (FX_DETAIL(3)) +3 more |
 
 ### 12 HARMONIST
 
@@ -382,221 +382,221 @@ Also on this page: MASTER_KEY (OTHER block).
 
 | Address | Setting | Bytes | Range | Default | Tone Studio control | Values | App |
 |---|---|---|---|---|---|---|---|
-| `20 00 1C 5B` | HARMONIST_VOICE | 1 | 0–1 | 1 | VOICE (modfx-harmonist) | 0 1VOICE, 1 2VOICE |  |
-| `20 00 1C 5C` | HARMONIST_HARMONY1 | 1 | 0–29 | 12 | HR1:HARMONY (modfx-harmonist-content) | L6: -2oct … USER (30 steps) |  |
-| `20 00 1C 5D` | HARMONIST_PRE_DELAY1 | 4 (nibbles) | 0–300 | 0 | HR1:PRE DELAY (modfx-harmonist-content) | 0 ms … 300 ms |  |
-| `20 00 1C 61` | HARMONIST_LEVEL1 | 1 | 0–100 | 70 | HR1:LEVEL (modfx-harmonist-content) |  |  |
-| `20 00 1C 62` | HARMONIST_HARMONY2 | 1 | 0–29 | 7 | HR2:HARMONY (modfx-harmonist-content) | L6: -2oct … USER (30 steps) |  |
-| `20 00 1C 63` | HARMONIST_PRE_DELAY2 | 4 (nibbles) | 0–300 | 0 | HR2:PRE DELAY (modfx-harmonist-content) | 0 ms … 300 ms |  |
-| `20 00 1C 67` | HARMONIST_LEVEL2 | 1 | 0–100 | 80 | HR2:LEVEL (modfx-harmonist-content) |  |  |
-| `20 00 1C 68` | HARMONIST_FEEDBACK1 | 1 | 0–100 | 0 | HR1:FEEDBACK (modfx-harmonist-content) |  |  |
-| `20 00 1C 69` | HARMONIST_DIRECT_MIX | 1 | 0–100 | 100 | DIRECT MIX (modfx-harmonist-content) |  |  |
-| `20 00 1C 6A` | HARMONIST_C1 | 1 | -24–24 (raw 0–48) | 0 | HR1: C (modfx-harmonist-user) | -24 … +24 |  |
-| `20 00 1C 6B` | HARMONIST_Db1 | 1 | -24–24 (raw 0–48) | 0 | HR1: Db (modfx-harmonist-user) | -24 … +24 |  |
-| `20 00 1C 6C` | HARMONIST_D1 | 1 | -24–24 (raw 0–48) | 0 | HR1: D (modfx-harmonist-user) | -24 … +24 |  |
-| `20 00 1C 6D` | HARMONIST_Eb1 | 1 | -24–24 (raw 0–48) | 0 | HR1: Eb (modfx-harmonist-user) | -24 … +24 |  |
-| `20 00 1C 6E` | HARMONIST_E1 | 1 | -24–24 (raw 0–48) | 0 | HR1: E (modfx-harmonist-user) | -24 … +24 |  |
-| `20 00 1C 6F` | HARMONIST_F1 | 1 | -24–24 (raw 0–48) | 0 | HR1: F (modfx-harmonist-user) | -24 … +24 |  |
-| `20 00 1C 70` | HARMONIST_Fs1 | 1 | -24–24 (raw 0–48) | 0 | HR1: F# (modfx-harmonist-user) | -24 … +24 |  |
-| `20 00 1C 71` | HARMONIST_G1 | 1 | -24–24 (raw 0–48) | 0 | HR1: G (modfx-harmonist-user) | -24 … +24 |  |
-| `20 00 1C 72` | HARMONIST_Ab1 | 1 | -24–24 (raw 0–48) | 0 | HR1: Ab (modfx-harmonist-user) | -24 … +24 |  |
-| `20 00 1C 73` | HARMONIST_A1 | 1 | -24–24 (raw 0–48) | 0 | HR1: A (modfx-harmonist-user) | -24 … +24 |  |
-| `20 00 1C 74` | HARMONIST_Bb1 | 1 | -24–24 (raw 0–48) | 0 | HR1: Bb (modfx-harmonist-user) | -24 … +24 |  |
-| `20 00 1C 75` | HARMONIST_B1 | 1 | -24–24 (raw 0–48) | 0 | HR1: B (modfx-harmonist-user) | -24 … +24 |  |
-| `20 00 1C 76` | HARMONIST_C2 | 1 | -24–24 (raw 0–48) | 0 | HR2: C (modfx-harmonist-user) | -24 … +24 |  |
-| `20 00 1C 77` | HARMONIST_Db2 | 1 | -24–24 (raw 0–48) | 0 | HR2: Db (modfx-harmonist-user) | -24 … +24 |  |
-| `20 00 1C 78` | HARMONIST_D2 | 1 | -24–24 (raw 0–48) | 0 | HR2: D (modfx-harmonist-user) | -24 … +24 |  |
-| `20 00 1C 79` | HARMONIST_Eb2 | 1 | -24–24 (raw 0–48) | 0 | HR2: Eb (modfx-harmonist-user) | -24 … +24 |  |
-| `20 00 1C 7A` | HARMONIST_E2 | 1 | -24–24 (raw 0–48) | 0 | HR2: E (modfx-harmonist-user) | -24 … +24 |  |
-| `20 00 1C 7B` | HARMONIST_F2 | 1 | -24–24 (raw 0–48) | 0 | HR2: F (modfx-harmonist-user) | -24 … +24 |  |
-| `20 00 1C 7C` | HARMONIST_Fs2 | 1 | -24–24 (raw 0–48) | 0 | HR2: F# (modfx-harmonist-user) | -24 … +24 |  |
-| `20 00 1C 7D` | HARMONIST_G2 | 1 | -24–24 (raw 0–48) | 0 | HR2: G (modfx-harmonist-user) | -24 … +24 |  |
-| `20 00 1C 7E` | HARMONIST_Ab2 | 1 | -24–24 (raw 0–48) | 0 | HR2: Ab (modfx-harmonist-user) | -24 … +24 |  |
-| `20 00 1C 7F` | HARMONIST_A2 | 1 | -24–24 (raw 0–48) | 0 | HR2: A (modfx-harmonist-user) | -24 … +24 |  |
-| `20 00 1D 00` | HARMONIST_Bb2 | 1 | -24–24 (raw 0–48) | 0 | HR2: Bb (modfx-harmonist-user) | -24 … +24 |  |
-| `20 00 1D 01` | HARMONIST_B2 | 1 | -24–24 (raw 0–48) | 0 | HR2: B (modfx-harmonist-user) | -24 … +24 |  |
+| `20 00 1C 5B` | HARMONIST_VOICE | 1 | 0–1 | 1 | VOICE (modfx-harmonist) | 0 1VOICE, 1 2VOICE | `mod1-harmonist-voice`, `mod2-harmonist-voice` (FX_DETAIL(2)), `mod3-harmonist-voice` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 5C` | HARMONIST_HARMONY1 | 1 | 0–29 | 12 | HR1:HARMONY (modfx-harmonist-content) | L6: -2oct … USER (30 steps) | `mod1-harmonist-harmony1`, `mod2-harmonist-harmony1` (FX_DETAIL(2)), `mod3-harmonist-harmony1` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 5D` | HARMONIST_PRE_DELAY1 | 4 (nibbles) | 0–300 | 0 | HR1:PRE DELAY (modfx-harmonist-content) | 0 ms … 300 ms | `mod1-harmonist-pre-delay1`, `mod2-harmonist-pre-delay1` (FX_DETAIL(2)), `mod3-harmonist-pre-delay1` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 61` | HARMONIST_LEVEL1 | 1 | 0–100 | 70 | HR1:LEVEL (modfx-harmonist-content) |  | `mod1-harmonist-level1`, `mod2-harmonist-level1` (FX_DETAIL(2)), `mod3-harmonist-level1` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 62` | HARMONIST_HARMONY2 | 1 | 0–29 | 7 | HR2:HARMONY (modfx-harmonist-content) | L6: -2oct … USER (30 steps) | `mod1-harmonist-harmony2`, `mod2-harmonist-harmony2` (FX_DETAIL(2)), `mod3-harmonist-harmony2` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 63` | HARMONIST_PRE_DELAY2 | 4 (nibbles) | 0–300 | 0 | HR2:PRE DELAY (modfx-harmonist-content) | 0 ms … 300 ms | `mod1-harmonist-pre-delay2`, `mod2-harmonist-pre-delay2` (FX_DETAIL(2)), `mod3-harmonist-pre-delay2` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 67` | HARMONIST_LEVEL2 | 1 | 0–100 | 80 | HR2:LEVEL (modfx-harmonist-content) |  | `mod1-harmonist-level2`, `mod2-harmonist-level2` (FX_DETAIL(2)), `mod3-harmonist-level2` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 68` | HARMONIST_FEEDBACK1 | 1 | 0–100 | 0 | HR1:FEEDBACK (modfx-harmonist-content) |  | `mod1-harmonist-feedback1`, `mod2-harmonist-feedback1` (FX_DETAIL(2)), `mod3-harmonist-feedback1` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 69` | HARMONIST_DIRECT_MIX | 1 | 0–100 | 100 | DIRECT MIX (modfx-harmonist-content) |  | `mod1-harmonist-direct-mix`, `mod2-harmonist-direct-mix` (FX_DETAIL(2)), `mod3-harmonist-direct-mix` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 6A` | HARMONIST_C1 | 1 | -24–24 (raw 0–48) | 0 | HR1: C (modfx-harmonist-user) | -24 … +24 | `mod1-harmonist-c1`, `mod2-harmonist-c1` (FX_DETAIL(2)), `mod3-harmonist-c1` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 6B` | HARMONIST_Db1 | 1 | -24–24 (raw 0–48) | 0 | HR1: Db (modfx-harmonist-user) | -24 … +24 | `mod1-harmonist-db1`, `mod2-harmonist-db1` (FX_DETAIL(2)), `mod3-harmonist-db1` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 6C` | HARMONIST_D1 | 1 | -24–24 (raw 0–48) | 0 | HR1: D (modfx-harmonist-user) | -24 … +24 | `mod1-harmonist-d1`, `mod2-harmonist-d1` (FX_DETAIL(2)), `mod3-harmonist-d1` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 6D` | HARMONIST_Eb1 | 1 | -24–24 (raw 0–48) | 0 | HR1: Eb (modfx-harmonist-user) | -24 … +24 | `mod1-harmonist-eb1`, `mod2-harmonist-eb1` (FX_DETAIL(2)), `mod3-harmonist-eb1` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 6E` | HARMONIST_E1 | 1 | -24–24 (raw 0–48) | 0 | HR1: E (modfx-harmonist-user) | -24 … +24 | `mod1-harmonist-e1`, `mod2-harmonist-e1` (FX_DETAIL(2)), `mod3-harmonist-e1` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 6F` | HARMONIST_F1 | 1 | -24–24 (raw 0–48) | 0 | HR1: F (modfx-harmonist-user) | -24 … +24 | `mod1-harmonist-f1`, `mod2-harmonist-f1` (FX_DETAIL(2)), `mod3-harmonist-f1` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 70` | HARMONIST_Fs1 | 1 | -24–24 (raw 0–48) | 0 | HR1: F# (modfx-harmonist-user) | -24 … +24 | `mod1-harmonist-fs1`, `mod2-harmonist-fs1` (FX_DETAIL(2)), `mod3-harmonist-fs1` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 71` | HARMONIST_G1 | 1 | -24–24 (raw 0–48) | 0 | HR1: G (modfx-harmonist-user) | -24 … +24 | `mod1-harmonist-g1`, `mod2-harmonist-g1` (FX_DETAIL(2)), `mod3-harmonist-g1` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 72` | HARMONIST_Ab1 | 1 | -24–24 (raw 0–48) | 0 | HR1: Ab (modfx-harmonist-user) | -24 … +24 | `mod1-harmonist-ab1`, `mod2-harmonist-ab1` (FX_DETAIL(2)), `mod3-harmonist-ab1` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 73` | HARMONIST_A1 | 1 | -24–24 (raw 0–48) | 0 | HR1: A (modfx-harmonist-user) | -24 … +24 | `mod1-harmonist-a1`, `mod2-harmonist-a1` (FX_DETAIL(2)), `mod3-harmonist-a1` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 74` | HARMONIST_Bb1 | 1 | -24–24 (raw 0–48) | 0 | HR1: Bb (modfx-harmonist-user) | -24 … +24 | `mod1-harmonist-bb1`, `mod2-harmonist-bb1` (FX_DETAIL(2)), `mod3-harmonist-bb1` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 75` | HARMONIST_B1 | 1 | -24–24 (raw 0–48) | 0 | HR1: B (modfx-harmonist-user) | -24 … +24 | `mod1-harmonist-b1`, `mod2-harmonist-b1` (FX_DETAIL(2)), `mod3-harmonist-b1` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 76` | HARMONIST_C2 | 1 | -24–24 (raw 0–48) | 0 | HR2: C (modfx-harmonist-user) | -24 … +24 | `mod1-harmonist-c2`, `mod2-harmonist-c2` (FX_DETAIL(2)), `mod3-harmonist-c2` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 77` | HARMONIST_Db2 | 1 | -24–24 (raw 0–48) | 0 | HR2: Db (modfx-harmonist-user) | -24 … +24 | `mod1-harmonist-db2`, `mod2-harmonist-db2` (FX_DETAIL(2)), `mod3-harmonist-db2` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 78` | HARMONIST_D2 | 1 | -24–24 (raw 0–48) | 0 | HR2: D (modfx-harmonist-user) | -24 … +24 | `mod1-harmonist-d2`, `mod2-harmonist-d2` (FX_DETAIL(2)), `mod3-harmonist-d2` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 79` | HARMONIST_Eb2 | 1 | -24–24 (raw 0–48) | 0 | HR2: Eb (modfx-harmonist-user) | -24 … +24 | `mod1-harmonist-eb2`, `mod2-harmonist-eb2` (FX_DETAIL(2)), `mod3-harmonist-eb2` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 7A` | HARMONIST_E2 | 1 | -24–24 (raw 0–48) | 0 | HR2: E (modfx-harmonist-user) | -24 … +24 | `mod1-harmonist-e2`, `mod2-harmonist-e2` (FX_DETAIL(2)), `mod3-harmonist-e2` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 7B` | HARMONIST_F2 | 1 | -24–24 (raw 0–48) | 0 | HR2: F (modfx-harmonist-user) | -24 … +24 | `mod1-harmonist-f2`, `mod2-harmonist-f2` (FX_DETAIL(2)), `mod3-harmonist-f2` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 7C` | HARMONIST_Fs2 | 1 | -24–24 (raw 0–48) | 0 | HR2: F# (modfx-harmonist-user) | -24 … +24 | `mod1-harmonist-fs2`, `mod2-harmonist-fs2` (FX_DETAIL(2)), `mod3-harmonist-fs2` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 7D` | HARMONIST_G2 | 1 | -24–24 (raw 0–48) | 0 | HR2: G (modfx-harmonist-user) | -24 … +24 | `mod1-harmonist-g2`, `mod2-harmonist-g2` (FX_DETAIL(2)), `mod3-harmonist-g2` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 7E` | HARMONIST_Ab2 | 1 | -24–24 (raw 0–48) | 0 | HR2: Ab (modfx-harmonist-user) | -24 … +24 | `mod1-harmonist-ab2`, `mod2-harmonist-ab2` (FX_DETAIL(2)), `mod3-harmonist-ab2` (FX_DETAIL(3)) +3 more |
+| `20 00 1C 7F` | HARMONIST_A2 | 1 | -24–24 (raw 0–48) | 0 | HR2: A (modfx-harmonist-user) | -24 … +24 | `mod1-harmonist-a2`, `mod2-harmonist-a2` (FX_DETAIL(2)), `mod3-harmonist-a2` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 00` | HARMONIST_Bb2 | 1 | -24–24 (raw 0–48) | 0 | HR2: Bb (modfx-harmonist-user) | -24 … +24 | `mod1-harmonist-bb2`, `mod2-harmonist-bb2` (FX_DETAIL(2)), `mod3-harmonist-bb2` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 01` | HARMONIST_B2 | 1 | -24–24 (raw 0–48) | 0 | HR2: B (modfx-harmonist-user) | -24 … +24 | `mod1-harmonist-b2`, `mod2-harmonist-b2` (FX_DETAIL(2)), `mod3-harmonist-b2` (FX_DETAIL(3)) +3 more |
 
 ### 13 AC.PROCESSOR
 
 | Address | Setting | Bytes | Range | Default | Tone Studio control | Values | App |
 |---|---|---|---|---|---|---|---|
-| `20 00 1D 02` | ACPROCESS_TYPE | 1 | 0–3 | 1 | TYPE (modfx-acproc) | 0 SMALL, 1 MEDIUM, 2 BRIGHT, 3 POWER |  |
-| `20 00 1D 03` | ACPROCESS_BASS | 1 | -50–50 (raw 0–100) | 0 | BASS (modfx-acproc) | -50 … +50 |  |
-| `20 00 1D 04` | ACPROCESS_MIDDLE | 1 | -50–50 (raw 0–100) | 0 | MIDDLE (modfx-acproc) | -50 … +50 |  |
-| `20 00 1D 05` | ACPROCESS_MIDDLE_FREQ | 1 | 0–27 | 16 | MIDDLE FREQ (modfx-acproc) | L4: 20.0 Hz … 10.0 kHz (28 steps) |  |
-| `20 00 1D 06` | ACPROCESS_TREBLE | 1 | -50–50 (raw 0–100) | 0 | TREBLE (modfx-acproc) | -50 … +50 |  |
-| `20 00 1D 07` | ACPROCESS_PRESENCE | 1 | -50–50 (raw 0–100) | 0 | PRESENCE (modfx-acproc) | -50 … +50 |  |
-| `20 00 1D 08` | ACPROCESS_LEVEL | 1 | 0–100 | 50 | LEVEL (modfx-acproc) |  |  |
+| `20 00 1D 02` | ACPROCESS_TYPE | 1 | 0–3 | 1 | TYPE (modfx-acproc) | 0 SMALL, 1 MEDIUM, 2 BRIGHT, 3 POWER | `mod1-acprocess-type`, `mod2-acprocess-type` (FX_DETAIL(2)), `mod3-acprocess-type` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 03` | ACPROCESS_BASS | 1 | -50–50 (raw 0–100) | 0 | BASS (modfx-acproc) | -50 … +50 | `mod1-acprocess-bass`, `mod2-acprocess-bass` (FX_DETAIL(2)), `mod3-acprocess-bass` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 04` | ACPROCESS_MIDDLE | 1 | -50–50 (raw 0–100) | 0 | MIDDLE (modfx-acproc) | -50 … +50 | `mod1-acprocess-middle`, `mod2-acprocess-middle` (FX_DETAIL(2)), `mod3-acprocess-middle` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 05` | ACPROCESS_MIDDLE_FREQ | 1 | 0–27 | 16 | MIDDLE FREQ (modfx-acproc) | L4: 20.0 Hz … 10.0 kHz (28 steps) | `mod1-acprocess-middle-freq`, `mod2-acprocess-middle-freq` (FX_DETAIL(2)), `mod3-acprocess-middle-freq` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 06` | ACPROCESS_TREBLE | 1 | -50–50 (raw 0–100) | 0 | TREBLE (modfx-acproc) | -50 … +50 | `mod1-acprocess-treble`, `mod2-acprocess-treble` (FX_DETAIL(2)), `mod3-acprocess-treble` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 07` | ACPROCESS_PRESENCE | 1 | -50–50 (raw 0–100) | 0 | PRESENCE (modfx-acproc) | -50 … +50 | `mod1-acprocess-presence`, `mod2-acprocess-presence` (FX_DETAIL(2)), `mod3-acprocess-presence` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 08` | ACPROCESS_LEVEL | 1 | 0–100 | 50 | LEVEL (modfx-acproc) |  | `mod1-acprocess-level`, `mod2-acprocess-level` (FX_DETAIL(2)), `mod3-acprocess-level` (FX_DETAIL(3)) +3 more |
 
 ### 14 PHASER
 
 | Address | Setting | Bytes | Range | Default | Tone Studio control | Values | App |
 |---|---|---|---|---|---|---|---|
-| `20 00 1D 09` | PHASER_TYPE | 1 | 0–3 | 0 | TYPE (modfx-phaser) | 0 4STAGE, 1 8STAGE, 2 12STAGE, 3 BiPHASE |  |
-| `20 00 1D 0A` | PHASER_RATE | 1 | 0–100 | 70 | RATE (modfx-phaser) |  |  |
-| `20 00 1D 0B` | PHASER_DEPTH | 1 | 0–100 | 40 | DEPTH (modfx-phaser) |  |  |
-| `20 00 1D 0C` | PHASER_MANUAL | 1 | 0–100 | 55 | MANUAL (modfx-phaser) |  |  |
-| `20 00 1D 0D` | PHASER_RESONANCE | 1 | 0–100 | 0 | RESONANCE (modfx-phaser) |  |  |
-| `20 00 1D 0E` | PHASER_STEP_RATE | 1 | -1–100 (raw 0–101) | -1 | STEP RATE (modfx-phaser) | OFF … 100 |  |
-| `20 00 1D 0F` | PHASER_EFFECT_LEVEL | 1 | 0–100 | 100 | EFFECT LEVEL (modfx-phaser) |  |  |
-| `20 00 1D 10` | PHASER_DIRECT_MIX | 1 | 0–100 | 0 | DIRECT MIX (modfx-phaser) |  |  |
+| `20 00 1D 09` | PHASER_TYPE | 1 | 0–3 | 0 | TYPE (modfx-phaser) | 0 4STAGE, 1 8STAGE, 2 12STAGE, 3 BiPHASE | `mod1-phaser-type`, `mod2-phaser-type` (FX_DETAIL(2)), `mod3-phaser-type` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 0A` | PHASER_RATE | 1 | 0–100 | 70 | RATE (modfx-phaser) |  | `mod1-phaser-rate`, `mod2-phaser-rate` (FX_DETAIL(2)), `mod3-phaser-rate` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 0B` | PHASER_DEPTH | 1 | 0–100 | 40 | DEPTH (modfx-phaser) |  | `mod1-phaser-depth`, `mod2-phaser-depth` (FX_DETAIL(2)), `mod3-phaser-depth` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 0C` | PHASER_MANUAL | 1 | 0–100 | 55 | MANUAL (modfx-phaser) |  | `mod1-phaser-manual`, `mod2-phaser-manual` (FX_DETAIL(2)), `mod3-phaser-manual` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 0D` | PHASER_RESONANCE | 1 | 0–100 | 0 | RESONANCE (modfx-phaser) |  | `mod1-phaser-resonance`, `mod2-phaser-resonance` (FX_DETAIL(2)), `mod3-phaser-resonance` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 0E` | PHASER_STEP_RATE | 1 | -1–100 (raw 0–101) | -1 | STEP RATE (modfx-phaser) | OFF … 100 | `mod1-phaser-step-rate`, `mod2-phaser-step-rate` (FX_DETAIL(2)), `mod3-phaser-step-rate` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 0F` | PHASER_EFFECT_LEVEL | 1 | 0–100 | 100 | EFFECT LEVEL (modfx-phaser) |  | `mod1-phaser-effect-level`, `mod2-phaser-effect-level` (FX_DETAIL(2)), `mod3-phaser-effect-level` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 10` | PHASER_DIRECT_MIX | 1 | 0–100 | 0 | DIRECT MIX (modfx-phaser) |  | `mod1-phaser-direct-mix`, `mod2-phaser-direct-mix` (FX_DETAIL(2)), `mod3-phaser-direct-mix` (FX_DETAIL(3)) +3 more |
 
 ### 15 FLANGER
 
 | Address | Setting | Bytes | Range | Default | Tone Studio control | Values | App |
 |---|---|---|---|---|---|---|---|
-| `20 00 1D 11` | FLANGER_RATE | 1 | 0–100 | 31 | RATE (modfx-flanger) |  |  |
-| `20 00 1D 12` | FLANGER_DEPTH | 1 | 0–100 | 40 | DEPTH (modfx-flanger) |  |  |
-| `20 00 1D 13` | FLANGER_MANUAL | 1 | 0–100 | 82 | MANUAL (modfx-flanger) |  |  |
-| `20 00 1D 14` | FLANGER_RESONANCE | 1 | 0–100 | 50 | RESONANCE (modfx-flanger) |  |  |
-| `20 00 1D 15` | FLANGER_LOW_CUT | 1 | 0–10 | 0 | LOW CUT (modfx-flanger) | L7: FLAT … 800 Hz (11 steps) |  |
-| `20 00 1D 16` | FLANGER_EFFECT_LEVEL | 1 | 0–100 | 60 | EFFECT LEVEL (modfx-flanger) |  |  |
-| `20 00 1D 17` | FLANGER_DIRECT_MIX | 1 | 0–100 | 0 | DIRECT MIX (modfx-flanger) |  |  |
+| `20 00 1D 11` | FLANGER_RATE | 1 | 0–100 | 31 | RATE (modfx-flanger) |  | `mod1-flanger-rate`, `mod2-flanger-rate` (FX_DETAIL(2)), `mod3-flanger-rate` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 12` | FLANGER_DEPTH | 1 | 0–100 | 40 | DEPTH (modfx-flanger) |  | `mod1-flanger-depth`, `mod2-flanger-depth` (FX_DETAIL(2)), `mod3-flanger-depth` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 13` | FLANGER_MANUAL | 1 | 0–100 | 82 | MANUAL (modfx-flanger) |  | `mod1-flanger-manual`, `mod2-flanger-manual` (FX_DETAIL(2)), `mod3-flanger-manual` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 14` | FLANGER_RESONANCE | 1 | 0–100 | 50 | RESONANCE (modfx-flanger) |  | `mod1-flanger-resonance`, `mod2-flanger-resonance` (FX_DETAIL(2)), `mod3-flanger-resonance` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 15` | FLANGER_LOW_CUT | 1 | 0–10 | 0 | LOW CUT (modfx-flanger) | L7: FLAT … 800 Hz (11 steps) | `mod1-flanger-low-cut`, `mod2-flanger-low-cut` (FX_DETAIL(2)), `mod3-flanger-low-cut` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 16` | FLANGER_EFFECT_LEVEL | 1 | 0–100 | 60 | EFFECT LEVEL (modfx-flanger) |  | `mod1-flanger-effect-level`, `mod2-flanger-effect-level` (FX_DETAIL(2)), `mod3-flanger-effect-level` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 17` | FLANGER_DIRECT_MIX | 1 | 0–100 | 0 | DIRECT MIX (modfx-flanger) |  | `mod1-flanger-direct-mix`, `mod2-flanger-direct-mix` (FX_DETAIL(2)), `mod3-flanger-direct-mix` (FX_DETAIL(3)) +3 more |
 
 ### 16 TREMOLO
 
 | Address | Setting | Bytes | Range | Default | Tone Studio control | Values | App |
 |---|---|---|---|---|---|---|---|
-| `20 00 1D 18` | TREMOLO_WAVE_SHAPE | 1 | 0–100 | 70 | WAVE SHAPE (modfx-tremolo) |  |  |
-| `20 00 1D 19` | TREMOLO_RATE | 1 | 0–100 | 85 | RATE (modfx-tremolo) |  |  |
-| `20 00 1D 1A` | TREMOLO_DEPTH | 1 | 0–100 | 65 | DEPTH (modfx-tremolo) |  |  |
-| `20 00 1D 1B` | TREMOLO_LEVEL | 1 | 0–100 | 50 | LEVEL (modfx-tremolo) |  |  |
+| `20 00 1D 18` | TREMOLO_WAVE_SHAPE | 1 | 0–100 | 70 | WAVE SHAPE (modfx-tremolo) |  | `mod1-tremolo-wave-shape`, `mod2-tremolo-wave-shape` (FX_DETAIL(2)), `mod3-tremolo-wave-shape` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 19` | TREMOLO_RATE | 1 | 0–100 | 85 | RATE (modfx-tremolo) |  | `mod1-tremolo-rate`, `mod2-tremolo-rate` (FX_DETAIL(2)), `mod3-tremolo-rate` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 1A` | TREMOLO_DEPTH | 1 | 0–100 | 65 | DEPTH (modfx-tremolo) |  | `mod1-tremolo-depth`, `mod2-tremolo-depth` (FX_DETAIL(2)), `mod3-tremolo-depth` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 1B` | TREMOLO_LEVEL | 1 | 0–100 | 50 | LEVEL (modfx-tremolo) |  | `mod1-tremolo-level`, `mod2-tremolo-level` (FX_DETAIL(2)), `mod3-tremolo-level` (FX_DETAIL(3)) +3 more |
 
 ### 17 ROTARY
 
 | Address | Setting | Bytes | Range | Default | Tone Studio control | Values | App |
 |---|---|---|---|---|---|---|---|
-| `20 00 1D 1C` | ROTARY_RATE | 1 | 0–100 | 85 | RATE (modfx-rotary) |  |  |
-| `20 00 1D 1D` | ROTARY_DEPTH | 1 | 0–100 | 60 | DEPTH (modfx-rotary) |  |  |
-| `20 00 1D 1E` | ROTARY_LEVEL | 1 | 0–100 | 50 | LEVEL (modfx-rotary) |  |  |
+| `20 00 1D 1C` | ROTARY_RATE | 1 | 0–100 | 85 | RATE (modfx-rotary) |  | `mod1-rotary-rate`, `mod2-rotary-rate` (FX_DETAIL(2)), `mod3-rotary-rate` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 1D` | ROTARY_DEPTH | 1 | 0–100 | 60 | DEPTH (modfx-rotary) |  | `mod1-rotary-depth`, `mod2-rotary-depth` (FX_DETAIL(2)), `mod3-rotary-depth` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 1E` | ROTARY_LEVEL | 1 | 0–100 | 50 | LEVEL (modfx-rotary) |  | `mod1-rotary-level`, `mod2-rotary-level` (FX_DETAIL(2)), `mod3-rotary-level` (FX_DETAIL(3)) +3 more |
 
 ### 18 UNI-V
 
 | Address | Setting | Bytes | Range | Default | Tone Studio control | Values | App |
 |---|---|---|---|---|---|---|---|
-| `20 00 1D 1F` | UNIV_RATE | 1 | 0–100 | 70 | RATE (modfx-univ) |  |  |
-| `20 00 1D 20` | UNIV_DEPTH | 1 | 0–100 | 60 | DEPTH (modfx-univ) |  |  |
-| `20 00 1D 21` | UNIV_LEVEL | 1 | 0–100 | 100 | LEVEL (modfx-univ) |  |  |
+| `20 00 1D 1F` | UNIV_RATE | 1 | 0–100 | 70 | RATE (modfx-univ) |  | `mod1-univ-rate`, `mod2-univ-rate` (FX_DETAIL(2)), `mod3-univ-rate` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 20` | UNIV_DEPTH | 1 | 0–100 | 60 | DEPTH (modfx-univ) |  | `mod1-univ-depth`, `mod2-univ-depth` (FX_DETAIL(2)), `mod3-univ-depth` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 21` | UNIV_LEVEL | 1 | 0–100 | 100 | LEVEL (modfx-univ) |  | `mod1-univ-level`, `mod2-univ-level` (FX_DETAIL(2)), `mod3-univ-level` (FX_DETAIL(3)) +3 more |
 
 ### 19 SLICER
 
 | Address | Setting | Bytes | Range | Default | Tone Studio control | Values | App |
 |---|---|---|---|---|---|---|---|
-| `20 00 1D 22` | SLICER_PATTERN | 1 | 0–19 | 0 | PATTERN (modfx-slicer) | L8: P1 … P20 (20 steps) |  |
-| `20 00 1D 23` | SLICER_RATE | 1 | 0–100 | 50 | RATE (modfx-slicer) |  |  |
-| `20 00 1D 24` | SLICER_TRIGGER_SENS | 1 | 0–100 | 50 | TRIGGER SENS (modfx-slicer) |  |  |
-| `20 00 1D 25` | SLICER_EFFECT_LEVEL | 1 | 0–100 | 50 | EFFECT LEVEL (modfx-slicer) |  |  |
-| `20 00 1D 26` | SLICER_DIRECT_MIX | 1 | 0–100 | 0 | DIRECT MIX (modfx-slicer) |  |  |
+| `20 00 1D 22` | SLICER_PATTERN | 1 | 0–19 | 0 | PATTERN (modfx-slicer) | L8: P1 … P20 (20 steps) | `mod1-slicer-pattern`, `mod2-slicer-pattern` (FX_DETAIL(2)), `mod3-slicer-pattern` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 23` | SLICER_RATE | 1 | 0–100 | 50 | RATE (modfx-slicer) |  | `mod1-slicer-rate`, `mod2-slicer-rate` (FX_DETAIL(2)), `mod3-slicer-rate` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 24` | SLICER_TRIGGER_SENS | 1 | 0–100 | 50 | TRIGGER SENS (modfx-slicer) |  | `mod1-slicer-trigger-sens`, `mod2-slicer-trigger-sens` (FX_DETAIL(2)), `mod3-slicer-trigger-sens` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 25` | SLICER_EFFECT_LEVEL | 1 | 0–100 | 50 | EFFECT LEVEL (modfx-slicer) |  | `mod1-slicer-effect-level`, `mod2-slicer-effect-level` (FX_DETAIL(2)), `mod3-slicer-effect-level` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 26` | SLICER_DIRECT_MIX | 1 | 0–100 | 0 | DIRECT MIX (modfx-slicer) |  | `mod1-slicer-direct-mix`, `mod2-slicer-direct-mix` (FX_DETAIL(2)), `mod3-slicer-direct-mix` (FX_DETAIL(3)) +3 more |
 
 ### 20 VIBRATO
 
 | Address | Setting | Bytes | Range | Default | Tone Studio control | Values | App |
 |---|---|---|---|---|---|---|---|
-| `20 00 1D 27` | VIBRATO_RATE | 1 | 0–100 | 80 | RATE (modfx-vibrato) |  |  |
-| `20 00 1D 28` | VIBRATO_DEPTH | 1 | 0–100 | 45 | DEPTH (modfx-vibrato) |  |  |
-| `20 00 1D 29` | VIBRATO_LEVEL | 1 | 0–100 | 50 | LEVEL (modfx-vibrato) |  |  |
+| `20 00 1D 27` | VIBRATO_RATE | 1 | 0–100 | 80 | RATE (modfx-vibrato) |  | `mod1-vibrato-rate`, `mod2-vibrato-rate` (FX_DETAIL(2)), `mod3-vibrato-rate` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 28` | VIBRATO_DEPTH | 1 | 0–100 | 45 | DEPTH (modfx-vibrato) |  | `mod1-vibrato-depth`, `mod2-vibrato-depth` (FX_DETAIL(2)), `mod3-vibrato-depth` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 29` | VIBRATO_LEVEL | 1 | 0–100 | 50 | LEVEL (modfx-vibrato) |  | `mod1-vibrato-level`, `mod2-vibrato-level` (FX_DETAIL(2)), `mod3-vibrato-level` (FX_DETAIL(3)) +3 more |
 
 ### 21 RING MOD
 
 | Address | Setting | Bytes | Range | Default | Tone Studio control | Values | App |
 |---|---|---|---|---|---|---|---|
-| `20 00 1D 2A` | RINGMOD_MODE | 1 | 0–1 | 0 | MODE (modfx-ringmod) | 0 NORMAL, 1 INTELLIGENT |  |
-| `20 00 1D 2B` | RINGMOD_FREQUENCY | 1 | 0–100 | 50 | FREQUENCY (modfx-ringmod) |  |  |
-| `20 00 1D 2C` | RINGMOD_EFFECT_LEVEL | 1 | 0–100 | 100 | EFFECT LEVEL (modfx-ringmod) |  |  |
-| `20 00 1D 2D` | RINGMOD_DIRECT_MIX | 1 | 0–100 | 100 | DIRECT MIX (modfx-ringmod) |  |  |
+| `20 00 1D 2A` | RINGMOD_MODE | 1 | 0–1 | 0 | MODE (modfx-ringmod) | 0 NORMAL, 1 INTELLIGENT | `mod1-ringmod-mode`, `mod2-ringmod-mode` (FX_DETAIL(2)), `mod3-ringmod-mode` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 2B` | RINGMOD_FREQUENCY | 1 | 0–100 | 50 | FREQUENCY (modfx-ringmod) |  | `mod1-ringmod-frequency`, `mod2-ringmod-frequency` (FX_DETAIL(2)), `mod3-ringmod-frequency` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 2C` | RINGMOD_EFFECT_LEVEL | 1 | 0–100 | 100 | EFFECT LEVEL (modfx-ringmod) |  | `mod1-ringmod-effect-level`, `mod2-ringmod-effect-level` (FX_DETAIL(2)), `mod3-ringmod-effect-level` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 2D` | RINGMOD_DIRECT_MIX | 1 | 0–100 | 100 | DIRECT MIX (modfx-ringmod) |  | `mod1-ringmod-direct-mix`, `mod2-ringmod-direct-mix` (FX_DETAIL(2)), `mod3-ringmod-direct-mix` (FX_DETAIL(3)) +3 more |
 
 ### 22 HUMANIZER
 
 | Address | Setting | Bytes | Range | Default | Tone Studio control | Values | App |
 |---|---|---|---|---|---|---|---|
-| `20 00 1D 2E` | HUMANIZER_MODE | 1 | 0–1 | 1 | MODE (modfx-humanizer) | 0 PICKING, 1 AUTO |  |
-| `20 00 1D 2F` | HUMANIZER_VOWEL1 | 1 | 0–4 | 0 | VOWEL1 (modfx-humanizer) | 0 a, 1 e, 2 i, 3 o, 4 u |  |
-| `20 00 1D 30` | HUMANIZER_VOWEL2 | 1 | 0–4 | 2 | VOWEL2 (modfx-humanizer) | 0 a, 1 e, 2 i, 3 o, 4 u |  |
-| `20 00 1D 31` | HUMANIZER_SENS | 1 | 0–100 | 50 | SENS (modfx-humanizer) |  |  |
-| `20 00 1D 32` | HUMANIZER_RATE | 1 | 0–100 | 80 | RATE (modfx-humanizer) |  |  |
-| `20 00 1D 33` | HUMANIZER_DEPTH | 1 | 0–100 | 100 | DEPTH (modfx-humanizer) |  |  |
-| `20 00 1D 34` | HUMANIZER_MANUAL | 1 | 0–100 | 50 | MANUAL (modfx-humanizer) |  |  |
-| `20 00 1D 35` | HUMANIZER_LEVEL | 1 | 0–100 | 100 | LEVEL (modfx-humanizer) |  |  |
+| `20 00 1D 2E` | HUMANIZER_MODE | 1 | 0–1 | 1 | MODE (modfx-humanizer) | 0 PICKING, 1 AUTO | `mod1-humanizer-mode`, `mod2-humanizer-mode` (FX_DETAIL(2)), `mod3-humanizer-mode` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 2F` | HUMANIZER_VOWEL1 | 1 | 0–4 | 0 | VOWEL1 (modfx-humanizer) | 0 a, 1 e, 2 i, 3 o, 4 u | `mod1-humanizer-vowel1`, `mod2-humanizer-vowel1` (FX_DETAIL(2)), `mod3-humanizer-vowel1` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 30` | HUMANIZER_VOWEL2 | 1 | 0–4 | 2 | VOWEL2 (modfx-humanizer) | 0 a, 1 e, 2 i, 3 o, 4 u | `mod1-humanizer-vowel2`, `mod2-humanizer-vowel2` (FX_DETAIL(2)), `mod3-humanizer-vowel2` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 31` | HUMANIZER_SENS | 1 | 0–100 | 50 | SENS (modfx-humanizer) |  | `mod1-humanizer-sens`, `mod2-humanizer-sens` (FX_DETAIL(2)), `mod3-humanizer-sens` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 32` | HUMANIZER_RATE | 1 | 0–100 | 80 | RATE (modfx-humanizer) |  | `mod1-humanizer-rate`, `mod2-humanizer-rate` (FX_DETAIL(2)), `mod3-humanizer-rate` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 33` | HUMANIZER_DEPTH | 1 | 0–100 | 100 | DEPTH (modfx-humanizer) |  | `mod1-humanizer-depth`, `mod2-humanizer-depth` (FX_DETAIL(2)), `mod3-humanizer-depth` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 34` | HUMANIZER_MANUAL | 1 | 0–100 | 50 | MANUAL (modfx-humanizer) |  | `mod1-humanizer-manual`, `mod2-humanizer-manual` (FX_DETAIL(2)), `mod3-humanizer-manual` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 35` | HUMANIZER_LEVEL | 1 | 0–100 | 100 | LEVEL (modfx-humanizer) |  | `mod1-humanizer-level`, `mod2-humanizer-level` (FX_DETAIL(2)), `mod3-humanizer-level` (FX_DETAIL(3)) +3 more |
 
 ### 23 CHORUS
 
 | Address | Setting | Bytes | Range | Default | Tone Studio control | Values | App |
 |---|---|---|---|---|---|---|---|
-| `20 00 1D 36` | 2X2CHORUS_XOVER_FREQUENCY | 1 | 0–16 | 4 | CROSSOVER FREQUENCY (modfx-chorus) | L9: 100 Hz … 4.00 kHz (17 steps) |  |
-| `20 00 1D 37` | 2X2CHORUS_LOW_RATE | 1 | 0–100 | 43 | LOW RATE (modfx-chorus) |  |  |
-| `20 00 1D 38` | 2X2CHORUS_LOW_DEPTH | 1 | 0–100 | 46 | LOW DEPTH (modfx-chorus) |  |  |
-| `20 00 1D 39` | 2X2CHORUS_LOW_PRE_DELAY | 1 | 0–80 | 3 | LOW PRE DELAY (modfx-chorus) | L10: 0.0 ms … 40.0 ms (81 steps) |  |
-| `20 00 1D 3A` | 2X2CHORUS_LOW_LEVEL | 1 | 0–100 | 75 | LOW LEVEL (modfx-chorus) |  |  |
-| `20 00 1D 3B` | 2X2CHORUS_HIGH_RATE | 1 | 0–100 | 33 | HIGH RATE (modfx-chorus) |  |  |
-| `20 00 1D 3C` | 2X2CHORUS_HIGH_DEPTH | 1 | 0–100 | 48 | HIGH DEPTH (modfx-chorus) |  |  |
-| `20 00 1D 3D` | 2X2CHORUS_HIGH_PRE_DELAY | 1 | 0–80 | 3 | HIGH PRE DELAY (modfx-chorus) | L10: 0.0 ms … 40.0 ms (81 steps) |  |
-| `20 00 1D 3E` | 2X2CHORUS_HIGH_LEVEL | 1 | 0–100 | 65 | HIGH LEVEL (modfx-chorus) |  |  |
-| `20 00 1D 3F` | 2X2CHORUS_DIRECT_MIX | 1 | 0–100 | 80 | DIRECT MIX (modfx-chorus) |  |  |
+| `20 00 1D 36` | 2X2CHORUS_XOVER_FREQUENCY | 1 | 0–16 | 4 | CROSSOVER FREQUENCY (modfx-chorus) | L9: 100 Hz … 4.00 kHz (17 steps) | `mod1-2x2chorus-xover-frequency`, `mod2-2x2chorus-xover-frequency` (FX_DETAIL(2)), `mod3-2x2chorus-xover-frequency` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 37` | 2X2CHORUS_LOW_RATE | 1 | 0–100 | 43 | LOW RATE (modfx-chorus) |  | `mod1-2x2chorus-low-rate`, `mod2-2x2chorus-low-rate` (FX_DETAIL(2)), `mod3-2x2chorus-low-rate` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 38` | 2X2CHORUS_LOW_DEPTH | 1 | 0–100 | 46 | LOW DEPTH (modfx-chorus) |  | `mod1-2x2chorus-low-depth`, `mod2-2x2chorus-low-depth` (FX_DETAIL(2)), `mod3-2x2chorus-low-depth` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 39` | 2X2CHORUS_LOW_PRE_DELAY | 1 | 0–80 | 3 | LOW PRE DELAY (modfx-chorus) | L10: 0.0 ms … 40.0 ms (81 steps) | `mod1-2x2chorus-low-pre-delay`, `mod2-2x2chorus-low-pre-delay` (FX_DETAIL(2)), `mod3-2x2chorus-low-pre-delay` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 3A` | 2X2CHORUS_LOW_LEVEL | 1 | 0–100 | 75 | LOW LEVEL (modfx-chorus) |  | `mod1-2x2chorus-low-level`, `mod2-2x2chorus-low-level` (FX_DETAIL(2)), `mod3-2x2chorus-low-level` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 3B` | 2X2CHORUS_HIGH_RATE | 1 | 0–100 | 33 | HIGH RATE (modfx-chorus) |  | `mod1-2x2chorus-high-rate`, `mod2-2x2chorus-high-rate` (FX_DETAIL(2)), `mod3-2x2chorus-high-rate` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 3C` | 2X2CHORUS_HIGH_DEPTH | 1 | 0–100 | 48 | HIGH DEPTH (modfx-chorus) |  | `mod1-2x2chorus-high-depth`, `mod2-2x2chorus-high-depth` (FX_DETAIL(2)), `mod3-2x2chorus-high-depth` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 3D` | 2X2CHORUS_HIGH_PRE_DELAY | 1 | 0–80 | 3 | HIGH PRE DELAY (modfx-chorus) | L10: 0.0 ms … 40.0 ms (81 steps) | `mod1-2x2chorus-high-pre-delay`, `mod2-2x2chorus-high-pre-delay` (FX_DETAIL(2)), `mod3-2x2chorus-high-pre-delay` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 3E` | 2X2CHORUS_HIGH_LEVEL | 1 | 0–100 | 65 | HIGH LEVEL (modfx-chorus) |  | `mod1-2x2chorus-high-level`, `mod2-2x2chorus-high-level` (FX_DETAIL(2)), `mod3-2x2chorus-high-level` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 3F` | 2X2CHORUS_DIRECT_MIX | 1 | 0–100 | 80 | DIRECT MIX (modfx-chorus) |  | `mod1-2x2chorus-direct-mix`, `mod2-2x2chorus-direct-mix` (FX_DETAIL(2)), `mod3-2x2chorus-direct-mix` (FX_DETAIL(3)) +3 more |
 
 ### 24 AC.GUITAR SIM
 
 | Address | Setting | Bytes | Range | Default | Tone Studio control | Values | App |
 |---|---|---|---|---|---|---|---|
-| `20 00 1D 40` | ACSIM_HIGH | 1 | -50–50 (raw 0–100) | 0 | HIGH (modfx-acgtrsim) | -50 … +50 |  |
-| `20 00 1D 41` | ACSIM_BODY | 1 | 0–100 | 50 | BODY (modfx-acgtrsim) |  |  |
-| `20 00 1D 42` | ACSIM_LOW | 1 | -50–50 (raw 0–100) | 0 | LOW (modfx-acgtrsim) | -50 … +50 |  |
-| `20 00 1D 43` | ACSIM_LEVEL | 1 | 0–100 | 50 | LEVEL (modfx-acgtrsim) |  |  |
+| `20 00 1D 40` | ACSIM_HIGH | 1 | -50–50 (raw 0–100) | 0 | HIGH (modfx-acgtrsim) | -50 … +50 | `mod1-acsim-high`, `mod2-acsim-high` (FX_DETAIL(2)), `mod3-acsim-high` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 41` | ACSIM_BODY | 1 | 0–100 | 50 | BODY (modfx-acgtrsim) |  | `mod1-acsim-body`, `mod2-acsim-body` (FX_DETAIL(2)), `mod3-acsim-body` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 42` | ACSIM_LOW | 1 | -50–50 (raw 0–100) | 0 | LOW (modfx-acgtrsim) | -50 … +50 | `mod1-acsim-low`, `mod2-acsim-low` (FX_DETAIL(2)), `mod3-acsim-low` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 43` | ACSIM_LEVEL | 1 | 0–100 | 50 | LEVEL (modfx-acgtrsim) |  | `mod1-acsim-level`, `mod2-acsim-level` (FX_DETAIL(2)), `mod3-acsim-level` (FX_DETAIL(3)) +3 more |
 
 ### 25 PHASER 90E
 
 | Address | Setting | Bytes | Range | Default | Tone Studio control | Values | App |
 |---|---|---|---|---|---|---|---|
-| `20 00 1D 44` | EPHASER_SCRIPT | 1 | 0–1 | 1 | SCRIPT (modfx-phaser90e) | 0 OFF, 1 ON |  |
-| `20 00 1D 45` | EPHASER_SPEED | 1 | 0–100 | 50 | SPEED (modfx-phaser90e) |  |  |
+| `20 00 1D 44` | EPHASER_SCRIPT | 1 | 0–1 | 1 | SCRIPT (modfx-phaser90e) | 0 OFF, 1 ON | `mod1-ephaser-script`, `mod2-ephaser-script` (FX_DETAIL(2)), `mod3-ephaser-script` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 45` | EPHASER_SPEED | 1 | 0–100 | 50 | SPEED (modfx-phaser90e) |  | `mod1-ephaser-speed`, `mod2-ephaser-speed` (FX_DETAIL(2)), `mod3-ephaser-speed` (FX_DETAIL(3)) +3 more |
 
 ### 26 FLANGER 117E
 
 | Address | Setting | Bytes | Range | Default | Tone Studio control | Values | App |
 |---|---|---|---|---|---|---|---|
-| `20 00 1D 46` | EFLANGER_MANUAL | 1 | 0–100 | 45 | MANUAL (modfx-flanger117e) |  |  |
-| `20 00 1D 47` | EFLANGER_WIDTH | 1 | 0–100 | 50 | WIDTH (modfx-flanger117e) |  |  |
-| `20 00 1D 48` | EFLANGER_SPEED | 1 | 0–100 | 50 | SPEED (modfx-flanger117e) |  |  |
-| `20 00 1D 49` | EFLANGER_REGEN | 1 | 0–100 | 80 | REGEN. (modfx-flanger117e) |  |  |
+| `20 00 1D 46` | EFLANGER_MANUAL | 1 | 0–100 | 45 | MANUAL (modfx-flanger117e) |  | `mod1-eflanger-manual`, `mod2-eflanger-manual` (FX_DETAIL(2)), `mod3-eflanger-manual` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 47` | EFLANGER_WIDTH | 1 | 0–100 | 50 | WIDTH (modfx-flanger117e) |  | `mod1-eflanger-width`, `mod2-eflanger-width` (FX_DETAIL(2)), `mod3-eflanger-width` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 48` | EFLANGER_SPEED | 1 | 0–100 | 50 | SPEED (modfx-flanger117e) |  | `mod1-eflanger-speed`, `mod2-eflanger-speed` (FX_DETAIL(2)), `mod3-eflanger-speed` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 49` | EFLANGER_REGEN | 1 | 0–100 | 80 | REGEN. (modfx-flanger117e) |  | `mod1-eflanger-regen`, `mod2-eflanger-regen` (FX_DETAIL(2)), `mod3-eflanger-regen` (FX_DETAIL(3)) +3 more |
 
 ### 27 WAH 95E
 
 | Address | Setting | Bytes | Range | Default | Tone Studio control | Values | App |
 |---|---|---|---|---|---|---|---|
-| `20 00 1D 4A` | EWAH_PEDAL_POS | 1 | 0–100 | 100 | PEDAL POS (modfx-wah95e) |  |  |
-| `20 00 1D 4B` | EWAH_PEDAL_MIN | 1 | 0–100 | 0 | PEDAL MIN (modfx-wah95e) |  |  |
-| `20 00 1D 4C` | EWAH_PEDAL_MAX | 1 | 0–100 | 100 | PEDAL MAX (modfx-wah95e) |  |  |
-| `20 00 1D 4D` | EWAH_EFFECT_LEVEL | 1 | 0–100 | 100 | EFFECT LEVEL (modfx-wah95e) |  |  |
-| `20 00 1D 4E` | EWAH_DIRECT_MIX | 1 | 0–100 | 0 | DIRECT MIX (modfx-wah95e) |  |  |
+| `20 00 1D 4A` | EWAH_PEDAL_POS | 1 | 0–100 | 100 | PEDAL POS (modfx-wah95e) |  | `mod1-ewah-pedal-pos`, `mod2-ewah-pedal-pos` (FX_DETAIL(2)), `mod3-ewah-pedal-pos` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 4B` | EWAH_PEDAL_MIN | 1 | 0–100 | 0 | PEDAL MIN (modfx-wah95e) |  | `mod1-ewah-pedal-min`, `mod2-ewah-pedal-min` (FX_DETAIL(2)), `mod3-ewah-pedal-min` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 4C` | EWAH_PEDAL_MAX | 1 | 0–100 | 100 | PEDAL MAX (modfx-wah95e) |  | `mod1-ewah-pedal-max`, `mod2-ewah-pedal-max` (FX_DETAIL(2)), `mod3-ewah-pedal-max` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 4D` | EWAH_EFFECT_LEVEL | 1 | 0–100 | 100 | EFFECT LEVEL (modfx-wah95e) |  | `mod1-ewah-effect-level`, `mod2-ewah-effect-level` (FX_DETAIL(2)), `mod3-ewah-effect-level` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 4E` | EWAH_DIRECT_MIX | 1 | 0–100 | 0 | DIRECT MIX (modfx-wah95e) |  | `mod1-ewah-direct-mix`, `mod2-ewah-direct-mix` (FX_DETAIL(2)), `mod3-ewah-direct-mix` (FX_DETAIL(3)) +3 more |
 
 ### 28 DC-30
 
 | Address | Setting | Bytes | Range | Default | Tone Studio control | Values | App |
 |---|---|---|---|---|---|---|---|
-| `20 00 1D 4F` | DC30_SELECT | 1 | 0–1 | 0 | TYPE (modfx-dc30) | 0 CHORUS, 1 ECHO |  |
-| `20 00 1D 50` | DC30_INPUT_VOLUME | 1 | 0–100 | 50 | INPUT VOLUME (modfx-dc30) |  |  |
-| `20 00 1D 51` | DC30_CHORUS_INTENSITY | 1 | 0–100 | 50 | CHORUS INTENSITY (modfx-dc30) |  |  |
-| `20 00 1D 52` | DC30_ECHO_REPEAT_RATE | 4 (nibbles) | 40–600 | 400 | ECHO REPEAT RATE (modfx-dc30) | 40 ms … 600 ms |  |
-| `20 00 1D 56` | DC30_ECHO_INTENSISTY | 1 | 0–100 | 50 | ECHO INTENSITY (modfx-dc30) |  |  |
-| `20 00 1D 57` | DC30_ECHO_VOLUME | 1 | 0–100 | 100 | ECHO VOLUME (modfx-dc30) |  |  |
-| `20 00 1D 58` | DC30_TONE | 1 | 0–100 | 50 | TONE (modfx-dc30) |  |  |
-| `20 00 1D 59` | DC30_OUTPUT | 1 | 0–1 | 0 | OUTPUT (modfx-dc30) | 0 D+E, 1 D/E |  |
+| `20 00 1D 4F` | DC30_SELECT | 1 | 0–1 | 0 | TYPE (modfx-dc30) | 0 CHORUS, 1 ECHO | `mod1-dc30-select`, `mod2-dc30-select` (FX_DETAIL(2)), `mod3-dc30-select` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 50` | DC30_INPUT_VOLUME | 1 | 0–100 | 50 | INPUT VOLUME (modfx-dc30) |  | `mod1-dc30-input-volume`, `mod2-dc30-input-volume` (FX_DETAIL(2)), `mod3-dc30-input-volume` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 51` | DC30_CHORUS_INTENSITY | 1 | 0–100 | 50 | CHORUS INTENSITY (modfx-dc30) |  | `mod1-dc30-chorus-intensity`, `mod2-dc30-chorus-intensity` (FX_DETAIL(2)), `mod3-dc30-chorus-intensity` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 52` | DC30_ECHO_REPEAT_RATE | 4 (nibbles) | 40–600 | 400 | ECHO REPEAT RATE (modfx-dc30) | 40 ms … 600 ms | `mod1-dc30-echo-repeat-rate`, `mod2-dc30-echo-repeat-rate` (FX_DETAIL(2)), `mod3-dc30-echo-repeat-rate` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 56` | DC30_ECHO_INTENSISTY | 1 | 0–100 | 50 | ECHO INTENSITY (modfx-dc30) |  | `mod1-dc30-echo-intensisty`, `mod2-dc30-echo-intensisty` (FX_DETAIL(2)), `mod3-dc30-echo-intensisty` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 57` | DC30_ECHO_VOLUME | 1 | 0–100 | 100 | ECHO VOLUME (modfx-dc30) |  | `mod1-dc30-echo-volume`, `mod2-dc30-echo-volume` (FX_DETAIL(2)), `mod3-dc30-echo-volume` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 58` | DC30_TONE | 1 | 0–100 | 50 | TONE (modfx-dc30) |  | `mod1-dc30-tone`, `mod2-dc30-tone` (FX_DETAIL(2)), `mod3-dc30-tone` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 59` | DC30_OUTPUT | 1 | 0–1 | 0 | OUTPUT (modfx-dc30) | 0 D+E, 1 D/E | `mod1-dc30-output`, `mod2-dc30-output` (FX_DETAIL(2)), `mod3-dc30-output` (FX_DETAIL(3)) +3 more |
 
 ### 29 HEAVY OCTAVE
 
 | Address | Setting | Bytes | Range | Default | Tone Studio control | Values | App |
 |---|---|---|---|---|---|---|---|
-| `20 00 1D 5A` | HEAVYOCTAVE_1OCT_LEVEL | 1 | 0–100 | 50 | 1OCT LEVEL (modfx-heavyoct) |  |  |
-| `20 00 1D 5B` | HEAVYOCTAVE_2OCT_LEVEL | 1 | 0–100 | 0 | 2OCT LEVEL (modfx-heavyoct) |  |  |
-| `20 00 1D 5C` | HEAVYOCTAVE_DIRECT_MIX | 1 | 0–100 | 100 | DIRECT MIX (modfx-heavyoct) |  |  |
+| `20 00 1D 5A` | HEAVYOCTAVE_1OCT_LEVEL | 1 | 0–100 | 50 | 1OCT LEVEL (modfx-heavyoct) |  | `mod1-heavyoctave-1oct-level`, `mod2-heavyoctave-1oct-level` (FX_DETAIL(2)), `mod3-heavyoctave-1oct-level` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 5B` | HEAVYOCTAVE_2OCT_LEVEL | 1 | 0–100 | 0 | 2OCT LEVEL (modfx-heavyoct) |  | `mod1-heavyoctave-2oct-level`, `mod2-heavyoctave-2oct-level` (FX_DETAIL(2)), `mod3-heavyoctave-2oct-level` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 5C` | HEAVYOCTAVE_DIRECT_MIX | 1 | 0–100 | 100 | DIRECT MIX (modfx-heavyoct) |  | `mod1-heavyoctave-direct-mix`, `mod2-heavyoctave-direct-mix` (FX_DETAIL(2)), `mod3-heavyoctave-direct-mix` (FX_DETAIL(3)) +3 more |
 
 ### 30 PEDAL BEND
 
 | Address | Setting | Bytes | Range | Default | Tone Studio control | Values | App |
 |---|---|---|---|---|---|---|---|
-| `20 00 1D 5D` | BEND_PITCH | 1 | -24–24 (raw 0–48) | 12 | PITCH (modfx-pedalbend) | -24 … +24 |  |
-| `20 00 1D 5E` | BEND_PEDAL_POS | 1 | 0–100 | 50 | PEDAL POS (modfx-pedalbend) |  |  |
-| `20 00 1D 5F` | BEND_EFFECT_LEVEL | 1 | 0–100 | 100 | EFFECT LEVEL (modfx-pedalbend) |  |  |
-| `20 00 1D 60` | BEND_DIRECT_MIX | 1 | 0–100 | 0 | DIRECT MIX (modfx-pedalbend) |  |  |
+| `20 00 1D 5D` | BEND_PITCH | 1 | -24–24 (raw 0–48) | 12 | PITCH (modfx-pedalbend) | -24 … +24 | `mod1-bend-pitch`, `mod2-bend-pitch` (FX_DETAIL(2)), `mod3-bend-pitch` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 5E` | BEND_PEDAL_POS | 1 | 0–100 | 50 | PEDAL POS (modfx-pedalbend) |  | `mod1-bend-pedal-pos`, `mod2-bend-pedal-pos` (FX_DETAIL(2)), `mod3-bend-pedal-pos` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 5F` | BEND_EFFECT_LEVEL | 1 | 0–100 | 100 | EFFECT LEVEL (modfx-pedalbend) |  | `mod1-bend-effect-level`, `mod2-bend-effect-level` (FX_DETAIL(2)), `mod3-bend-effect-level` (FX_DETAIL(3)) +3 more |
+| `20 00 1D 60` | BEND_DIRECT_MIX | 1 | 0–100 | 0 | DIRECT MIX (modfx-pedalbend) |  | `mod1-bend-direct-mix`, `mod2-bend-direct-mix` (FX_DETAIL(2)), `mod3-bend-direct-mix` (FX_DETAIL(3)) +3 more |
 
 ## Patch: delay and reverb
 
@@ -611,20 +611,20 @@ Addresses below are for DELAY(1); other instances: DELAY(2) `20 00 2A 00`, DELAY
 
 | Address | Setting | Bytes | Range | Default | Tone Studio control | Values | App |
 |---|---|---|---|---|---|---|---|
-| `20 00 28 00` | TYPE | 1 | 0–7 | 0 | (editor-effects-delay); (editor-effects-reverb); DELAY TYPE (delay-delay1-type) … | 0 DIGITAL, 1 PAN, 2 STEREO, 3 ANALOG, 4 TAPE ECHO, 5 REVERSE, 6 MODULATE, 7 SDE-3000 |  |
-| `20 00 28 01` | TIME | 4 (nibbles) | 1–2000 | 400 | (panel-delay-tap); (panel-delay2-tap); DELAY TIME (delay-delay) … | 1 ms … 2000 ms | `delay1-time`, `delay2-time` (DELAY(2)), `delay3-time` (DELAY(3)) |
-| `20 00 28 05` | FEEDBACK | 1 | 0–100 | 22 | FEEDBACK (delay-delay); FEEDBACK (delay-pan); FEEDBACK (delay-modulate) … |  | `delay1-feedback`, `delay2-feedback` (DELAY(2)), `delay3-feedback` (DELAY(3)) |
-| `20 00 28 06` | HIGH_CUT | 1 | 0–14 | 10 | HIGH CUT (delay-delay); HIGH CUT (delay-pan); HIGH CUT (delay-modulate) | L5: 630 Hz … FLAT (15 steps) |  |
-| `20 00 28 07` | EFFECT_LEVEL | 1 | 0–120 | 50 | EFFECT LEVEL (delay-delay); EFFECT LEVEL (delay-pan); EFFECT LEVEL (delay-modulate) … |  | `delay1-level`, `delay2-level` (DELAY(2)), `delay3-level` (DELAY(3)) |
-| `20 00 28 08` | DIRECT_LEVEL | 1 | 0–100 | 100 | DIRECT MIX (delay-delay); DIRECT MIX (delay-pan); DIRECT MIX (delay-modulate) … |  |  |
-| `20 00 28 09` | TAP_TIME | 1 | 0–100 | 50 | TAP TIME (delay-pan) | 0 % … 100 % |  |
-| `20 00 28 0A` | MOD_RATE | 1 | 0–100 | 40 | MOD RATE (delay-modulate); MOD RATE (delay-sde3000) |  |  |
-| `20 00 28 0B` | MOD_DEPTH | 1 | 0–100 | 55 | MOD DEPTH (delay-modulate); MOD DEPTH (delay-sde3000) |  |  |
-| `20 00 28 0C` | LPF | 1 | 0–1 | 1 | RANGE (delay-sde3000) | 0 8kHz, 1 17kHz |  |
-| `20 00 28 0D` | FILTER | 1 | 0–1 | 0 | FILTER (delay-sde3000) | 0 OFF, 1 ON |  |
-| `20 00 28 0E` | FEEDBACK_PHASE | 1 | 0–1 | 0 | FEEDBACK PHASE (delay-sde3000) | 0 NORMAL, 1 INVERSE |  |
-| `20 00 28 0F` | DELAY_PHASE | 1 | 0–1 | 0 | DELAY PHASE (delay-sde3000) | 0 NORMAL, 1 INVERSE |  |
-| `20 00 28 10` | MOD_SW | 1 | 0–1 | 0 | MOD SW (delay-sde3000) | 0 OFF, 1 ON |  |
+| `20 00 28 00` | TYPE | 1 | 0–7 | 0 | (editor-effects-delay); (editor-effects-reverb); DELAY TYPE (delay-delay1-type) … | 0 DIGITAL, 1 PAN, 2 STEREO, 3 ANALOG, 4 TAPE ECHO, 5 REVERSE, 6 MODULATE, 7 SDE-3000 | `delay1-type`, `delay2-type` (DELAY(2)), `delay3-type` (DELAY(3)) +3 more |
+| `20 00 28 01` | TIME | 4 (nibbles) | 1–2000 | 400 | (panel-delay-tap); (panel-delay2-tap); DELAY TIME (delay-delay) … | 1 ms … 2000 ms | `delay1-time`, `delay2-time` (DELAY(2)), `delay3-time` (DELAY(3)) +3 more |
+| `20 00 28 05` | FEEDBACK | 1 | 0–100 | 22 | FEEDBACK (delay-delay); FEEDBACK (delay-pan); FEEDBACK (delay-modulate) … |  | `delay1-feedback`, `delay2-feedback` (DELAY(2)), `delay3-feedback` (DELAY(3)) +3 more |
+| `20 00 28 06` | HIGH_CUT | 1 | 0–14 | 10 | HIGH CUT (delay-delay); HIGH CUT (delay-pan); HIGH CUT (delay-modulate) | L5: 630 Hz … FLAT (15 steps) | `delay1-high-cut`, `delay2-high-cut` (DELAY(2)), `delay3-high-cut` (DELAY(3)) +3 more |
+| `20 00 28 07` | EFFECT_LEVEL | 1 | 0–120 | 50 | EFFECT LEVEL (delay-delay); EFFECT LEVEL (delay-pan); EFFECT LEVEL (delay-modulate) … |  | `delay1-level`, `delay2-level` (DELAY(2)), `delay3-level` (DELAY(3)) +3 more |
+| `20 00 28 08` | DIRECT_LEVEL | 1 | 0–100 | 100 | DIRECT MIX (delay-delay); DIRECT MIX (delay-pan); DIRECT MIX (delay-modulate) … |  | `delay1-direct-level`, `delay2-direct-level` (DELAY(2)), `delay3-direct-level` (DELAY(3)) +3 more |
+| `20 00 28 09` | TAP_TIME | 1 | 0–100 | 50 | TAP TIME (delay-pan) | 0 % … 100 % | `delay1-tap-time`, `delay2-tap-time` (DELAY(2)), `delay3-tap-time` (DELAY(3)) +3 more |
+| `20 00 28 0A` | MOD_RATE | 1 | 0–100 | 40 | MOD RATE (delay-modulate); MOD RATE (delay-sde3000) |  | `delay1-mod-rate`, `delay2-mod-rate` (DELAY(2)), `delay3-mod-rate` (DELAY(3)) +3 more |
+| `20 00 28 0B` | MOD_DEPTH | 1 | 0–100 | 55 | MOD DEPTH (delay-modulate); MOD DEPTH (delay-sde3000) |  | `delay1-mod-depth`, `delay2-mod-depth` (DELAY(2)), `delay3-mod-depth` (DELAY(3)) +3 more |
+| `20 00 28 0C` | LPF | 1 | 0–1 | 1 | RANGE (delay-sde3000) | 0 8kHz, 1 17kHz | `delay1-lpf`, `delay2-lpf` (DELAY(2)), `delay3-lpf` (DELAY(3)) +3 more |
+| `20 00 28 0D` | FILTER | 1 | 0–1 | 0 | FILTER (delay-sde3000) | 0 OFF, 1 ON | `delay1-filter`, `delay2-filter` (DELAY(2)), `delay3-filter` (DELAY(3)) +3 more |
+| `20 00 28 0E` | FEEDBACK_PHASE | 1 | 0–1 | 0 | FEEDBACK PHASE (delay-sde3000) | 0 NORMAL, 1 INVERSE | `delay1-feedback-phase`, `delay2-feedback-phase` (DELAY(2)), `delay3-feedback-phase` (DELAY(3)) +3 more |
+| `20 00 28 0F` | DELAY_PHASE | 1 | 0–1 | 0 | DELAY PHASE (delay-sde3000) | 0 NORMAL, 1 INVERSE | `delay1-delay-phase`, `delay2-delay-phase` (DELAY(2)), `delay3-delay-phase` (DELAY(3)) +3 more |
+| `20 00 28 10` | MOD_SW | 1 | 0–1 | 0 | MOD SW (delay-sde3000) | 0 OFF, 1 ON | `delay1-mod-sw`, `delay2-mod-sw` (DELAY(2)), `delay3-mod-sw` (DELAY(3)) +3 more |
 
 ### REVERB
 
@@ -634,16 +634,16 @@ Addresses below are for REVERB(1); other instances: REVERB(2) `20 00 36 00`, REV
 
 | Address | Setting | Bytes | Range | Default | Tone Studio control | Values | App |
 |---|---|---|---|---|---|---|---|
-| `20 00 34 00` | TYPE | 1 | 0–4 | 1 | REVERB TYPE (editor-reverb-content); (editor-effects-reverb) | 0 PLATE, 1 ROOM, 2 HALL, 3 SPRING, 4 MODULATE |  |
-| `20 00 34 01` | LAYER_MODE | 1 | 0–2 | 2 | (editor-effects-reverb) | 0 DELAY, 1 DLY+REV, 2 REVERB |  |
-| `20 00 34 02` | TIME | 1 | 1–100 (raw 0–99) | 30 | REVERB TIME (reverb-reverb); REVERB TIME (reverb-spring) | 0.1 s … 10.0 s |  |
-| `20 00 34 03` | PRE_DELAY | 4 (nibbles) | 0–500 | 10 | PRE DELAY (reverb-reverb); PRE DELAY (reverb-spring) | 0 ms … 500 ms |  |
-| `20 00 34 07` | LOW_CUT | 1 | 0–17 | 14 | LOW CUT (reverb-reverb); LOW CUT (reverb-spring) | L3: FLAT … 800 Hz (18 steps) |  |
-| `20 00 34 08` | HIGH_CUT | 1 | 0–14 | 8 | HIGH CUT (reverb-reverb); HIGH CUT (reverb-spring) | L5: 630 Hz … FLAT (15 steps) |  |
-| `20 00 34 09` | DENSITY | 1 | 0–10 | 8 | DENSITY (reverb-reverb); DENSITY (reverb-spring) |  |  |
+| `20 00 34 00` | TYPE | 1 | 0–4 | 1 | REVERB TYPE (editor-reverb-content); (editor-effects-reverb) | 0 PLATE, 1 ROOM, 2 HALL, 3 SPRING, 4 MODULATE | `reverb1-type`, `reverb2-type` (REVERB(2)), `reverb3-type` (REVERB(3)) |
+| `20 00 34 01` | LAYER_MODE | 1 | 0–2 | 2 | (editor-effects-reverb) | 0 DELAY, 1 DLY+REV, 2 REVERB | `reverb1-layer-mode`, `reverb2-layer-mode` (REVERB(2)), `reverb3-layer-mode` (REVERB(3)) |
+| `20 00 34 02` | TIME | 1 | 1–100 (raw 0–99) | 30 | REVERB TIME (reverb-reverb); REVERB TIME (reverb-spring) | 0.1 s … 10.0 s | `reverb1-time`, `reverb2-time` (REVERB(2)), `reverb3-time` (REVERB(3)) |
+| `20 00 34 03` | PRE_DELAY | 4 (nibbles) | 0–500 | 10 | PRE DELAY (reverb-reverb); PRE DELAY (reverb-spring) | 0 ms … 500 ms | `reverb1-pre-delay`, `reverb2-pre-delay` (REVERB(2)), `reverb3-pre-delay` (REVERB(3)) |
+| `20 00 34 07` | LOW_CUT | 1 | 0–17 | 14 | LOW CUT (reverb-reverb); LOW CUT (reverb-spring) | L3: FLAT … 800 Hz (18 steps) | `reverb1-low-cut`, `reverb2-low-cut` (REVERB(2)), `reverb3-low-cut` (REVERB(3)) |
+| `20 00 34 08` | HIGH_CUT | 1 | 0–14 | 8 | HIGH CUT (reverb-reverb); HIGH CUT (reverb-spring) | L5: 630 Hz … FLAT (15 steps) | `reverb1-high-cut`, `reverb2-high-cut` (REVERB(2)), `reverb3-high-cut` (REVERB(3)) |
+| `20 00 34 09` | DENSITY | 1 | 0–10 | 8 | DENSITY (reverb-reverb); DENSITY (reverb-spring) |  | `reverb1-density`, `reverb2-density` (REVERB(2)), `reverb3-density` (REVERB(3)) |
 | `20 00 34 0A` | EFFECT_LEVEL | 1 | 0–100 | 35 | EFFECT LEVEL (reverb-reverb); EFFECT LEVEL (reverb-spring) |  | `reverb1-level`, `reverb2-level` (REVERB(2)), `reverb3-level` (REVERB(3)) |
-| `20 00 34 0B` | DIRECT_LEVEL | 1 | 0–100 | 100 | DIRECT MIX (reverb-reverb); DIRECT MIX (reverb-spring) |  |  |
-| `20 00 34 0C` | SPRING_COLOR | 1 | 0–100 | 100 | COLOR (reverb-spring) |  |  |
+| `20 00 34 0B` | DIRECT_LEVEL | 1 | 0–100 | 100 | DIRECT MIX (reverb-reverb); DIRECT MIX (reverb-spring) |  | `reverb1-direct-level`, `reverb2-direct-level` (REVERB(2)), `reverb3-direct-level` (REVERB(3)) |
+| `20 00 34 0C` | SPRING_COLOR | 1 | 0–100 | 100 | COLOR (reverb-spring) |  | `reverb1-spring-color`, `reverb2-spring-color` (REVERB(2)), `reverb3-spring-color` (REVERB(3)) |
 
 ## Patch: solo, contour, pedal FX, EQ, noise suppressor, send/return
 
@@ -654,7 +654,7 @@ Solo on/off and level
 | Address | Setting | Bytes | Range | Default | Tone Studio control | Values | App |
 |---|---|---|---|---|---|---|---|
 | `20 00 3A 00` | SW | 1 | 0–1 | 0 | (editor-solo); SOLO (panel-solo) |  | `solo-sw` |
-| `20 00 3A 01` | EFFECT_LEVEL | 1 | 0–100 | 50 | LEVEL (solo-content); SOLO (panel-solo); LEVEL (panel-solo) |  |  |
+| `20 00 3A 01` | EFFECT_LEVEL | 1 | 0–100 | 50 | LEVEL (solo-content); SOLO (panel-solo); LEVEL (panel-solo) |  | `solo-effect-level` |
 
 ### SOLO_EQ
 
@@ -662,16 +662,16 @@ Solo EQ
 
 | Address | Setting | Bytes | Range | Default | Tone Studio control | Values | App |
 |---|---|---|---|---|---|---|---|
-| `20 00 3C 00` | POSITION | 1 | 0–1 | 0 | (editor-solo) | 0 AMP IN, 1 AMP OUT |  |
-| `20 00 3C 01` | SW | 1 | 0–1 | 0 | (editor-solo) |  |  |
-| `20 00 3C 02` | LOW_CUT | 1 | 0–17 | 0 | LOW CUT (solo-content) | L3: FLAT … 800 Hz (18 steps) |  |
-| `20 00 3C 03` | LOW_GAIN | 1 | -24–24 (raw 0–48) | 0 | LOW GAIN (solo-content) | -12.0 dB … +12.0 dB |  |
-| `20 00 3C 04` | MID_FREQ | 1 | 0–27 | 13 | MID FREQ (solo-content) | L4: 20.0 Hz … 10.0 kHz (28 steps) |  |
-| `20 00 3C 05` | MID_Q | 1 | 0–5 | 1 | MID Q (solo-content) | 0 0.5, 1 1, 2 2, 3 4, 4 8, 5 16 |  |
-| `20 00 3C 06` | MID_GAIN | 1 | -24–24 (raw 0–48) | 0 | MID GAIN (solo-content) | -12.0 dB … +12.0 dB |  |
-| `20 00 3C 07` | HIGH_GAIN | 1 | -24–24 (raw 0–48) | 0 | HIGH GAIN (solo-content) | -12.0 dB … +12.0 dB |  |
-| `20 00 3C 08` | HIGH_CUT | 1 | 0–14 | 14 | HIGH CUT (solo-content) | L5: 630 Hz … FLAT (15 steps) |  |
-| `20 00 3C 09` | LEVEL | 1 | -24–24 (raw 0–48) | 0 | LEVEL (solo-content) | -12.0 dB … +12.0 dB |  |
+| `20 00 3C 00` | POSITION | 1 | 0–1 | 0 | (editor-solo) | 0 AMP IN, 1 AMP OUT | `soloeq-position` |
+| `20 00 3C 01` | SW | 1 | 0–1 | 0 | (editor-solo) |  | `soloeq-sw` |
+| `20 00 3C 02` | LOW_CUT | 1 | 0–17 | 0 | LOW CUT (solo-content) | L3: FLAT … 800 Hz (18 steps) | `soloeq-low-cut` |
+| `20 00 3C 03` | LOW_GAIN | 1 | -24–24 (raw 0–48) | 0 | LOW GAIN (solo-content) | -12.0 dB … +12.0 dB | `soloeq-low-gain` |
+| `20 00 3C 04` | MID_FREQ | 1 | 0–27 | 13 | MID FREQ (solo-content) | L4: 20.0 Hz … 10.0 kHz (28 steps) | `soloeq-mid-freq` |
+| `20 00 3C 05` | MID_Q | 1 | 0–5 | 1 | MID Q (solo-content) | 0 0.5, 1 1, 2 2, 3 4, 4 8, 5 16 | `soloeq-mid-q` |
+| `20 00 3C 06` | MID_GAIN | 1 | -24–24 (raw 0–48) | 0 | MID GAIN (solo-content) | -12.0 dB … +12.0 dB | `soloeq-mid-gain` |
+| `20 00 3C 07` | HIGH_GAIN | 1 | -24–24 (raw 0–48) | 0 | HIGH GAIN (solo-content) | -12.0 dB … +12.0 dB | `soloeq-high-gain` |
+| `20 00 3C 08` | HIGH_CUT | 1 | 0–14 | 14 | HIGH CUT (solo-content) | L5: 630 Hz … FLAT (15 steps) | `soloeq-high-cut` |
+| `20 00 3C 09` | LEVEL | 1 | -24–24 (raw 0–48) | 0 | LEVEL (solo-content) | -12.0 dB … +12.0 dB | `soloeq-level` |
 
 ### SOLO_DELAY
 
@@ -707,8 +707,8 @@ Addresses below are for CONTOUR(1); other instances: CONTOUR(2) `20 00 44 00`, C
 
 | Address | Setting | Bytes | Range | Default | Tone Studio control | Values | App |
 |---|---|---|---|---|---|---|---|
-| `20 00 42 00` | TYPE | 1 | 0–3 | 0 | TYPE (editor-contour) | 1 … 4 |  |
-| `20 00 42 01` | FREQ_SHIFT | 1 | -50–50 (raw 0–100) | 0 | FREQ SHIFT (editor-contour) |  |  |
+| `20 00 42 00` | TYPE | 1 | 0–3 | 0 | TYPE (editor-contour) | 1 … 4 | `contour1-type`, `contour2-type` (CONTOUR(2)), `contour3-type` (CONTOUR(3)) |
+| `20 00 42 01` | FREQ_SHIFT | 1 | -50–50 (raw 0–100) | 0 | FREQ SHIFT (editor-contour) |  | `contour1-freq-shift`, `contour2-freq-shift` (CONTOUR(2)), `contour3-freq-shift` (CONTOUR(3)) |
 
 ### PEDALFX_COM
 
@@ -750,9 +750,9 @@ Addresses below are for EQ_EACH(1); other instances: EQ_EACH(2) `20 00 4E 00`.
 
 | Address | Setting | Bytes | Range | Default | Tone Studio control | Values | App |
 |---|---|---|---|---|---|---|---|
-| `20 00 4C 00` | POSITION | 1 | 0–1 | 0 | POSITION (editor-eq); POSITION (editor-eq2) | 0 AMP IN, 1 AMP OUT |  |
-| `20 00 4C 01` | SW | 1 | 0–1 | 0 | (editor-eq); (editor-eq2) |  |  |
-| `20 00 4C 02` | TYPE | 1 | 0–1 | 0 | TYPE (editor-eq); TYPE (editor-eq2) | 0 PARAMETRIC EQ, 1 GE-10 |  |
+| `20 00 4C 00` | POSITION | 1 | 0–1 | 0 | POSITION (editor-eq); POSITION (editor-eq2) | 0 AMP IN, 1 AMP OUT | `eq1-position`, `eq2-position` (EQ_EACH(2)) |
+| `20 00 4C 01` | SW | 1 | 0–1 | 0 | (editor-eq); (editor-eq2) |  | `eq1-sw`, `eq2-sw` (EQ_EACH(2)) |
+| `20 00 4C 02` | TYPE | 1 | 0–1 | 0 | TYPE (editor-eq); TYPE (editor-eq2) | 0 PARAMETRIC EQ, 1 GE-10 | `eq1-type`, `eq2-type` (EQ_EACH(2)) |
 
 ### EQ_PEQ
 
@@ -762,17 +762,17 @@ Addresses below are for EQ_PEQ(1); other instances: EQ_PEQ(2) `20 00 52 00`.
 
 | Address | Setting | Bytes | Range | Default | Tone Studio control | Values | App |
 |---|---|---|---|---|---|---|---|
-| `20 00 50 00` | LOW_CUT | 1 | 0–17 | 0 | LOW CUT (eq-peq); LOW CUT (eq2-peq) | L3: FLAT … 800 Hz (18 steps) |  |
-| `20 00 50 01` | LOW_GAIN | 1 | -20–20 (raw 0–40) | 0 | LOW GAIN (eq-peq); LOW GAIN (eq2-peq) | -20 dB … +20 dB |  |
-| `20 00 50 02` | LOWMID_FREQ | 1 | 0–27 | 14 | LOW-MID FREQ (eq-peq); LOW-MID FREQ (eq2-peq) | L4: 20.0 Hz … 10.0 kHz (28 steps) |  |
-| `20 00 50 03` | LOWMID_Q | 1 | 0–5 | 1 | LOW-MID Q (eq-peq); LOW-MID Q (eq2-peq) | 0 0.5, 1 1, 2 2, 3 4, 4 8, 5 16 |  |
-| `20 00 50 04` | LOWMID_GAIN | 1 | -20–20 (raw 0–40) | 0 | LOW-MID GAIN (eq-peq); LOW-MID GAIN (eq2-peq) | -20 dB … +20 dB |  |
-| `20 00 50 05` | HIGHMID_FREQ | 1 | 0–27 | 23 | HIGH-MID FREQ (eq-peq); HIGH-MID FREQ (eq2-peq) | L4: 20.0 Hz … 10.0 kHz (28 steps) |  |
-| `20 00 50 06` | HIGHMID_Q | 1 | 0–5 | 1 | HIGH-MID Q (eq-peq); HIGH-MID Q (eq2-peq) | 0 0.5, 1 1, 2 2, 3 4, 4 8, 5 16 |  |
-| `20 00 50 07` | HIGHMID_GAIN | 1 | -20–20 (raw 0–40) | 0 | HIGH-MID GAIN (eq-peq); HIGH-MID GAIN (eq2-peq) | -20 dB … +20 dB |  |
-| `20 00 50 08` | HIGH_GAIN | 1 | -20–20 (raw 0–40) | 0 | HIGH GAIN (eq-peq); HIGH GAIN (eq2-peq) | -20 dB … +20 dB |  |
-| `20 00 50 09` | HIGH_CUT | 1 | 0–14 | 14 | HIGH CUT (eq-peq); HIGH CUT (eq2-peq) | L5: 630 Hz … FLAT (15 steps) |  |
-| `20 00 50 0A` | LEVEL | 1 | -20–20 (raw 0–40) | 0 | LEVEL (eq-peq); LEVEL (eq2-peq) | -20 dB … +20 dB |  |
+| `20 00 50 00` | LOW_CUT | 1 | 0–17 | 0 | LOW CUT (eq-peq); LOW CUT (eq2-peq) | L3: FLAT … 800 Hz (18 steps) | `peq1-low-cut`, `peq2-low-cut` (EQ_PEQ(2)) |
+| `20 00 50 01` | LOW_GAIN | 1 | -20–20 (raw 0–40) | 0 | LOW GAIN (eq-peq); LOW GAIN (eq2-peq) | -20 dB … +20 dB | `peq1-low-gain`, `peq2-low-gain` (EQ_PEQ(2)) |
+| `20 00 50 02` | LOWMID_FREQ | 1 | 0–27 | 14 | LOW-MID FREQ (eq-peq); LOW-MID FREQ (eq2-peq) | L4: 20.0 Hz … 10.0 kHz (28 steps) | `peq1-lowmid-freq`, `peq2-lowmid-freq` (EQ_PEQ(2)) |
+| `20 00 50 03` | LOWMID_Q | 1 | 0–5 | 1 | LOW-MID Q (eq-peq); LOW-MID Q (eq2-peq) | 0 0.5, 1 1, 2 2, 3 4, 4 8, 5 16 | `peq1-lowmid-q`, `peq2-lowmid-q` (EQ_PEQ(2)) |
+| `20 00 50 04` | LOWMID_GAIN | 1 | -20–20 (raw 0–40) | 0 | LOW-MID GAIN (eq-peq); LOW-MID GAIN (eq2-peq) | -20 dB … +20 dB | `peq1-lowmid-gain`, `peq2-lowmid-gain` (EQ_PEQ(2)) |
+| `20 00 50 05` | HIGHMID_FREQ | 1 | 0–27 | 23 | HIGH-MID FREQ (eq-peq); HIGH-MID FREQ (eq2-peq) | L4: 20.0 Hz … 10.0 kHz (28 steps) | `peq1-highmid-freq`, `peq2-highmid-freq` (EQ_PEQ(2)) |
+| `20 00 50 06` | HIGHMID_Q | 1 | 0–5 | 1 | HIGH-MID Q (eq-peq); HIGH-MID Q (eq2-peq) | 0 0.5, 1 1, 2 2, 3 4, 4 8, 5 16 | `peq1-highmid-q`, `peq2-highmid-q` (EQ_PEQ(2)) |
+| `20 00 50 07` | HIGHMID_GAIN | 1 | -20–20 (raw 0–40) | 0 | HIGH-MID GAIN (eq-peq); HIGH-MID GAIN (eq2-peq) | -20 dB … +20 dB | `peq1-highmid-gain`, `peq2-highmid-gain` (EQ_PEQ(2)) |
+| `20 00 50 08` | HIGH_GAIN | 1 | -20–20 (raw 0–40) | 0 | HIGH GAIN (eq-peq); HIGH GAIN (eq2-peq) | -20 dB … +20 dB | `peq1-high-gain`, `peq2-high-gain` (EQ_PEQ(2)) |
+| `20 00 50 09` | HIGH_CUT | 1 | 0–14 | 14 | HIGH CUT (eq-peq); HIGH CUT (eq2-peq) | L5: 630 Hz … FLAT (15 steps) | `peq1-high-cut`, `peq2-high-cut` (EQ_PEQ(2)) |
+| `20 00 50 0A` | LEVEL | 1 | -20–20 (raw 0–40) | 0 | LEVEL (eq-peq); LEVEL (eq2-peq) | -20 dB … +20 dB | `peq1-level`, `peq2-level` (EQ_PEQ(2)) |
 
 ### EQ_GE10
 
@@ -782,17 +782,17 @@ Addresses below are for EQ_GE10(1); other instances: EQ_GE10(2) `20 00 56 00`.
 
 | Address | Setting | Bytes | Range | Default | Tone Studio control | Values | App |
 |---|---|---|---|---|---|---|---|
-| `20 00 54 00` | 31Hz | 1 | -24–24 (raw 0–48) | 0 | 31Hz (eq-geq); 31Hz (eq2-geq) | -12.0 dB … +12.0 dB |  |
-| `20 00 54 01` | 62Hz | 1 | -24–24 (raw 0–48) | 0 | 62Hz (eq-geq); 62Hz (eq2-geq) | -12.0 dB … +12.0 dB |  |
-| `20 00 54 02` | 125Hz | 1 | -24–24 (raw 0–48) | 0 | 125Hz (eq-geq); 125Hz (eq2-geq) | -12.0 dB … +12.0 dB |  |
-| `20 00 54 03` | 250Hz | 1 | -24–24 (raw 0–48) | 0 | 250Hz (eq-geq); 250Hz (eq2-geq) | -12.0 dB … +12.0 dB |  |
-| `20 00 54 04` | 500Hz | 1 | -24–24 (raw 0–48) | 0 | 500Hz (eq-geq); 500Hz (eq2-geq) | -12.0 dB … +12.0 dB |  |
-| `20 00 54 05` | 1kHz | 1 | -24–24 (raw 0–48) | 0 | 1kHz (eq-geq); 1kHz (eq2-geq) | -12.0 dB … +12.0 dB |  |
-| `20 00 54 06` | 2kHz | 1 | -24–24 (raw 0–48) | 0 | 2kHz (eq-geq); 2kHz (eq2-geq) | -12.0 dB … +12.0 dB |  |
-| `20 00 54 07` | 4kHz | 1 | -24–24 (raw 0–48) | 0 | 4kHz (eq-geq); 4kHz (eq2-geq) | -12.0 dB … +12.0 dB |  |
-| `20 00 54 08` | 8kHz | 1 | -24–24 (raw 0–48) | 0 | 8kHz (eq-geq); 8kHz (eq2-geq) | -12.0 dB … +12.0 dB |  |
-| `20 00 54 09` | 16kHz | 1 | -24–24 (raw 0–48) | 0 | 16kHz (eq-geq); 16kHz (eq2-geq) | -12.0 dB … +12.0 dB |  |
-| `20 00 54 0A` | LEVEL | 1 | -24–24 (raw 0–48) | 0 | LEVEL (eq-geq); LEVEL (eq2-geq) | -12.0 dB … +12.0 dB |  |
+| `20 00 54 00` | 31Hz | 1 | -24–24 (raw 0–48) | 0 | 31Hz (eq-geq); 31Hz (eq2-geq) | -12.0 dB … +12.0 dB | `geq1-31hz`, `geq2-31hz` (EQ_GE10(2)) |
+| `20 00 54 01` | 62Hz | 1 | -24–24 (raw 0–48) | 0 | 62Hz (eq-geq); 62Hz (eq2-geq) | -12.0 dB … +12.0 dB | `geq1-62hz`, `geq2-62hz` (EQ_GE10(2)) |
+| `20 00 54 02` | 125Hz | 1 | -24–24 (raw 0–48) | 0 | 125Hz (eq-geq); 125Hz (eq2-geq) | -12.0 dB … +12.0 dB | `geq1-125hz`, `geq2-125hz` (EQ_GE10(2)) |
+| `20 00 54 03` | 250Hz | 1 | -24–24 (raw 0–48) | 0 | 250Hz (eq-geq); 250Hz (eq2-geq) | -12.0 dB … +12.0 dB | `geq1-250hz`, `geq2-250hz` (EQ_GE10(2)) |
+| `20 00 54 04` | 500Hz | 1 | -24–24 (raw 0–48) | 0 | 500Hz (eq-geq); 500Hz (eq2-geq) | -12.0 dB … +12.0 dB | `geq1-500hz`, `geq2-500hz` (EQ_GE10(2)) |
+| `20 00 54 05` | 1kHz | 1 | -24–24 (raw 0–48) | 0 | 1kHz (eq-geq); 1kHz (eq2-geq) | -12.0 dB … +12.0 dB | `geq1-1khz`, `geq2-1khz` (EQ_GE10(2)) |
+| `20 00 54 06` | 2kHz | 1 | -24–24 (raw 0–48) | 0 | 2kHz (eq-geq); 2kHz (eq2-geq) | -12.0 dB … +12.0 dB | `geq1-2khz`, `geq2-2khz` (EQ_GE10(2)) |
+| `20 00 54 07` | 4kHz | 1 | -24–24 (raw 0–48) | 0 | 4kHz (eq-geq); 4kHz (eq2-geq) | -12.0 dB … +12.0 dB | `geq1-4khz`, `geq2-4khz` (EQ_GE10(2)) |
+| `20 00 54 08` | 8kHz | 1 | -24–24 (raw 0–48) | 0 | 8kHz (eq-geq); 8kHz (eq2-geq) | -12.0 dB … +12.0 dB | `geq1-8khz`, `geq2-8khz` (EQ_GE10(2)) |
+| `20 00 54 09` | 16kHz | 1 | -24–24 (raw 0–48) | 0 | 16kHz (eq-geq); 16kHz (eq2-geq) | -12.0 dB … +12.0 dB | `geq1-16khz`, `geq2-16khz` (EQ_GE10(2)) |
+| `20 00 54 0A` | LEVEL | 1 | -24–24 (raw 0–48) | 0 | LEVEL (eq-geq); LEVEL (eq2-geq) | -12.0 dB … +12.0 dB | `geq1-level`, `geq2-level` (EQ_GE10(2)) |
 
 ### NS
 
