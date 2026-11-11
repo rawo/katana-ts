@@ -80,6 +80,16 @@ enum Command {
         #[arg(long)]
         slot: Option<u8>,
     },
+    /// Write and read back every setting from Tone Studio's tables the app
+    /// has not verified yet, then restore the current sound. Backs it up first.
+    CheckSettings {
+        /// Only this table, e.g. REVERB, DELAY, EQ_GE10.
+        #[arg(long)]
+        table: Option<String>,
+        /// Start without asking.
+        #[arg(long)]
+        yes: bool,
+    },
     /// Set one parameter of the current patch.
     Set { name: String, value: String },
     /// List known parameters with their current values.
@@ -110,6 +120,7 @@ fn main() -> anyhow::Result<()> {
         Command::TslList { file } => cmd::tsl_list::run(&file),
         Command::Load { file } => cmd::load::run(&cli.port, &file),
         Command::Verify { slot } => cmd::verify::run(&cli.port, slot),
+        Command::CheckSettings { table, yes } => cmd::check_settings::run(&cli.port, table.as_deref(), yes),
         Command::Set { name, value } => cmd::set::run(&cli.port, &name, &value),
         Command::Params => cmd::params::run(&cli.port),
         Command::Watch { map, interval_ms } => {

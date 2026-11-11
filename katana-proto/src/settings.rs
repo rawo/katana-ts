@@ -45,6 +45,19 @@ pub(crate) static GENERATED: LazyLock<Vec<ParamDef>> = LazyLock::new(|| {
     out
 });
 
+/// The settings this module adds (not verified on the amp before).
+pub fn generated() -> &'static [ParamDef] {
+    &GENERATED
+}
+
+/// The table whose instance holds this address, e.g. `"DELAY"`.
+pub fn table_of(addr: u32) -> Option<&'static str> {
+    BLOCKS
+        .iter()
+        .find(|b| b.inst.iter().any(|&(_, base)| b.settings.iter().any(|s| base + s.offset == addr)))
+        .map(|b| b.table)
+}
+
 /// The parameter (verified or generated) at a linear address.
 pub fn def_at(addr: u32) -> Option<&'static ParamDef> {
     all_params().iter().find(|p| p.addr == addr)
@@ -82,6 +95,15 @@ mod tests {
                 assert_eq!((g.encoding, g.min, g.max, g.ofs), (p.encoding, p.min, p.max, p.ofs), "{}", p.name);
             }
         }
+    }
+
+    #[test]
+    fn generated_lists_only_new_settings_with_their_table() {
+        assert!(generated().iter().any(|d| d.name == "reverb1-layer-mode"));
+        assert!(generated().iter().all(|d| d.name != "delay1-time" && d.name != "gain"));
+        assert_eq!(table_of(addr([0x20, 0x00, 0x2E, 0x01])), Some("DELAY"));
+        assert_eq!(table_of(addr([0x20, 0x00, 0x56, 0x0A])), Some("EQ_GE10"));
+        assert_eq!(table_of(addr([0x20, 0x00, 0x48, 0x00])), None);
     }
 
     #[test]

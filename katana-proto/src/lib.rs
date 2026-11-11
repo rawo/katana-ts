@@ -5,6 +5,7 @@ pub mod amp;
 pub mod backup;
 pub mod capture;
 pub mod channel;
+pub mod check;
 pub mod checksum;
 pub mod device;
 pub mod error;

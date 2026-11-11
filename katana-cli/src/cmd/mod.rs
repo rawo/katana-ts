@@ -1,3 +1,4 @@
+pub mod check_settings;
 pub mod diff;
 pub mod dump;
 pub mod extract;
