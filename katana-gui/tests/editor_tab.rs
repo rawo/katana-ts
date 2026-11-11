@@ -612,3 +612,40 @@ fn an_unknown_type_value_says_so() {
     h.get_by_label_contains("Unknown type ? (31)");
     assert!(h.query_by_label_contains("No parameters verified").is_none());
 }
+
+/// The tops of the knobs named `labels`, which share one row.
+fn tops(h: &Harness<KatanaApp>, labels: &[&str]) -> Vec<f32> {
+    labels.iter().map(|l| h.get_by_label(l).rect().top()).collect()
+}
+
+#[test]
+fn knobs_in_a_row_are_aligned() {
+    let mut h = harness();
+    select(&mut h, "BOOSTER");
+    let t = tops(&h, &["DRIVE", "BOTTOM", "TONE", "EFFECT LEVEL", "DIRECT MIX"]);
+    assert!(t.iter().all(|&y| (y - t[0]).abs() < 0.5), "booster knob tops: {t:?}");
+    set(&mut h, "delay1-type", 0);
+    select(&mut h, "DELAY");
+    let t = tops(&h, &["DELAY TIME", "FEEDBACK", "HIGH CUT", "EFFECT LEVEL", "DIRECT MIX"]);
+    assert!(t.iter().all(|&y| (y - t[0]).abs() < 0.5), "delay knob tops: {t:?}");
+    set(&mut h, "mod1-type", 3);
+    select(&mut h, "MOD");
+    let t = tops(&h, &["SUSTAIN", "ATTACK", "TONE", "LEVEL"]);
+    assert!(t.iter().all(|&y| (y - t[0]).abs() < 0.5), "COMP knob tops: {t:?}");
+    set(&mut h, "fx1-type", 5);
+    select(&mut h, "FX");
+    let t = tops(&h, &["31Hz", "62Hz", "125Hz", "250Hz", "500Hz"]);
+    assert!(t.iter().all(|&y| (y - t[0]).abs() < 0.5), "GRAPHIC EQ knob tops: {t:?}");
+    set(&mut h, "eq2-type", 0);
+    select(&mut h, "EQ 2");
+    let t = tops(&h, &["LOW-MID FREQ", "LOW-MID Q", "LOW-MID GAIN"]);
+    assert!(t.iter().all(|&y| (y - t[0]).abs() < 0.5), "EQ 2 knob tops: {t:?}");
+    set(&mut h, "eq1-type", 1);
+    select(&mut h, "EQ 1");
+    let t = tops(&h, &["31Hz", "62Hz", "125Hz", "1kHz", "LEVEL"]);
+    assert!(t.iter().all(|&y| (y - t[0]).abs() < 0.5), "EQ 1 fader tops: {t:?}");
+    set(&mut h, "reverb1-type", 0);
+    select(&mut h, "DELAY 2 / REVERB");
+    let t = tops(&h, &["REVERB TIME", "PRE DELAY", "LOW CUT"]);
+    assert!(t.iter().all(|&y| (y - t[0]).abs() < 0.5), "REVERB knob tops: {t:?}");
+}

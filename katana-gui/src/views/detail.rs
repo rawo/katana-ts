@@ -174,7 +174,9 @@ pub(crate) fn settings_list(ui: &mut egui::Ui, app: &mut KatanaApp, panel: Panel
 /// One setting, with a mark when the amp's panel knob also moves it.
 pub(crate) fn control(ui: &mut egui::Ui, app: &mut KatanaApp, c: Control, p: &Palette) {
     let Some(def) = find_param(c.param) else { return };
-    ui.horizontal(|ui| {
+    // Top-aligned: a centred row inside a wrapping row is pushed down as the
+    // wrapping row grows, so knobs would step down one after another.
+    ui.horizontal_top(|ui| {
         ui.spacing_mut().item_spacing.x = 2.0;
         param_control(ui, app, def, c.label, p);
         if c.knob {
