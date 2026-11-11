@@ -1,8 +1,8 @@
 # Project status and handoff
 
-Last updated: 2026-11-11 (full editor round built on `feature/full-editor`; effect colours round merged into `main` and pushed 2026-11-10). Read this first when picking the work up.
+Last updated: 2026-11-11 (full editor round merged into `main` and pushed; next: longer testing on Linux). Read this first when picking the work up.
 
-## Full editor round: built on `feature/full-editor`, waiting for review and the user's check
+## Full editor round: done, merged to `main` and pushed 2026-11-11
 
 Spec `docs/superpowers/specs/2026-11-10-katana-full-editor-design.md`, plan
 `docs/superpowers/plans/2026-11-11-katana-full-editor.md`, ledger (rulings)
@@ -24,7 +24,11 @@ Spec `docs/superpowers/specs/2026-11-10-katana-full-editor-design.md`, plan
   a row; fixed (e7e5571); "All is aligned now" (2026-11-11).
 - **Later, its own round (the user, 2026-11-11):** UI fine-tuning and user experience.
   With this many knobs the editor is becoming overwhelming; needs a design pass.
-- Still to do: rest of the user's hands-on check (Mac, then Linux), merge.
+- The user's sound check on the Mac passed 2026-11-11 (a sample of the settings: "there
+  are so much options now ... that is really good. Now I can do fine tuning of the
+  sounds"). Merged (fast-forward) into `main` and pushed; branch deleted.
+- **Next:** a longer round of testing on the Linux machine with the amp (the user).
+  Then the UX round above. Deferred minors from the review are in the ledger.
 
 ## Effect colours round: done, merged to `main` 2026-11-10
 
