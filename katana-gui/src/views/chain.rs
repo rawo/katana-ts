@@ -1,6 +1,7 @@
 //! The signal chain: one card per block, in processing order.
 
 use eframe::egui::{self, Color32, CornerRadius, Frame, RichText, Role, Sense, Stroke, UiBuilder, Vec2, WidgetInfo};
+use katana_proto::chain::{self, Drop};
 use katana_proto::find_param;
 use katana_proto::layout::{BlockDef, CHAIN};
 use katana_proto::settings::{self, Panel};
@@ -12,24 +13,64 @@ use crate::widgets::on_off_text;
 /// Card content width.
 const CARD_W: f32 = 76.0;
 
+/// The cards in the patch's order (`katana_proto::chain::order`). Dragging
+/// BOOSTER, MOD, FX, DELAY, EQ 1 or EQ 2 lights the spots the amp allows;
+/// dropping on one applies its edit, dropping anywhere else does nothing.
 pub fn chain(ui: &mut egui::Ui, app: &mut KatanaApp, p: &Palette) {
+    let order = chain::order(app.editor.patch());
+    let drops = app.chain_drag.map(|b| (b, chain::drops(app.editor.patch(), b)));
+    let mut spots: Vec<(egui::Rect, Drop)> = Vec::new();
     // Fixed row height, so the IN label and arrows centre on the cards.
     let row = Vec2::new(ui.available_width(), 104.0);
     ui.allocate_ui_with_layout(row, egui::Layout::left_to_right(egui::Align::Center), |ui| {
         ui.spacing_mut().item_spacing.x = 4.0;
         ui.label(RichText::new("IN").color(p.dim));
-        for block in CHAIN {
+        for b in order {
+            let Some(block) = CHAIN.iter().find(|d| d.id == b.id()) else { continue };
             arrow(ui, p);
-            card(ui, app, block, p);
+            if let Some((dragged, ds)) = &drops {
+                if let Some(d) = ds.iter().find(|d| d.before == b) {
+                    let rect = drop_spot(ui, title_of(*dragged), block.title, p);
+                    spots.push((rect, *d));
+                }
+            }
+            card(ui, app, block, b, p);
         }
         arrow(ui, p);
         ui.label(RichText::new("OUT").color(p.dim));
     });
+    if app.chain_drag.is_some() && ui.input(|i| i.pointer.any_released()) {
+        let at = ui.input(|i| i.pointer.interact_pos());
+        if let Some((_, d)) = spots.iter().find(|(r, _)| at.is_some_and(|at| r.expand(4.0).contains(at))) {
+            if let Some(def) = find_param(d.edit.0) {
+                let r = app.edit(def, d.edit.1);
+                debug_assert!(r.is_ok());
+            }
+        }
+        app.chain_drag = None;
+    }
 }
 
-fn card(ui: &mut egui::Ui, app: &mut KatanaApp, block: &'static BlockDef, p: &Palette) {
+fn title_of(b: chain::Block) -> &'static str {
+    CHAIN.iter().find(|d| d.id == b.id()).map_or("", |d| d.title)
+}
+
+/// A lit gap a dragged card can be dropped into.
+fn drop_spot(ui: &mut egui::Ui, dragged: &str, before: &str, p: &Palette) -> egui::Rect {
+    let (rect, r) = ui.allocate_exact_size(Vec2::new(14.0, 64.0), Sense::hover());
+    ui.painter().rect_filled(rect, CornerRadius::same(4), p.accent.gamma_multiply(if r.hovered() { 1.0 } else { 0.5 }));
+    let name = format!("Drop {dragged} before {before}");
+    r.widget_info(|| WidgetInfo::labeled(Role::Button, true, &name));
+    rect
+}
+
+fn card(ui: &mut egui::Ui, app: &mut KatanaApp, block: &'static BlockDef, b: chain::Block, p: &Palette) {
     let selected = app.selected_block == block.id;
-    let scope = ui.scope_builder(UiBuilder::new().sense(Sense::click()), |ui| {
+    let dragged = app.chain_drag == Some(b);
+    let scope = ui.scope_builder(UiBuilder::new().sense(Sense::click_and_drag()), |ui| {
+        if dragged {
+            ui.multiply_opacity(0.5);
+        }
         Frame::new()
             .fill(p.panel)
             .stroke(Stroke::new(1.0, if selected { p.accent } else { p.line }))
@@ -70,6 +111,9 @@ fn card(ui: &mut egui::Ui, app: &mut KatanaApp, block: &'static BlockDef, p: &Pa
     response.widget_info(|| WidgetInfo::selected(Role::Button, true, selected, title));
     if response.clicked() {
         app.selected_block = block.id;
+    }
+    if response.drag_started() && app.amp_idle() && !chain::drops(app.editor.patch(), b).is_empty() {
+        app.chain_drag = Some(b);
     }
 }
 

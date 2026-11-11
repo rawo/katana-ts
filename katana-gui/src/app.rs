@@ -56,6 +56,8 @@ pub struct KatanaApp {
     /// The colour tab picked per block id; a block without one shows the
     /// colour the amp plays. Picking a tab never changes the amp.
     pub panel_color: HashMap<&'static str, u32>,
+    /// The chain card being dragged.
+    pub chain_drag: Option<katana_proto::chain::Block>,
     /// Last failed action, shown in the status line.
     pub error: Option<String>,
     applied_theme: Option<ThemeId>,
@@ -139,6 +141,7 @@ impl KatanaApp {
             theme: ThemeId::Dark,
             selected_block: "booster",
             panel_color: HashMap::new(),
+            chain_drag: None,
             error: (!problems.is_empty()).then(|| problems.join("; ")),
             applied_theme: None,
             pending: None,

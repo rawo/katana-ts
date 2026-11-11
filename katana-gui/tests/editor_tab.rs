@@ -18,7 +18,8 @@ fn get(h: &Harness<KatanaApp>, name: &str) -> Option<u32> {
 
 #[test]
 fn chain_shows_blocks_in_order() {
-    let h = harness();
+    let mut h = harness();
+    set(&mut h, "other-chain", 1); // BOOSTER, MOD, AMP, FX, DELAY
     let xs: Vec<f32> = ["BOOSTER", "MOD", "AMP", "FX", "DELAY", "DELAY 2 / REVERB"]
         .iter()
         .map(|t| h.get_by_label(t).rect().center().x)
@@ -442,7 +443,9 @@ fn changing_the_mode_while_on_moves_the_switches() {
 
 #[test]
 fn eq_cards_sit_around_the_amp_and_solo_last() {
-    let h = harness();
+    let mut h = harness();
+    set(&mut h, "eq1-position", 0);
+    set(&mut h, "eq2-position", 1);
     let x = |t: &str| h.get_by_label(t).rect().center().x;
     assert!(x("EQ 1") < x("AMP") && x("AMP") < x("EQ 2"));
     assert!(x("DELAY 2 / REVERB") < x("SOLO"));
@@ -510,4 +513,90 @@ fn contour_buttons_pick_a_contour_and_show_its_settings() {
     assert_eq!(shift.accesskit_node().numeric_value(), Some(-50.0), "raw 0 in the default preset");
     set(&mut h, "contour2-freq-shift", 60);
     assert_eq!(h.get_by_label("FREQ SHIFT").accesskit_node().numeric_value(), Some(10.0));
+}
+
+fn press(h: &mut Harness<KatanaApp>, at: egui::Pos2, pressed: bool) {
+    h.event(egui::Event::PointerButton {
+        pos: at,
+        button: egui::PointerButton::Primary,
+        pressed,
+        modifiers: egui::Modifiers::NONE,
+    });
+    h.run();
+}
+
+/// Presses on `card`, moves the pointer 40 px, then calls `then` while still pressed.
+fn start_drag(h: &mut Harness<KatanaApp>, card: &str) -> egui::Pos2 {
+    let from = h.get_by_label(card).rect().center();
+    h.event(egui::Event::PointerMoved(from));
+    h.run();
+    press(h, from, true);
+    for dx in [10.0, 20.0, 40.0] {
+        h.event(egui::Event::PointerMoved(from + egui::vec2(dx, 0.0)));
+        h.run();
+    }
+    from
+}
+
+fn drop_on(h: &mut Harness<KatanaApp>, spot: &str) {
+    let to = h.get_by_label(spot).rect().center();
+    h.event(egui::Event::PointerMoved(to));
+    h.run();
+    press(h, to, false);
+}
+
+#[test]
+fn chain_follows_the_patch_order() {
+    let mut h = harness();
+    set(&mut h, "other-chain", 6);
+    let x = |t: &str| h.get_by_label(t).rect().center().x;
+    let xs: Vec<f32> = ["MOD", "BOOSTER", "FX", "DELAY", "AMP"].iter().map(|t| x(t)).collect();
+    assert!(xs.windows(2).all(|w| w[0] < w[1]), "{xs:?}");
+}
+
+#[test]
+fn dragging_mod_offers_only_allowed_spots_and_drop_sets_chain() {
+    let mut h = harness();
+    set(&mut h, "other-chain", 0);
+    set(&mut h, "eq1-position", 1);
+    set(&mut h, "eq2-position", 1);
+    start_drag(&mut h, "MOD");
+    h.get_by_label("Drop MOD before AMP");
+    h.get_by_label("Drop MOD before BOOSTER");
+    assert!(h.query_by_label("Drop MOD before DELAY").is_none());
+    drop_on(&mut h, "Drop MOD before BOOSTER");
+    assert_eq!(get(&h, "other-chain"), Some(4));
+    assert!(h.query_by_label("Drop MOD before AMP").is_none(), "spots go away after the drop");
+}
+
+#[test]
+fn dropping_elsewhere_changes_nothing() {
+    let mut h = harness();
+    set(&mut h, "other-chain", 0);
+    start_drag(&mut h, "MOD");
+    let empty = egui::pos2(1400.0, 800.0);
+    h.event(egui::Event::PointerMoved(empty));
+    h.run();
+    press(&mut h, empty, false);
+    assert_eq!(get(&h, "other-chain"), Some(0));
+}
+
+#[test]
+fn eq_drag_sets_position() {
+    let mut h = harness();
+    set(&mut h, "eq1-position", 0);
+    set(&mut h, "eq2-position", 1);
+    start_drag(&mut h, "EQ 1");
+    drop_on(&mut h, "Drop EQ 1 before EQ 2");
+    assert_eq!(get(&h, "eq1-position"), Some(1));
+}
+
+#[test]
+fn a_click_still_selects_a_card() {
+    let mut h = harness();
+    let at = h.get_by_label("FX").rect().center();
+    h.event(egui::Event::PointerMoved(at));
+    press(&mut h, at, true);
+    press(&mut h, at, false);
+    assert_eq!(h.state().selected_block, "fx");
 }

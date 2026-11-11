@@ -1247,3 +1247,27 @@ fn amp_reapplying_the_knob_updates_the_panel_and_sends_nothing() {
     assert_eq!(r.h.get_by_label("LOW CUT").accesskit_node().numeric_value(), Some(14.0));
     assert_eq!(r.jobs(), vec![], "the amp's own changes are not sent back");
 }
+
+#[test]
+fn drop_while_amp_busy_is_ignored() {
+    let mut r = rig("drop-busy").connected().live();
+    let chain = find_param("other-chain").unwrap();
+    r.app().editor.set(chain, 0).unwrap();
+    r.h.run();
+    let from = r.h.get_by_label("MOD").rect().center();
+    let ev = |r: &mut Rig, e: egui::Event| {
+        r.h.event(e);
+        r.h.run();
+    };
+    ev(&mut r, egui::Event::PointerMoved(from));
+    ev(&mut r, egui::Event::PointerButton { pos: from, button: egui::PointerButton::Primary, pressed: true, modifiers: egui::Modifiers::NONE });
+    for dx in [10.0, 20.0, 40.0] {
+        ev(&mut r, egui::Event::PointerMoved(from + egui::vec2(dx, 0.0)));
+    }
+    let to = r.h.get_by_label("Drop MOD before BOOSTER").rect().center();
+    r.event(Event::Busy(Some("reading".into())));
+    ev(&mut r, egui::Event::PointerMoved(to));
+    ev(&mut r, egui::Event::PointerButton { pos: to, button: egui::PointerButton::Primary, pressed: false, modifiers: egui::Modifiers::NONE });
+    assert_eq!(r.app().editor.get(chain), Some(0));
+    assert_eq!(r.jobs(), vec![]);
+}
