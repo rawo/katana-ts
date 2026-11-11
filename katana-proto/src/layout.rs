@@ -8,6 +8,8 @@ use crate::{find_param, modfx, Patch};
 pub struct Control {
     pub param: &'static str,
     pub label: &'static str,
+    /// The amp's panel knob also moves this setting (PRESET assignment).
+    pub knob: bool,
 }
 
 /// A block of the signal chain.
@@ -38,7 +40,7 @@ impl BlockDef {
         let variation = color.and_then(|c| self.per_color.get(c as usize)).copied().unwrap_or(&[]);
         let mut out: Vec<Control> = self.common.iter().chain(variation).copied().collect();
         if let Some((slot, fx_type)) = self.slot_type(patch) {
-            out.extend(modfx::knob_targets(slot, fx_type).into_iter().map(|(param, label)| Control { param, label }));
+            out.extend(modfx::knob_targets(slot, fx_type).into_iter().map(|(param, label)| Control { param, label, knob: true }));
         }
         out
     }
@@ -69,7 +71,7 @@ impl BlockDef {
 }
 
 const fn c(param: &'static str, label: &'static str) -> Control {
-    Control { param, label }
+    Control { param, label, knob: false }
 }
 
 const fn block(id: &'static str, title: &'static str, switch: Option<&'static str>) -> BlockDef {

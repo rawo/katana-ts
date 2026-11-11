@@ -5,7 +5,9 @@
 
 use std::sync::LazyLock;
 
+use crate::layout::Control;
 use crate::params::{all_params, ParamDef, PARAMS};
+use crate::{find_param, modfx, Patch};
 
 #[rustfmt::skip]
 #[path = "settings_gen.rs"]
@@ -81,6 +83,150 @@ pub fn setting(table: &str, inst: usize, key: &str) -> Option<&'static ParamDef>
     def_at(base + b.settings.iter().find(|s| s.key == key)?.offset)
 }
 
+/// A detail panel (or part of one) that shows settings of one block.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Panel {
+    Booster,
+    Mod,
+    Fx,
+    Delay,
+    Delay2,
+    Reverb,
+    /// EQ 1 or EQ 2.
+    Eq(u8),
+    SoloEq,
+    SoloDelay,
+}
+
+/// Header settings, drawn by the panel itself rather than in its list.
+const HEADER_KEYS: &[&str] = &["type", "sw", "position", "layer-mode"];
+/// Booster settings that belong to SOLO (Tone Studio copies SOLO into every colour).
+const BOOSTER_SOLO_KEYS: &[&str] = &["solo-sw", "solo-level"];
+
+impl Panel {
+    /// (settings table, instance) for a colour; `None` for a type-switched EQ.
+    fn table(self, color: u32) -> (&'static str, usize) {
+        let c = color as usize;
+        match self {
+            Panel::Booster => ("BOOSTER", c),
+            Panel::Mod => ("FX_DETAIL", c),
+            Panel::Fx => ("FX_DETAIL", c + 3),
+            Panel::Delay => ("DELAY", c),
+            Panel::Delay2 => ("DELAY", c + 3),
+            Panel::Reverb => ("REVERB", c),
+            Panel::Eq(_) => ("EQ_PEQ", 0),
+            Panel::SoloEq => ("SOLO_EQ", 0),
+            Panel::SoloDelay => ("SOLO_DELAY", 0),
+        }
+    }
+
+    /// Keys of the settings the panel knob also moves (docs/protocol.md).
+    fn knob_keys(self) -> &'static [&'static str] {
+        match self {
+            Panel::Booster => &["drive", "effect-level"],
+            Panel::Delay => &["feedback", "high-cut", "effect-level"],
+            Panel::Delay2 => &["feedback", "effect-level"],
+            Panel::Reverb => &["low-cut", "high-cut", "density", "effect-level"],
+            _ => &[],
+        }
+    }
+}
+
+/// The colour the amp plays for a panel; `None` for panels without colours.
+pub fn color_of(panel: Panel, patch: &Patch) -> Option<u32> {
+    let name = match panel {
+        Panel::Booster => "booster-color",
+        Panel::Mod => "mod-color",
+        Panel::Fx => "fx-color",
+        Panel::Delay => "delay-color",
+        Panel::Delay2 | Panel::Reverb => "reverb-color",
+        _ => return None,
+    };
+    patch.get(find_param(name)?)
+}
+
+/// The TYPE setting of a panel's instance for `color` (for EQ: its type switch).
+pub fn type_def(panel: Panel, color: u32) -> Option<&'static ParamDef> {
+    let c = color as usize;
+    match panel {
+        Panel::Booster => setting("BOOSTER", c, "type"),
+        Panel::Mod => setting("FX", c, "type"),
+        Panel::Fx => setting("FX", c + 3, "type"),
+        Panel::Delay => setting("DELAY", c, "type"),
+        Panel::Delay2 => setting("DELAY", c + 3, "type"),
+        Panel::Reverb => setting("REVERB", c, "type"),
+        Panel::Eq(k) => setting("EQ_EACH", usize::from(k).checked_sub(1)?, "type"),
+        Panel::SoloEq | Panel::SoloDelay => None,
+    }
+}
+
+/// The settings a panel lists for `color` and the instance's current type, in
+/// address order: no header settings (type, switches, position, mode), nothing
+/// excluded, nothing the patch lacks. An unknown type value lists nothing.
+pub fn panel_controls(panel: Panel, color: u32, patch: &Patch) -> Vec<Control> {
+    let (mut table, mut inst) = panel.table(color);
+    let fx_type = match type_def(panel, color) {
+        Some(t) => match patch.get(t) {
+            Some(v) if v <= t.max => Some(v),
+            _ => return Vec::new(),
+        },
+        None => None,
+    };
+    if let Panel::Eq(k) = panel {
+        table = if fx_type == Some(1) { "EQ_GE10" } else { "EQ_PEQ" };
+        inst = usize::from(k) - 1;
+    }
+    let typed = matches!(table, "FX_DETAIL" | "DELAY" | "REVERB");
+    let b = gen_block(table);
+    let Some(&(_, base)) = b.inst.get(inst) else { return Vec::new() };
+    let knob_params: Vec<&str> = match (panel, fx_type) {
+        (Panel::Mod | Panel::Fx, Some(t)) => modfx::knob_targets(inst, t).into_iter().map(|(p, _)| p).collect(),
+        _ => Vec::new(),
+    };
+    let mut out: Vec<Control> = b
+        .settings
+        .iter()
+        .filter(|s| !HEADER_KEYS.contains(&s.key))
+        .filter(|s| panel != Panel::Booster || !BOOSTER_SOLO_KEYS.contains(&s.key))
+        .filter(|s| !typed || s.types.is_empty() || fx_type.is_some_and(|t| s.types.contains(&t)))
+        .filter_map(|s| {
+            let def = def_at(base + s.offset)?;
+            let knob = panel.knob_keys().contains(&s.key) || knob_params.contains(&def.name);
+            Some(Control { param: def.name, label: s.label, knob })
+        })
+        .collect();
+    if matches!(panel, Panel::Mod | Panel::Fx) && fx_type == Some(12) {
+        if let Some(d) = setting("OTHER", 0, "master-key") {
+            out.push(Control { param: d.name, label: "MASTER KEY", knob: false });
+        }
+    }
+    out.retain(|c| !EXCLUDED.contains(&c.param) && find_param(c.param).and_then(|d| patch.get(d)).is_some());
+    out
+}
+
+/// Splits controls into runs: consecutive controls whose labels start with the
+/// same word (at least two) form a group named by it; the rest stay unnamed.
+pub fn groups(controls: &[Control]) -> Vec<(Option<&'static str>, Vec<Control>)> {
+    let first = |c: &Control| c.label.split_once(' ').map(|(w, _)| w);
+    let mut out: Vec<(Option<&'static str>, Vec<Control>)> = Vec::new();
+    let mut i = 0;
+    while i < controls.len() {
+        let w = first(&controls[i]);
+        let run = controls[i..].iter().take_while(|c| w.is_some() && first(c) == w).count();
+        if run >= 2 {
+            out.push((w, controls[i..i + run].to_vec()));
+            i += run;
+        } else {
+            match out.last_mut() {
+                Some((None, cs)) => cs.push(controls[i]),
+                _ => out.push((None, vec![controls[i]])),
+            }
+            i += 1;
+        }
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -143,5 +289,99 @@ mod tests {
         let rev = gen_block("REVERB");
         assert_eq!(rev.settings.iter().find(|s| s.key == "spring-color").unwrap().types, [3]);
         assert!(rev.settings.iter().find(|s| s.key == "time").unwrap().types.is_empty());
+    }
+
+    use crate::layout::Control;
+    use crate::{find_param, Patch};
+
+    fn with(sets: &[(&str, u32)]) -> Patch {
+        let mut p = Patch::default_preset();
+        for &(n, v) in sets {
+            p.set(find_param(n).unwrap(), v).unwrap();
+        }
+        p
+    }
+
+    fn labels(c: &[Control]) -> Vec<&'static str> {
+        c.iter().map(|c| c.label).collect()
+    }
+
+    #[test]
+    fn chorus_red_shows_both_bands_and_marks_knob_settings() {
+        let p = with(&[("mod2-type", 23)]);
+        let c = panel_controls(Panel::Mod, 1, &p);
+        let l = labels(&c);
+        assert!(l.contains(&"LOW RATE") && l.contains(&"HIGH RATE") && l.contains(&"DIRECT MIX"), "{l:?}");
+        assert!(c.iter().find(|c| c.label == "LOW RATE").unwrap().knob);
+        assert!(!c.iter().find(|c| c.label == "DIRECT MIX").unwrap().knob);
+        assert!(c.iter().all(|c| c.param.starts_with("mod2-")), "{c:?}");
+    }
+
+    #[test]
+    fn delay_type_picks_its_settings() {
+        let sde = labels(&panel_controls(Panel::Delay, 0, &with(&[("delay1-type", 7)])));
+        assert!(sde.contains(&"MOD SW") && !sde.contains(&"TAP TIME"), "{sde:?}");
+        let pan = labels(&panel_controls(Panel::Delay, 0, &with(&[("delay1-type", 1)])));
+        assert!(pan.contains(&"TAP TIME") && !pan.contains(&"MOD SW"), "{pan:?}");
+        assert!(pan.contains(&"DELAY TIME") && !pan.contains(&"DELAY TYPE"));
+    }
+
+    #[test]
+    fn delay2_uses_instances_4_to_6() {
+        let c = panel_controls(Panel::Delay2, 0, &Patch::default_preset());
+        assert!(!c.is_empty() && c.iter().all(|c| c.param.starts_with("delay4-")), "{c:?}");
+        assert_eq!(type_def(Panel::Delay2, 2).unwrap().name, "delay6-type");
+    }
+
+    #[test]
+    fn spring_adds_color() {
+        assert!(labels(&panel_controls(Panel::Reverb, 0, &with(&[("reverb1-type", 3)]))).contains(&"COLOR"));
+        let plate = labels(&panel_controls(Panel::Reverb, 0, &with(&[("reverb1-type", 0)])));
+        assert!(!plate.contains(&"COLOR") && !plate.contains(&"LAYER MODE"), "{plate:?}");
+    }
+
+    #[test]
+    fn eq_type_switches_parametric_and_ge10() {
+        let geq = panel_controls(Panel::Eq(1), 0, &with(&[("eq1-type", 1)]));
+        assert_eq!(geq.len(), 11);
+        assert!(geq.iter().all(|c| c.param.starts_with("geq1-")));
+        let peq = panel_controls(Panel::Eq(2), 0, &with(&[("eq2-type", 0)]));
+        assert!(!peq.is_empty() && peq.iter().all(|c| c.param.starts_with("peq2-")), "{peq:?}");
+    }
+
+    #[test]
+    fn unknown_type_shows_nothing() {
+        let mut p = Patch::default_preset();
+        p.mem.apply(crate::Address(find_param("mod1-type").unwrap().addr), &[31]);
+        assert!(panel_controls(Panel::Mod, 0, &p).is_empty());
+    }
+
+    #[test]
+    fn harmonist_shows_master_key() {
+        let c = panel_controls(Panel::Fx, 0, &with(&[("fx1-type", 12)]));
+        assert!(c.iter().any(|c| c.param == "other-master-key"), "{c:?}");
+        assert!(!panel_controls(Panel::Fx, 0, &with(&[("fx1-type", 23)])).iter().any(|c| c.param == "other-master-key"));
+    }
+
+    #[test]
+    fn booster_panel_shows_its_own_settings_only() {
+        let l = labels(&panel_controls(Panel::Booster, 0, &Patch::default_preset()));
+        assert!(l.contains(&"DRIVE") && l.contains(&"TONE") && !l.contains(&"SOLO SW") && !l.contains(&"BOOSTER TYPE"), "{l:?}");
+    }
+
+    #[test]
+    fn colour_of_follows_the_colour_settings() {
+        let p = with(&[("reverb-color", 2), ("mod-color", 1)]);
+        assert_eq!(color_of(Panel::Delay2, &p), Some(2));
+        assert_eq!(color_of(Panel::Mod, &p), Some(1));
+        assert_eq!(color_of(Panel::Eq(1), &p), None);
+    }
+
+    #[test]
+    fn groups_by_shared_first_word() {
+        let c = |label| Control { param: "x", label, knob: false };
+        let g = groups(&[c("LOW RATE"), c("LOW DEPTH"), c("HIGH RATE"), c("HIGH DEPTH"), c("DIRECT MIX")]);
+        let names: Vec<_> = g.iter().map(|(n, cs)| (*n, cs.len())).collect();
+        assert_eq!(names, [(Some("LOW"), 2), (Some("HIGH"), 2), (None, 1)]);
     }
 }
