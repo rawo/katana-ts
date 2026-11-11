@@ -13,6 +13,11 @@ mod settings_gen;
 
 pub use settings_gen::{GenBlock, GenSetting, BLOCKS};
 
+/// Settings that failed `katana-cli check-settings` on the amp, left out of
+/// the editor's panels. Empty: all 1222 passed on 2026-11-11 (docs/protocol.md,
+/// "Settings check").
+pub const EXCLUDED: &[&str] = &[];
+
 fn leak(s: String) -> &'static str {
     Box::leak(s.into_boxed_str())
 }

@@ -223,6 +223,30 @@ the new colour's `07`–`0A` (LOW CUT, HIGH CUT, DENSITY, EFFECT LEVEL; seen
 `0E 09 05 12` in green and red, where LOW CUT 02→0E and DENSITY 08→05 changed).
 Nothing else of the reverb is on the panel (the user).
 
+**Settings check** (VERIFIED 2026-11-11, macOS, port `KATANA3`,
+`captures/114-check-settings.log`): `katana-cli check-settings` wrote a different value
+into each of the 1222 settings from Tone Studio's tables that the app had not verified
+before (`katana_proto::settings::generated()`: every instance of AMP, OTHER CHAIN/MASTER
+KEY, SW DELAY2_SW, BOOSTER, FX, FX_DETAIL, DELAY 1–6, REVERB, SOLO_COM, SOLO_EQ, CONTOUR,
+EQ_EACH/PEQ/GE10; SOLO_DELAY skipped as write-protected), read each block back, and
+restored the patch: **1222 of 1222 read back as written**; the restored patch was
+byte-identical to the backup taken first (`captures/114-after.syx`). Nothing is excluded
+(`settings::EXCLUDED` is empty).
+
+**DELAY 2 / REVERB switches** (VERIFIED 2026-11-11, `captures/115-reverb-button.log`,
+editor mode, REVERB colour GREEN; the user at the amp). DELAY2_SW `20 00 08 04`,
+REVERB_SW `20 00 08 05`, LAYER MODE per colour at REVERB(n) `01`:
+- On, the amp keeps the switches of the colour's mode at 1 and the other at 0:
+  DELAY (0) → DELAY2_SW 1, REVERB_SW 0; DLY+REV (1) → both 1; REVERB (2) → DELAY2_SW 0,
+  REVERB_SW 1. Off (knob fully down) → both 0. A REVERB press while off turns the
+  mode's switches on.
+- It re-applies this by itself on a colour change (a press while on cycles GREEN → RED →
+  ORANGE; RED in mode REVERB gave DELAY2_SW 0, REVERB_SW 1) and on a LAYER MODE write
+  (`set reverb1-layer-mode 1` with DELAY 2 on → the amp sent REVERB_SW 1).
+- The knob moves DELAY(n+3) FEEDBACK (`05`) and EFFECT LEVEL (`07`) in mode DELAY, and
+  REVERB(n) EFFECT LEVEL (`0A`) in DLY+REV, plus its position `20 01 1C 04` (and
+  `30 00 02 04`). The status `7F 01 01 05` follows: 0/1/2 = colour, 3 = off.
+
 Panel knobs for effects drive several parameters at once: e.g. turning BOOSTER
 changes `BOOSTER(n) DRIVE` and `EFFECT_LEVEL` together, where `n` is chosen by
 the colour button. `set` targets the underlying parameters.
