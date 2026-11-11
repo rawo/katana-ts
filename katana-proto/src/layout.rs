@@ -93,7 +93,6 @@ pub const CHAIN: &[BlockDef] = &[
         common: &[
             c("amp-type", "TYPE"),
             c("cab-resonance", "CAB RESONANCE"),
-            c("contour", "CONTOUR"),
         ],
         ..block("amp", "AMP", None)
     },
@@ -123,6 +122,9 @@ pub const AMP_STRIP: &[Control] = &[
     c("middle", "MIDDLE"),
     c("treble", "TREBLE"),
     c("presence", "PRESENCE"),
+    c("amp-resonance", "RESONANCE"),
+    c("amp-poweramp-variation", "BLOOM"),
+    c("amp-preamp-variation", "VARIATION"),
 ];
 
 #[cfg(test)]

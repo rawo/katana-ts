@@ -488,3 +488,26 @@ fn solo_panel_shows_the_solo_delay_read_only() {
     h.get_by_label_contains("FEEDBACK:");
 }
 
+
+#[test]
+fn amp_strip_has_the_hidden_amp_settings() {
+    let h = harness();
+    for l in ["RESONANCE", "BLOOM", "VARIATION"] {
+        h.get_by_label(l);
+    }
+}
+
+#[test]
+fn contour_buttons_pick_a_contour_and_show_its_settings() {
+    let mut h = harness();
+    set(&mut h, "contour", 0);
+    assert!(h.query_by_label("FREQ SHIFT").is_none());
+    h.get_by_label("CONTOUR 2").click();
+    h.run();
+    assert_eq!(get(&h, "contour"), Some(2));
+    h.get_by_label("CONTOUR TYPE");
+    let shift = h.get_by_label("FREQ SHIFT");
+    assert_eq!(shift.accesskit_node().numeric_value(), Some(-50.0), "raw 0 in the default preset");
+    set(&mut h, "contour2-freq-shift", 60);
+    assert_eq!(h.get_by_label("FREQ SHIFT").accesskit_node().numeric_value(), Some(10.0));
+}
