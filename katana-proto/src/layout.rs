@@ -108,15 +108,9 @@ pub const CHAIN: &[BlockDef] = &[
         tap: &["delay1-time", "delay2-time", "delay3-time"],
         ..block("delay", "DELAY", Some("delay-sw"))
     },
-    BlockDef {
-        color: Some("reverb-color"),
-        per_color: &[
-            &[c("reverb1-level", "EFFECT LEVEL")],
-            &[c("reverb2-level", "EFFECT LEVEL")],
-            &[c("reverb3-level", "EFFECT LEVEL")],
-        ],
-        ..block("reverb", "REVERB", Some("reverb-sw"))
-    },
+    // DELAY 2 and REVERB: one amp button and the REVERB colour drive both;
+    // its on/off is `settings::delay2_reverb_on`, its panel the GUI's own.
+    BlockDef { color: Some("reverb-color"), ..block("dly2rev", "DELAY 2 / REVERB", None) },
 ];
 
 /// Always-visible amp knobs.
@@ -148,7 +142,8 @@ mod tests {
 
     #[test]
     fn per_color_has_one_entry_per_colour_value() {
-        for b in CHAIN.iter().filter(|b| b.color.is_some()) {
+        // DELAY 2 / REVERB lists its settings through `settings::panel_controls`.
+        for b in CHAIN.iter().filter(|b| b.color.is_some() && b.id != "dly2rev") {
             let n = find_param(b.color.unwrap()).unwrap().values.unwrap().len();
             // Either fixed controls or a MOD/FX slot for every colour.
             let per = if b.slots.is_empty() { b.per_color.len() } else { b.slots.len() };
@@ -186,15 +181,16 @@ mod tests {
     #[test]
     fn reverb_level_follows_colour() {
         // captures/107: green edits REVERB(1) 34 0A, red REVERB(2) 36 0A, orange REVERB(3) 38 0A.
-        let reverb = CHAIN.iter().find(|b| b.id == "reverb").unwrap();
+        use crate::settings::{color_of, panel_controls, Panel};
         let color = find_param("reverb-color").unwrap();
         assert_eq!(color.addr, crate::device::addr([0x20, 0x00, 0x04, 0x04]));
         let mut p = Patch::default_preset();
         for (v, n, block) in [(0, 1, 0x34), (1, 2, 0x36), (2, 3, 0x38)] {
             p.set(color, v).unwrap();
-            let names: Vec<_> = reverb.controls(&p).iter().map(|c| c.param).collect();
-            assert_eq!(names, [format!("reverb{n}-level")], "colour {v}");
-            let def = find_param(names[0]).unwrap();
+            let c = color_of(Panel::Reverb, &p).unwrap();
+            let level = panel_controls(Panel::Reverb, c, &p).into_iter().find(|c| c.label == "EFFECT LEVEL").unwrap();
+            assert_eq!(level.param, format!("reverb{n}-level"), "colour {v}");
+            let def = find_param(level.param).unwrap();
             assert_eq!(def.addr, crate::device::addr([0x20, 0x00, block, 0x0A]), "colour {v}");
         }
     }

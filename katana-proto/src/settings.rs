@@ -204,6 +204,39 @@ pub fn panel_controls(panel: Panel, color: u32, patch: &Patch) -> Vec<Control> {
     out
 }
 
+const DELAY2_SW: &str = "sw-delay2-sw";
+const REVERB_SW: &str = "reverb-sw";
+
+/// The switches a DELAY 2 / REVERB layer mode plays (REVERB LAYER_MODE:
+/// 0 DELAY, 1 DLY+REV, 2 REVERB; an odd value counts as REVERB).
+pub fn delay2_reverb_switches(mode: u32) -> &'static [&'static str] {
+    match mode {
+        0 => &[DELAY2_SW],
+        1 => &[DELAY2_SW, REVERB_SW],
+        _ => &[REVERB_SW],
+    }
+}
+
+/// The layer mode of the colour the amp plays.
+fn layer_mode(patch: &Patch) -> Option<u32> {
+    let color = color_of(Panel::Reverb, patch)?;
+    patch.get(setting("REVERB", color as usize, "layer-mode")?)
+}
+
+/// Whether the DELAY 2 / REVERB block plays: a switch of its mode is on.
+pub fn delay2_reverb_on(patch: &Patch) -> Option<bool> {
+    let mode = layer_mode(patch)?;
+    let on = delay2_reverb_switches(mode).iter().map(|n| patch.get(find_param(n)?)).collect::<Option<Vec<_>>>()?;
+    Some(on.contains(&1))
+}
+
+/// Both switches' values for turning the block on or off in `mode`, as the
+/// amp sets them (docs/protocol.md, "DELAY 2 / REVERB switches").
+pub fn delay2_reverb_edits(on: bool, mode: u32) -> [(&'static str, u32); 2] {
+    let used = delay2_reverb_switches(mode);
+    [DELAY2_SW, REVERB_SW].map(|n| (n, u32::from(on && used.contains(&n))))
+}
+
 /// Splits controls into runs: consecutive controls whose labels start with the
 /// same word (at least two) form a group named by it; the rest stay unnamed.
 pub fn groups(controls: &[Control]) -> Vec<(Option<&'static str>, Vec<Control>)> {
@@ -383,5 +416,32 @@ mod tests {
         let g = groups(&[c("LOW RATE"), c("LOW DEPTH"), c("HIGH RATE"), c("HIGH DEPTH"), c("DIRECT MIX")]);
         let names: Vec<_> = g.iter().map(|(n, cs)| (*n, cs.len())).collect();
         assert_eq!(names, [(Some("LOW"), 2), (Some("HIGH"), 2), (None, 1)]);
+    }
+
+    #[test]
+    fn delay2_reverb_switches_follow_the_mode() {
+        assert_eq!(delay2_reverb_switches(0), ["sw-delay2-sw"]);
+        assert_eq!(delay2_reverb_switches(1), ["sw-delay2-sw", "reverb-sw"]);
+        assert_eq!(delay2_reverb_switches(2), ["reverb-sw"]);
+    }
+
+    #[test]
+    fn delay2_reverb_is_on_when_a_switch_of_its_mode_is() {
+        // GREEN, mode DELAY 2, only REVERB_SW on: the amp would play nothing.
+        let p = with(&[("reverb1-layer-mode", 0), ("reverb-sw", 1), ("sw-delay2-sw", 0)]);
+        assert_eq!(delay2_reverb_on(&p), Some(false));
+        let p = with(&[("reverb1-layer-mode", 1), ("reverb-sw", 0), ("sw-delay2-sw", 1)]);
+        assert_eq!(delay2_reverb_on(&p), Some(true));
+        let p = with(&[("reverb-color", 1), ("reverb2-layer-mode", 2), ("reverb-sw", 1)]);
+        assert_eq!(delay2_reverb_on(&p), Some(true));
+    }
+
+    #[test]
+    fn switching_delay2_reverb_sets_both_switches_like_the_amp() {
+        // captures/115: on = the mode's switches 1, the other 0; off = both 0.
+        assert_eq!(delay2_reverb_edits(true, 0), [("sw-delay2-sw", 1), ("reverb-sw", 0)]);
+        assert_eq!(delay2_reverb_edits(true, 1), [("sw-delay2-sw", 1), ("reverb-sw", 1)]);
+        assert_eq!(delay2_reverb_edits(true, 2), [("sw-delay2-sw", 0), ("reverb-sw", 1)]);
+        assert_eq!(delay2_reverb_edits(false, 1), [("sw-delay2-sw", 0), ("reverb-sw", 0)]);
     }
 }

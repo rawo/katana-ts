@@ -19,7 +19,7 @@ fn get(h: &Harness<KatanaApp>, name: &str) -> Option<u32> {
 #[test]
 fn chain_shows_blocks_in_order() {
     let h = harness();
-    let xs: Vec<f32> = ["BOOSTER", "MOD", "AMP", "FX", "DELAY", "REVERB"]
+    let xs: Vec<f32> = ["BOOSTER", "MOD", "AMP", "FX", "DELAY", "DELAY 2 / REVERB"]
         .iter()
         .map(|t| h.get_by_label(t).rect().center().x)
         .collect();
@@ -60,13 +60,14 @@ fn delay_led_switches_variation_and_its_settings() {
 #[test]
 fn reverb_led_switches_variation_and_its_level() {
     let mut h = harness();
-    h.get_by_label("REVERB ORANGE").click();
+    h.get_by_label("DELAY 2 / REVERB ORANGE").click();
     h.run();
     assert_eq!(get(&h, "reverb-color"), Some(2));
-    h.get_by_label("REVERB").click();
+    h.get_by_label("DELAY 2 / REVERB").click();
     h.run();
-    h.get_by_label_contains("REVERB · ORANGE variation");
-    h.get_by_label("EFFECT LEVEL");
+    h.get_by_label_contains("DELAY 2 / REVERB · ORANGE variation");
+    // One EFFECT LEVEL for DELAY 2, one for REVERB.
+    assert_eq!(h.get_all_by_label("EFFECT LEVEL").count(), 2);
 }
 
 #[test]
@@ -155,10 +156,10 @@ fn amp_strip_always_visible() {
 #[test]
 fn pill_toggles_switch() {
     let mut h = harness();
-    h.get_by_label("REVERB OFF").click();
+    h.get_by_label("DELAY OFF").click();
     h.run();
-    assert_eq!(get(&h, "reverb-sw"), Some(1));
-    h.get_by_label("REVERB ON");
+    assert_eq!(get(&h, "delay-sw"), Some(1));
+    h.get_by_label("DELAY ON");
     h.get_by_label("unsaved");
 }
 
@@ -263,14 +264,14 @@ fn long_error_leaves_theme_picker_visible() {
 #[test]
 fn unknown_switch_value_shows_as_unknown() {
     let mut p = Patch::default_preset();
-    p.mem.apply(Address(find_param("reverb-sw").unwrap().addr), &[5]);
+    p.mem.apply(Address(find_param("delay-sw").unwrap().addr), &[5]);
     let mut app = KatanaApp::new();
     app.editor.open_bytes(&p.to_syx(), "odd.syx".into()).unwrap();
     let mut h = harness_sized([1600.0, 960.0], app);
-    h.get_by_label("REVERB ? (5)").click();
+    h.get_by_label("DELAY ? (5)").click();
     h.run();
-    assert_eq!(get(&h, "reverb-sw"), Some(1));
-    h.get_by_label("REVERB ON");
+    assert_eq!(get(&h, "delay-sw"), Some(1));
+    h.get_by_label("DELAY ON");
 }
 
 fn wheel(h: &mut Harness<KatanaApp>, at: egui::Pos2) {
@@ -389,4 +390,52 @@ fn harmonist_panel_fits_the_smallest_window() {
     select(&mut h, "MOD");
     h.get_by_label("MASTER KEY");
     h.get_by_label("GAIN");
+}
+
+#[test]
+fn delay2_reverb_card_follows_delay() {
+    let h = harness();
+    let x = |t: &str| h.get_by_label(t).rect().center().x;
+    assert!(x("DELAY") < x("DELAY 2 / REVERB"));
+}
+
+#[test]
+fn delay2_reverb_pill_turns_off_both_switches_in_dly_rev() {
+    let mut h = harness();
+    set(&mut h, "reverb1-layer-mode", 1);
+    set(&mut h, "reverb-sw", 1);
+    set(&mut h, "sw-delay2-sw", 1);
+    h.get_by_label("DELAY 2 / REVERB ON").click();
+    h.run();
+    assert_eq!((get(&h, "reverb-sw"), get(&h, "sw-delay2-sw")), (Some(0), Some(0)));
+    h.get_by_label("DELAY 2 / REVERB OFF").click();
+    h.run();
+    assert_eq!((get(&h, "reverb-sw"), get(&h, "sw-delay2-sw")), (Some(1), Some(1)));
+}
+
+#[test]
+fn delay2_reverb_panel_shows_both_halves_in_reverb_mode() {
+    let mut h = harness();
+    set(&mut h, "reverb1-layer-mode", 2);
+    select(&mut h, "DELAY 2 / REVERB");
+    h.get_by_label_contains("DELAY 2 / REVERB · GREEN variation");
+    h.get_by_label("DELAY 2 TYPE");
+    h.get_by_label("REVERB TYPE");
+    let time = h.get_by_label("DELAY TIME");
+    assert!(!time.accesskit_node().is_disabled(), "the dimmed half stays editable");
+    h.get_by_label("REVERB TIME");
+}
+
+#[test]
+fn changing_the_mode_while_on_moves_the_switches() {
+    let mut h = harness();
+    set(&mut h, "reverb1-layer-mode", 2);
+    set(&mut h, "reverb-sw", 1);
+    select(&mut h, "DELAY 2 / REVERB");
+    h.get_by_label("MODE").click();
+    h.run();
+    h.get_all_by_label("DELAY").last().unwrap().click();
+    h.run();
+    assert_eq!(get(&h, "reverb1-layer-mode"), Some(0));
+    assert_eq!((get(&h, "sw-delay2-sw"), get(&h, "reverb-sw")), (Some(1), Some(0)));
 }

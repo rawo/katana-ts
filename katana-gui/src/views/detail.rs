@@ -3,7 +3,7 @@
 
 use eframe::egui::{self, Button, RichText, Role, Sense, Stroke, Vec2, WidgetInfo};
 use katana_proto::layout::{BlockDef, Control};
-use katana_proto::settings::{color_of, groups, panel_controls, type_def, Panel};
+use katana_proto::settings::{self, color_of, groups, panel_controls, type_def, Panel};
 use katana_proto::{find_param, Patch};
 
 use crate::app::KatanaApp;
@@ -19,7 +19,6 @@ pub fn panel_of(block_id: &str) -> Option<Panel> {
         "mod" => Panel::Mod,
         "fx" => Panel::Fx,
         "delay" => Panel::Delay,
-        "reverb" => Panel::Reverb,
         _ => return None,
     })
 }
@@ -27,8 +26,66 @@ pub fn panel_of(block_id: &str) -> Option<Panel> {
 pub fn detail(ui: &mut egui::Ui, app: &mut KatanaApp, block: &'static BlockDef, p: &Palette) {
     match panel_of(block.id) {
         Some(panel) => colour_panel(ui, app, block, panel, p),
+        None if block.id == "dly2rev" => dly2rev_panel(ui, app, block, p),
         None => plain(ui, app, block, p),
     }
+}
+
+/// DELAY 2 / REVERB: colour tabs (the REVERB colour), the colour's layer
+/// MODE, then DELAY 2 and REVERB side by side; the half the mode doesn't
+/// play is dimmed but stays editable.
+fn dly2rev_panel(ui: &mut egui::Ui, app: &mut KatanaApp, block: &'static BlockDef, p: &Palette) {
+    let color = app.shown_color(block.id, Panel::Reverb).unwrap_or(0);
+    let patch = app.editor.patch();
+    let heading = format!(
+        "{} · {} variation · type {}",
+        block.title,
+        COLORS[color as usize % 3],
+        type_name(Panel::Reverb, color, patch)
+    );
+    ui.label(RichText::new(heading).small().strong().color(p.dim));
+    ui.add_space(6.0);
+    colour_tabs(ui, app, block.id, Panel::Reverb, p);
+    ui.add_space(6.0);
+    let Some(mode_def) = settings::setting("REVERB", color as usize, "layer-mode") else { return };
+    let before = app.editor.get(mode_def);
+    param_control(ui, app, mode_def, "MODE", p);
+    let after = app.editor.get(mode_def);
+    // With the block on, the amp moves the switches to the new mode by itself
+    // (docs/protocol.md); the editor does the same so both stay alike.
+    if let (Some(mode), true) = (after, after != before) {
+        if color_of(Panel::Reverb, app.editor.patch()) == Some(color)
+            && settings::delay2_reverb_switches(before.unwrap_or(2))
+                .iter()
+                .any(|n| find_param(n).and_then(|d| app.editor.get(d)) == Some(1))
+        {
+            for (name, v) in settings::delay2_reverb_edits(true, mode) {
+                if let Some(d) = find_param(name) {
+                    let r = app.edit(d, v);
+                    debug_assert!(r.is_ok());
+                }
+            }
+        }
+    }
+    ui.add_space(6.0);
+    let used = settings::delay2_reverb_switches(after.unwrap_or(2));
+    ui.columns(2, |cols| {
+        for (col, (panel, title, sw)) in
+            cols.iter_mut().zip([(Panel::Delay2, "DELAY 2", "sw-delay2-sw"), (Panel::Reverb, "REVERB", "reverb-sw")])
+        {
+            if !used.contains(&sw) {
+                col.multiply_opacity(0.4);
+            }
+            col.label(RichText::new(title).strong());
+            if let Some(d) = find_param(sw) {
+                param_control(col, app, d, &format!("{title} SW"), p);
+            }
+            if let Some(d) = type_def(panel, color) {
+                param_control(col, app, d, &format!("{title} TYPE"), p);
+            }
+            settings_list(col, app, panel, color, p);
+        }
+    });
 }
 
 /// The type name of a panel's instance for `color`, e.g. "CHORUS".

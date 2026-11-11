@@ -3,6 +3,7 @@
 use eframe::egui::{self, Color32, CornerRadius, Frame, RichText, Role, Sense, Stroke, UiBuilder, Vec2, WidgetInfo};
 use katana_proto::find_param;
 use katana_proto::layout::{BlockDef, CHAIN};
+use katana_proto::settings::{self, Panel};
 
 use crate::app::KatanaApp;
 use crate::theme::Palette;
@@ -37,6 +38,8 @@ fn card(ui: &mut egui::Ui, app: &mut KatanaApp, block: &'static BlockDef, p: &Pa
                         let title = ui.label(RichText::new(block.title).strong());
                         if let Some(sw) = block.switch {
                             pill(ui, app, block.title, sw, p);
+                        } else if block.id == "dly2rev" {
+                            dly2rev_pill(ui, app, block.title, p);
                         }
                         title
                     });
@@ -71,6 +74,32 @@ fn card(ui: &mut egui::Ui, app: &mut KatanaApp, block: &'static BlockDef, p: &Pa
 fn pill(ui: &mut egui::Ui, app: &mut KatanaApp, title: &str, param: &str, p: &Palette) {
     let Some(def) = find_param(param) else { return };
     let value = app.editor.get(def);
+    if draw_pill(ui, title, value, p) {
+        let r = app.edit(def, u32::from(value != Some(1)));
+        debug_assert!(r.is_ok());
+    }
+}
+
+/// DELAY 2 / REVERB: on when a switch of the colour's layer mode is on; a
+/// click sets both switches as the amp's REVERB button does.
+fn dly2rev_pill(ui: &mut egui::Ui, app: &mut KatanaApp, title: &str, p: &Palette) {
+    let patch = app.editor.patch();
+    let on = settings::delay2_reverb_on(patch);
+    let mode = settings::color_of(Panel::Reverb, patch)
+        .and_then(|c| settings::setting("REVERB", c as usize, "layer-mode"))
+        .and_then(|d| patch.get(d));
+    if draw_pill(ui, title, on.map(u32::from), p) {
+        if let Some(mode) = mode {
+            for (name, v) in settings::delay2_reverb_edits(on != Some(true), mode) {
+                let r = find_param(name).map(|d| app.edit(d, v));
+                debug_assert!(matches!(r, Some(Ok(()))));
+            }
+        }
+    }
+}
+
+/// Paints an on/off pill for `value` (1 = on); true when clicked.
+fn draw_pill(ui: &mut egui::Ui, title: &str, value: Option<u32>, p: &Palette) -> bool {
     let on = value == Some(1);
     let label = value.map_or_else(|| "—".to_string(), on_off_text);
     let (fill, text) = if on { (p.green, Color32::BLACK) } else { (p.line, p.dim) };
@@ -81,10 +110,7 @@ fn pill(ui: &mut egui::Ui, app: &mut KatanaApp, title: &str, param: &str, p: &Pa
     ui.painter().galley(rect.center() - galley.size() / 2.0, galley, text);
     let name = format!("{title} {label}");
     response.widget_info(|| WidgetInfo::labeled(Role::Button, true, &name));
-    if response.clicked() {
-        let r = app.edit(def, u32::from(!on));
-        debug_assert!(r.is_ok());
-    }
+    response.clicked()
 }
 
 /// Variation lights; clicking one selects that colour.
