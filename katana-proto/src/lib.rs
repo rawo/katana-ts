@@ -4,6 +4,7 @@ pub mod address;
 pub mod amp;
 pub mod backup;
 pub mod capture;
+pub mod chain;
 pub mod channel;
 pub mod check;
 pub mod checksum;
