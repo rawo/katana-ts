@@ -50,6 +50,38 @@ pub fn wheel_value(v: u32, notches: i32, min: u32, max: u32) -> u32 {
     (v as i64 + notches as i64).clamp(min as i64, max as i64) as u32
 }
 
+/// Wheel steps for a hovered widget, unless the page scrolled just now (then
+/// the wheel stays with the page). Trackpad scrolling adds up in `scroll`.
+/// A widget that takes the wheel keeps the page from scrolling too.
+pub(crate) fn take_wheel(ui: &egui::Ui, response: &egui::Response, scroll: &mut f32) -> i32 {
+    let now = ui.input(|i| i.time);
+    let page_wheel_at = ui.data(|d| d.get_temp::<f64>(page_wheel_id()));
+    let page_scrolling = page_wheel_at.is_some_and(|t| now - t < WHEEL_LATCH_S);
+    if !response.hovered() || page_scrolling {
+        return 0;
+    }
+    if ui.input(has_wheel) {
+        let pass = ui.ctx().cumulative_pass_nr();
+        ui.data_mut(|d| d.insert_temp(knob_wheel_id(), pass));
+    }
+    let notches = ui.input(|i| {
+        let mut n = 0;
+        for e in &i.events {
+            if let egui::Event::MouseWheel { unit, delta, .. } = e {
+                match unit {
+                    MouseWheelUnit::Line | MouseWheelUnit::Page => n += delta.y.signum() as i32,
+                    MouseWheelUnit::Point => *scroll += delta.y,
+                }
+            }
+        }
+        n
+    });
+    let trackpad = (*scroll / SCROLL_PX_PER_STEP).trunc();
+    *scroll -= trackpad * SCROLL_PX_PER_STEP;
+    ui.ctx().input_mut(|i| i.smooth_scroll_delta = Vec2::ZERO);
+    notches + trackpad as i32
+}
+
 pub struct Knob<'a> {
     pub label: &'a str,
     pub value: &'a mut u32,
@@ -90,35 +122,10 @@ impl egui::Widget for Knob<'_> {
             st.drag = None;
         }
 
-        let now = ui.input(|i| i.time);
-        let page_wheel_at = ui.data(|d| d.get_temp::<f64>(page_wheel_id()));
-        let page_scrolling = page_wheel_at.is_some_and(|t| now - t < WHEEL_LATCH_S);
-        if response.hovered() && !page_scrolling {
-            if ui.input(has_wheel) {
-                let pass = ui.ctx().cumulative_pass_nr();
-                ui.data_mut(|d| d.insert_temp(knob_wheel_id(), pass));
-            }
-            let notches = ui.input(|i| {
-                let mut n = 0;
-                for e in &i.events {
-                    if let egui::Event::MouseWheel { unit, delta, .. } = e {
-                        match unit {
-                            MouseWheelUnit::Line | MouseWheelUnit::Page => n += delta.y.signum() as i32,
-                            MouseWheelUnit::Point => st.scroll += delta.y,
-                        }
-                    }
-                }
-                n
-            });
-            let trackpad = (st.scroll / SCROLL_PX_PER_STEP).trunc();
-            st.scroll -= trackpad * SCROLL_PX_PER_STEP;
-            let steps = notches + trackpad as i32;
-            // Only actual wheel movement may change (and so clamp) the value.
-            if steps != 0 {
-                *value = wheel_value(*value, steps, min, max);
-            }
-            // The wheel turns the knob; it must not also scroll the page.
-            ui.input_mut(|i| i.smooth_scroll_delta = Vec2::ZERO);
+        let steps = take_wheel(ui, &response, &mut st.scroll);
+        // Only actual wheel movement may change (and so clamp) the value.
+        if steps != 0 {
+            *value = wheel_value(*value, steps, min, max);
         }
 
         if response.double_clicked() {

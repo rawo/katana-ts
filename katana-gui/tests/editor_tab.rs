@@ -439,3 +439,52 @@ fn changing_the_mode_while_on_moves_the_switches() {
     assert_eq!(get(&h, "reverb1-layer-mode"), Some(0));
     assert_eq!((get(&h, "sw-delay2-sw"), get(&h, "reverb-sw")), (Some(1), Some(0)));
 }
+
+#[test]
+fn eq_cards_sit_around_the_amp_and_solo_last() {
+    let h = harness();
+    let x = |t: &str| h.get_by_label(t).rect().center().x;
+    assert!(x("EQ 1") < x("AMP") && x("AMP") < x("EQ 2"));
+    assert!(x("DELAY 2 / REVERB") < x("SOLO"));
+}
+
+#[test]
+fn eq_panel_shows_position_type_and_ge10_faders() {
+    let mut h = stepped(KatanaApp::new());
+    set(&mut h, "eq1-type", 1);
+    select(&mut h, "EQ 1");
+    h.get_by_label("POSITION");
+    h.get_by_label("TYPE");
+    let k1 = h.get_by_label("1kHz");
+    assert_eq!(k1.accesskit_node().role(), egui::accesskit::Role::Slider);
+    h.get_by_label("16kHz");
+    let before = get(&h, "geq1-1khz").unwrap();
+    let at = h.get_by_label("1kHz").rect().center();
+    for _ in 0..12 {
+        h.step();
+    }
+    wheel(&mut h, at);
+    assert_eq!(get(&h, "geq1-1khz"), Some(before + 1));
+}
+
+#[test]
+fn eq_parametric_shows_knobs() {
+    let mut h = harness();
+    set(&mut h, "eq2-type", 0);
+    select(&mut h, "EQ 2");
+    h.get_by_label("LOW-MID FREQ");
+    assert!(h.query_by_label("1kHz").is_none());
+}
+
+#[test]
+fn solo_panel_shows_the_solo_delay_read_only() {
+    let mut h = harness();
+    select(&mut h, "SOLO");
+    h.get_by_label("SOLO LEVEL");
+    h.get_by_label("SOLO EQ SW");
+    h.get_by_label("MID FREQ");
+    h.get_by_label_contains("doesn't accept changes to the solo delay");
+    assert!(h.query_by_label("FEEDBACK").is_none(), "no editable solo delay knob");
+    h.get_by_label_contains("FEEDBACK:");
+}
+

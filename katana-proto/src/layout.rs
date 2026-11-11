@@ -87,16 +87,17 @@ pub const CHAIN: &[BlockDef] = &[
         ..block("booster", "BOOSTER", Some("booster-sw"))
     },
     BlockDef { color: Some("mod-color"), slots: &[0, 1, 2], ..block("mod", "MOD", Some("mod-sw")) },
+    block("eq1", "EQ 1", Some("eq1-sw")),
     BlockDef {
         kind: Some("amp-type"),
         common: &[
             c("amp-type", "TYPE"),
             c("cab-resonance", "CAB RESONANCE"),
             c("contour", "CONTOUR"),
-            c("solo-sw", "SOLO"),
         ],
         ..block("amp", "AMP", None)
     },
+    block("eq2", "EQ 2", Some("eq2-sw")),
     BlockDef { color: Some("fx-color"), slots: &[3, 4, 5], ..block("fx", "FX", Some("fx-sw")) },
     BlockDef {
         color: Some("delay-color"),
@@ -111,6 +112,7 @@ pub const CHAIN: &[BlockDef] = &[
     // DELAY 2 and REVERB: one amp button and the REVERB colour drive both;
     // its on/off is `settings::delay2_reverb_on`, its panel the GUI's own.
     BlockDef { color: Some("reverb-color"), ..block("dly2rev", "DELAY 2 / REVERB", None) },
+    block("solo", "SOLO", Some("solo-sw")),
 ];
 
 /// Always-visible amp knobs.

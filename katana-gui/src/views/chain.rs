@@ -9,10 +9,14 @@ use crate::app::KatanaApp;
 use crate::theme::Palette;
 use crate::widgets::on_off_text;
 
+/// Card content width.
+const CARD_W: f32 = 76.0;
+
 pub fn chain(ui: &mut egui::Ui, app: &mut KatanaApp, p: &Palette) {
     // Fixed row height, so the IN label and arrows centre on the cards.
-    let row = Vec2::new(ui.available_width(), 84.0);
+    let row = Vec2::new(ui.available_width(), 104.0);
     ui.allocate_ui_with_layout(row, egui::Layout::left_to_right(egui::Align::Center), |ui| {
+        ui.spacing_mut().item_spacing.x = 4.0;
         ui.label(RichText::new("IN").color(p.dim));
         for block in CHAIN {
             arrow(ui, p);
@@ -32,20 +36,19 @@ fn card(ui: &mut egui::Ui, app: &mut KatanaApp, block: &'static BlockDef, p: &Pa
             .corner_radius(CornerRadius::same(6))
             .inner_margin(8)
             .show(ui, |ui| {
-                ui.set_min_size(Vec2::new(120.0, 64.0));
+                // Nine cards fit the narrowest window (MIN_WINDOW): long titles wrap.
+                ui.set_min_size(Vec2::new(CARD_W, 64.0));
+                ui.set_max_width(CARD_W);
                 ui.vertical(|ui| {
-                    let title = ui.horizontal(|ui| {
-                        let title = ui.label(RichText::new(block.title).strong());
-                        if let Some(sw) = block.switch {
-                            pill(ui, app, block.title, sw, p);
-                        } else if block.id == "dly2rev" {
-                            dly2rev_pill(ui, app, block.title, p);
-                        }
-                        title
-                    });
+                    // Not selectable: a selectable label would take the card's click.
+                    let title = ui.add(egui::Label::new(RichText::new(block.title).strong()).wrap().selectable(false));
+                    if let Some(sw) = block.switch {
+                        pill(ui, app, block.title, sw, p);
+                    } else if block.id == "dly2rev" {
+                        dly2rev_pill(ui, app, block.title, p);
+                    }
                     if let Some(t) = block.type_label(app.editor.patch()) {
-                        // Not selectable: a selectable label would take the card's click.
-                        ui.add(egui::Label::new(RichText::new(t).small().color(p.dim)).selectable(false));
+                        ui.add(egui::Label::new(RichText::new(t).small().color(p.dim)).wrap().selectable(false));
                     }
                     if let Some(color) = block.color {
                         ui.horizontal(|ui| {
@@ -56,7 +59,7 @@ fn card(ui: &mut egui::Ui, app: &mut KatanaApp, block: &'static BlockDef, p: &Pa
                             }
                         });
                     }
-                    title.inner.id
+                    title.id
                 })
                 .inner
             })
@@ -187,7 +190,7 @@ pub(crate) fn tap_wake(on: bool, time_ms: u32, now: f64) -> Option<f64> {
 
 /// A painted right arrow (the default fonts have no "→").
 fn arrow(ui: &mut egui::Ui, p: &Palette) {
-    let (rect, _) = ui.allocate_exact_size(Vec2::new(18.0, 12.0), Sense::hover());
+    let (rect, _) = ui.allocate_exact_size(Vec2::new(16.0, 12.0), Sense::hover());
     let stroke = Stroke::new(1.5, p.dim);
     let (l, r) = (rect.left_center(), rect.right_center());
     ui.painter().line_segment([l, r], stroke);

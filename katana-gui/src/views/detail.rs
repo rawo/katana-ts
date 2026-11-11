@@ -4,11 +4,11 @@
 use eframe::egui::{self, Button, RichText, Role, Sense, Stroke, Vec2, WidgetInfo};
 use katana_proto::layout::{BlockDef, Control};
 use katana_proto::settings::{self, color_of, groups, panel_controls, type_def, Panel};
-use katana_proto::{find_param, Patch};
+use katana_proto::{find_param, format_value, Patch};
 
 use crate::app::KatanaApp;
 use crate::theme::Palette;
-use crate::widgets::param_control;
+use crate::widgets::{param_control, Fader};
 
 const COLORS: [&str; 3] = ["GREEN", "RED", "ORANGE"];
 
@@ -27,6 +27,9 @@ pub fn detail(ui: &mut egui::Ui, app: &mut KatanaApp, block: &'static BlockDef, 
     match panel_of(block.id) {
         Some(panel) => colour_panel(ui, app, block, panel, p),
         None if block.id == "dly2rev" => dly2rev_panel(ui, app, block, p),
+        None if block.id == "eq1" => eq_panel(ui, app, block, 1, p),
+        None if block.id == "eq2" => eq_panel(ui, app, block, 2, p),
+        None if block.id == "solo" => solo_panel(ui, app, block, p),
         None => plain(ui, app, block, p),
     }
 }
@@ -173,6 +176,71 @@ pub(crate) fn control(ui: &mut egui::Ui, app: &mut KatanaApp, c: Control, p: &Pa
             let name = format!("Panel knob: {}", c.label);
             r.widget_info(|| WidgetInfo::labeled(Role::Image, true, &name));
             r.on_hover_text("The panel knob also moves this");
+        }
+    });
+}
+
+/// EQ 1 / EQ 2: POSITION and TYPE, then GE-10 faders or PARAMETRIC knobs.
+fn eq_panel(ui: &mut egui::Ui, app: &mut KatanaApp, block: &'static BlockDef, k: u8, p: &Palette) {
+    ui.label(RichText::new(block.title).small().strong().color(p.dim));
+    ui.add_space(6.0);
+    let i = usize::from(k) - 1;
+    ui.horizontal(|ui| {
+        ui.spacing_mut().item_spacing.x = 16.0;
+        for (key, label) in [("position", "POSITION"), ("type", "TYPE")] {
+            if let Some(d) = settings::setting("EQ_EACH", i, key) {
+                param_control(ui, app, d, label, p);
+            }
+        }
+    });
+    ui.add_space(6.0);
+    let ge10 = type_def(Panel::Eq(k), 0).and_then(|d| app.editor.get(d)) == Some(1);
+    if !ge10 {
+        settings_list(ui, app, Panel::Eq(k), 0, p);
+        return;
+    }
+    ui.horizontal(|ui| {
+        for c in panel_controls(Panel::Eq(k), 0, app.editor.patch()) {
+            let Some(def) = find_param(c.param) else { continue };
+            let Some(value) = app.editor.get(def) else { continue };
+            let mut new = value;
+            ui.add(Fader { label: c.label, value: &mut new, def, palette: p });
+            if new != value {
+                let r = app.edit(def, new);
+                debug_assert!(r.is_ok());
+            }
+        }
+    });
+}
+
+/// SOLO: its LEVEL, then SOLO EQ and the solo delay, which the amp doesn't
+/// let us change (docs/protocol.md), so it is shown as text.
+fn solo_panel(ui: &mut egui::Ui, app: &mut KatanaApp, block: &'static BlockDef, p: &Palette) {
+    ui.label(RichText::new(block.title).small().strong().color(p.dim));
+    ui.add_space(6.0);
+    if let Some(d) = settings::setting("SOLO_COM", 0, "effect-level") {
+        param_control(ui, app, d, "SOLO LEVEL", p);
+    }
+    ui.add_space(6.0);
+    ui.columns(2, |cols| {
+        let [eq, delay] = cols else { return };
+        eq.label(RichText::new("SOLO EQ").strong());
+        eq.horizontal(|ui| {
+            ui.spacing_mut().item_spacing.x = 16.0;
+            for (key, label) in [("sw", "SOLO EQ SW"), ("position", "POSITION")] {
+                if let Some(d) = settings::setting("SOLO_EQ", 0, key) {
+                    param_control(ui, app, d, label, p);
+                }
+            }
+        });
+        settings_list(eq, app, Panel::SoloEq, 0, p);
+        delay.label(RichText::new("SOLO DELAY").strong());
+        delay.label(RichText::new("The amp doesn't accept changes to the solo delay over USB.").small().color(p.dim));
+        let patch = app.editor.patch();
+        for c in panel_controls(Panel::SoloDelay, 0, patch) {
+            if let Some(v) = find_param(c.param).and_then(|d| patch.get(d).map(|v| format_value(d, v))) {
+                delay.label(format!("{}: {v}", c.label));
+            }
         }
     });
 }
