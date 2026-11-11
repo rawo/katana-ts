@@ -683,10 +683,13 @@ def rust_types(table, p, fx_pages):
 
 def rust_label(p, key):
     page_first = sorted(p["controls"], key=lambda c: (c.get("page") or "").startswith(("panel", "editor")))
-    for c in page_first:
-        if c.get("label"):
-            return c["label"]
-    return key.replace("-", " ").upper()
+    label = next((c["label"] for c in page_first if c.get("label")), key.replace("-", " ").upper())
+    # HARMONIST / PITCH SHIFTER voices: "HR1:HARMONY" -> "HARMONY 1", "HR2: C" -> "USER 2 C".
+    m = re.fullmatch(r"(?:HR|PS)(\d):\s*(.+)", label)
+    if m:
+        voice, rest = m.groups()
+        return f"USER {voice} {rest}" if len(rest) <= 2 else f"{rest} {voice}"
+    return label
 
 
 def rust_values(p):

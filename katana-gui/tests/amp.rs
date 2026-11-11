@@ -314,7 +314,7 @@ fn delay_colour_and_tap_from_the_panel_follow() {
     assert_eq!(r.app().editor.get(color), Some(1));
     assert_eq!(r.app().editor.get(time), Some(526));
     r.click("DELAY");
-    r.h.get_by_label("DELAY · RED variation");
+    r.h.get_by_label_contains("DELAY · RED variation");
     assert_eq!(r.jobs(), vec![], "panel changes are not sent back");
 }
 
@@ -327,7 +327,7 @@ fn reverb_colour_both_ways_with_live_on() {
     r.event(Event::PanelChange { addr: color.addr, data: vec![0] });
     assert_eq!(r.app().editor.get(color), Some(0));
     r.click("REVERB");
-    r.h.get_by_label("REVERB · GREEN variation");
+    r.h.get_by_label_contains("REVERB · GREEN variation");
     assert_eq!(r.jobs(), vec![], "panel changes are not sent back");
 }
 
@@ -1233,4 +1233,17 @@ mod with_worker {
         assert_eq!(names_in(&b.root.join("quick-saves")).len(), 1, "the edit was kept");
         assert!(b.fake.lock().unwrap().editor);
     }
+}
+
+#[test]
+fn amp_reapplying_the_knob_updates_the_panel_and_sends_nothing() {
+    let mut r = rig("knob-reapply").connected().live();
+    let low_cut = katana_proto::settings::setting("REVERB", 1, "low-cut").unwrap();
+    let color = find_param("reverb-color").unwrap();
+    r.event(Event::PanelChange { addr: color.addr, data: vec![1] });
+    r.event(Event::PanelChange { addr: low_cut.addr, data: vec![14, 9, 5, 18] });
+    r.click("REVERB");
+    assert_eq!(r.app().editor.get(low_cut), Some(14));
+    assert_eq!(r.h.get_by_label("LOW CUT").accesskit_node().numeric_value(), Some(14.0));
+    assert_eq!(r.jobs(), vec![], "the amp's own changes are not sent back");
 }

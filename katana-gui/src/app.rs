@@ -1,10 +1,12 @@
 //! The main window.
 
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 use eframe::egui;
+use katana_proto::settings::{self, Panel};
 use katana_proto::{all_params, device, encode_param, Address, Channel, ParamDef, Patch, ProtoError};
 
 use crate::amp::{AmpLink, Event, Job};
@@ -51,6 +53,9 @@ pub struct KatanaApp {
     pub theme: ThemeId,
     /// `layout::BlockDef::id` of the block shown in the detail panel.
     pub selected_block: &'static str,
+    /// The colour tab picked per block id; a block without one shows the
+    /// colour the amp plays. Picking a tab never changes the amp.
+    pub panel_color: HashMap<&'static str, u32>,
     /// Last failed action, shown in the status line.
     pub error: Option<String>,
     applied_theme: Option<ThemeId>,
@@ -133,6 +138,7 @@ impl KatanaApp {
             tab: Tab::Editor,
             theme: ThemeId::Dark,
             selected_block: "booster",
+            panel_color: HashMap::new(),
             error: (!problems.is_empty()).then(|| problems.join("; ")),
             applied_theme: None,
             pending: None,
@@ -303,6 +309,11 @@ impl KatanaApp {
                 false
             }
         }
+    }
+
+    /// The colour a block's panel shows: the picked tab, else the playing colour.
+    pub fn shown_color(&self, block_id: &str, panel: Panel) -> Option<u32> {
+        self.panel_color.get(block_id).copied().or_else(|| settings::color_of(panel, self.editor.patch()))
     }
 
     /// An edit from the UI: into the editor and, with Live on, to the amp.

@@ -30,7 +30,7 @@ fn chain_shows_blocks_in_order() {
 #[test]
 fn booster_selected_by_default_shows_drive() {
     let h = harness();
-    h.get_by_label("BOOSTER · GREEN variation");
+    h.get_by_label_contains("BOOSTER · GREEN variation");
     h.get_by_label("DRIVE");
 }
 
@@ -40,7 +40,7 @@ fn clicking_led_switches_variation() {
     h.get_by_label("BOOSTER ORANGE").click();
     h.run();
     assert_eq!(get(&h, "booster-color"), Some(2));
-    h.get_by_label("BOOSTER · ORANGE variation");
+    h.get_by_label_contains("BOOSTER · ORANGE variation");
 }
 
 #[test]
@@ -51,8 +51,8 @@ fn delay_led_switches_variation_and_its_settings() {
     assert_eq!(get(&h, "delay-color"), Some(1));
     h.get_by_label("DELAY").click();
     h.run();
-    h.get_by_label("DELAY · RED variation");
-    for k in ["TIME", "FEEDBACK", "EFFECT LEVEL"] {
+    h.get_by_label_contains("DELAY · RED variation");
+    for k in ["DELAY TIME", "FEEDBACK", "EFFECT LEVEL"] {
         h.get_by_label(k);
     }
 }
@@ -65,7 +65,7 @@ fn reverb_led_switches_variation_and_its_level() {
     assert_eq!(get(&h, "reverb-color"), Some(2));
     h.get_by_label("REVERB").click();
     h.run();
-    h.get_by_label("REVERB · ORANGE variation");
+    h.get_by_label_contains("REVERB · ORANGE variation");
     h.get_by_label("EFFECT LEVEL");
 }
 
@@ -313,4 +313,80 @@ fn wheel_after_pause_turns_knob() {
     }
     wheel(&mut h, drive);
     assert_eq!(get(&h, "booster1-drive"), Some(1));
+}
+
+fn set(h: &mut Harness<KatanaApp>, name: &str, v: u32) {
+    h.state_mut().editor.set(find_param(name).unwrap(), v).unwrap();
+    h.run();
+}
+
+fn select(h: &mut Harness<KatanaApp>, card: &str) {
+    h.get_by_label(card).click();
+    h.run();
+}
+
+#[test]
+fn colour_tab_shows_that_colour_without_changing_the_amp() {
+    let mut h = harness();
+    set(&mut h, "mod2-type", 23);
+    select(&mut h, "MOD");
+    h.get_by_label("RED · CHORUS").click();
+    h.run();
+    assert_eq!(get(&h, "mod-color"), Some(0), "the amp still plays GREEN");
+    h.get_by_label("MOD · RED variation · type CHORUS");
+    h.get_by_label("LOW RATE");
+}
+
+#[test]
+fn mod_type_drop_down_changes_the_shown_colours_type() {
+    let mut h = harness();
+    select(&mut h, "MOD");
+    h.get_by_label_contains("RED ·").click();
+    h.run();
+    h.get_by_label("MOD TYPE").click();
+    h.run();
+    // The drop-down shows ~200 px; COMP is near the top.
+    h.get_all_by_label("COMP").last().unwrap().click();
+    h.run();
+    assert_eq!(get(&h, "mod2-type"), Some(3));
+    assert_eq!(get(&h, "mod1-type"), Some(0));
+    h.get_by_label("SUSTAIN");
+}
+
+#[test]
+fn knob_settings_are_marked() {
+    let mut h = harness();
+    set(&mut h, "mod1-type", 23);
+    select(&mut h, "MOD");
+    h.get_by_label("Panel knob: LOW RATE");
+    assert!(h.query_by_label("Panel knob: DIRECT MIX").is_none());
+}
+
+#[test]
+fn picked_tab_stays_when_the_playing_colour_changes() {
+    let mut h = harness();
+    select(&mut h, "MOD");
+    h.get_by_label_contains("ORANGE ·").click();
+    h.run();
+    set(&mut h, "mod-color", 1);
+    h.get_by_label_contains("MOD · ORANGE variation");
+}
+
+#[test]
+fn every_setting_of_the_type_is_shown() {
+    let mut h = harness();
+    set(&mut h, "delay1-type", 7);
+    select(&mut h, "DELAY");
+    for l in ["DELAY TIME", "FEEDBACK", "EFFECT LEVEL", "DIRECT MIX", "MOD SW", "RANGE", "FILTER"] {
+        h.get_by_label(l);
+    }
+}
+
+#[test]
+fn harmonist_panel_fits_the_smallest_window() {
+    let mut h = harness_sized(MIN_WINDOW, KatanaApp::new());
+    set(&mut h, "mod1-type", 12);
+    select(&mut h, "MOD");
+    h.get_by_label("MASTER KEY");
+    h.get_by_label("GAIN");
 }
