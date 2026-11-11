@@ -10,7 +10,7 @@
 use std::sync::LazyLock;
 
 use crate::device::addr;
-use crate::params::{Encoding, ParamDef};
+use crate::params::{Encoding, Format, ParamDef};
 
 /// Value names of the type parameter (official app's `resource.js` order;
 /// matches the knob captures, captures/108).
@@ -62,7 +62,7 @@ pub struct KnobTarget {
     pub min: u32,
     pub max: u32,
     /// Shown value = raw − `ofs`.
-    pub ofs: u32,
+    pub ofs: i32,
     /// Value names, for settings that pick from a list.
     pub values: Option<&'static [(u32, &'static str)]>,
 }
@@ -81,7 +81,7 @@ const fn t(key: &'static str, label: &'static str, offset: [u8; 2], min: u32, ma
 
 /// A signed setting shown as −`ofs`..+`ofs`, sent as 0..2·`ofs`.
 const fn signed(key: &'static str, label: &'static str, offset: [u8; 2], ofs: u32) -> KnobTarget {
-    KnobTarget { key, label, offset, min: 0, max: 2 * ofs, ofs, values: None }
+    KnobTarget { key, label, offset, min: 0, max: 2 * ofs, ofs: ofs as i32, values: None }
 }
 
 /// A setting that picks one of `values` (raw 0..len−1).
@@ -247,6 +247,7 @@ pub(crate) static GENERATED: LazyLock<Vec<ParamDef>> = LazyLock::new(|| {
             max: 30,
             values: Some(FX_TYPES),
             ofs: 0,
+            format: Format::Plain,
         });
         for k in KNOB {
             for tg in k.targets {
@@ -259,6 +260,7 @@ pub(crate) static GENERATED: LazyLock<Vec<ParamDef>> = LazyLock::new(|| {
                     max: tg.max,
                     values: tg.values,
                     ofs: tg.ofs,
+                    format: Format::Plain,
                 });
             }
         }

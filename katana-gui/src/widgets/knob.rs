@@ -2,6 +2,8 @@
 
 use eframe::egui::{self, Align2, FontId, Key, MouseWheelUnit, Sense, Shape, Stroke, TextEdit, Vec2};
 
+use katana_proto::{format_value, parse_shown, ParamDef};
+
 use crate::theme::Palette;
 
 /// Dragging this far sweeps the whole range.
@@ -48,30 +50,11 @@ pub fn wheel_value(v: u32, notches: i32, min: u32, max: u32) -> u32 {
     (v as i64 + notches as i64).clamp(min as i64, max as i64) as u32
 }
 
-/// A typed value, if it is a whole number within range.
-/// A typed shown value (raw − `ofs`, may be signed) back to its raw value.
-pub fn parse_typed(text: &str, min: u32, max: u32, ofs: u32) -> Option<u32> {
-    let shown: i64 = text.trim().parse().ok()?;
-    u32::try_from(shown + i64::from(ofs)).ok().filter(|v| (min..=max).contains(v))
-}
-
-/// The raw value as shown: raw − `ofs`, with a "+" when `ofs` makes it signed.
-pub fn shown(raw: u32, ofs: u32) -> String {
-    let v = i64::from(raw) - i64::from(ofs);
-    if ofs > 0 && v > 0 {
-        format!("+{v}")
-    } else {
-        v.to_string()
-    }
-}
-
 pub struct Knob<'a> {
     pub label: &'a str,
     pub value: &'a mut u32,
-    pub min: u32,
-    pub max: u32,
-    /// Shown value = raw − `ofs`.
-    pub ofs: u32,
+    /// Range and display format.
+    pub def: &'a ParamDef,
     pub palette: &'a Palette,
 }
 
@@ -88,7 +71,8 @@ struct KnobState {
 
 impl egui::Widget for Knob<'_> {
     fn ui(self, ui: &mut egui::Ui) -> egui::Response {
-        let Knob { label, value, min, max, ofs, palette: p } = self;
+        let Knob { label, value, def, palette: p } = self;
+        let (min, max) = (def.min, def.max);
         let size = Vec2::new(64.0, 84.0);
         let (rect, mut response) = ui.allocate_exact_size(size, Sense::click_and_drag());
         let id = response.id;
@@ -138,7 +122,7 @@ impl egui::Widget for Knob<'_> {
         }
 
         if response.double_clicked() {
-            st.typing = Some(shown(*value, ofs));
+            st.typing = Some(format_value(def, *value));
             st.drag = None;
         }
 
@@ -162,13 +146,13 @@ impl egui::Widget for Knob<'_> {
             }
             if edit.lost_focus() {
                 let entered = ui.input(|i| i.key_pressed(Key::Enter));
-                commit = Some(if entered { parse_typed(text, min, max, ofs) } else { None });
+                commit = Some(if entered { parse_shown(def, text) } else { None });
             }
         } else {
             painter.text(
                 value_rect.center(),
                 Align2::CENTER_CENTER,
-                shown(*value, ofs),
+                format_value(def, *value),
                 FontId::proportional(13.0),
                 p.text,
             );
@@ -184,7 +168,7 @@ impl egui::Widget for Knob<'_> {
         if *value != old {
             response.mark_changed();
         }
-        let v = *value as f64 - f64::from(ofs);
+        let v = *value as f64 - f64::from(def.ofs);
         response.widget_info(|| egui::WidgetInfo::slider(true, v, label));
         response
     }
@@ -212,6 +196,7 @@ fn arc(painter: &egui::Painter, center: egui::Pos2, r: f32, frac: f32, stroke: S
 #[cfg(test)]
 mod tests {
     use super::*;
+    use katana_proto::{Encoding, Format};
 
     #[test]
     fn drag_full_range_over_200px() {
@@ -235,32 +220,36 @@ mod tests {
         assert_eq!(wheel_value(0, -3, 0, 100), 0);
     }
 
-    #[test]
-    fn parse_typed_accepts_in_range() {
-        assert_eq!(parse_typed(" 42 ", 0, 100, 0), Some(42));
+    fn def(min: u32, max: u32, ofs: i32) -> ParamDef {
+        ParamDef { name: "T", addr: 0, encoding: Encoding::U7, min, max, values: None, ofs, format: Format::Plain }
     }
 
     #[test]
-    fn parse_typed_rejects_bad_input() {
-        assert_eq!(parse_typed("abc", 0, 100, 0), None);
-        assert_eq!(parse_typed("101", 0, 100, 0), None);
-        assert_eq!(parse_typed("-1", 0, 100, 0), None);
-        assert_eq!(parse_typed("", 0, 100, 0), None);
+    fn typing_accepts_in_range() {
+        assert_eq!(parse_shown(&def(0, 100, 0), " 42 "), Some(42));
     }
 
     #[test]
-    fn parse_typed_takes_signed_values_with_an_offset() {
-        assert_eq!(parse_typed("-5", 0, 40, 20), Some(15));
-        assert_eq!(parse_typed("+20", 0, 40, 20), Some(40));
-        assert_eq!(parse_typed("21", 0, 40, 20), None);
-        assert_eq!(parse_typed("-21", 0, 40, 20), None);
+    fn typing_rejects_bad_input() {
+        for text in ["abc", "101", "-1", ""] {
+            assert_eq!(parse_shown(&def(0, 100, 0), text), None, "{text:?}");
+        }
+    }
+
+    #[test]
+    fn typing_takes_signed_values_with_an_offset() {
+        let d = def(0, 40, 20);
+        assert_eq!(parse_shown(&d, "-5"), Some(15));
+        assert_eq!(parse_shown(&d, "+20"), Some(40));
+        assert_eq!(parse_shown(&d, "21"), None);
+        assert_eq!(parse_shown(&d, "-21"), None);
     }
 
     #[test]
     fn shown_value_is_signed_with_an_offset() {
-        assert_eq!(shown(15, 20), "-5");
-        assert_eq!(shown(20, 20), "0");
-        assert_eq!(shown(25, 20), "+5");
-        assert_eq!(shown(42, 0), "42");
+        assert_eq!(format_value(&def(0, 40, 20), 15), "-5");
+        assert_eq!(format_value(&def(0, 40, 20), 20), "0");
+        assert_eq!(format_value(&def(0, 40, 20), 25), "+5");
+        assert_eq!(format_value(&def(0, 100, 0), 42), "42");
     }
 }

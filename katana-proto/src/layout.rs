@@ -290,7 +290,7 @@ mod tests {
     #[test]
     fn type_batch_3_knob_settings() {
         // captures/112-types-batch3.log (MOD green); FX_DETAIL 01 xx = 20 00 1D xx.
-        type Want = (&'static str, u32, (u32, u32, u32));
+        type Want = (&'static str, u32, (u32, u32, i32));
         let a = |o: u8| crate::device::addr([0x20, 0, 0x1D, o]);
         let cases: [(u32, &[Want]); 6] = [
             (
@@ -321,7 +321,7 @@ mod tests {
     #[test]
     fn type_batch_4_knob_settings() {
         // captures/113-types-batch4.log (MOD green); FX_DETAIL 01 xx = 20 00 1D xx.
-        type Want = (&'static str, u32, (u32, u32, u32));
+        type Want = (&'static str, u32, (u32, u32, i32));
         let a = |o: u8| crate::device::addr([0x20, 0, 0x1D, o]);
         let cases: [(u32, &[Want]); 8] = [
             (20, &[("mod1-vibrato-rate", a(0x27), (0, 100, 0))]),

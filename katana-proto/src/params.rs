@@ -33,11 +33,93 @@ pub struct ParamDef {
     /// Names for enumerated values.
     pub values: Option<&'static [(u32, &'static str)]>,
     /// Shown value = raw − `ofs` (app map `ofs`, e.g. 20 for −20..20 dB).
-    pub ofs: u32,
+    pub ofs: i32,
+    pub format: Format,
+}
+
+/// How a shown value (raw − `ofs`) is written, after the official app's
+/// display formats (docs/settings.md, "Values").
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Format {
+    /// The number; signed ("+5") when `ofs` is positive.
+    Plain,
+    /// "+5", "0", "-5".
+    Signed,
+    /// One more than the value (a 0-based number shown 1-based).
+    PlusOne,
+    /// The number and a unit, e.g. "400 ms".
+    Unit(&'static str),
+    /// "+5 dB".
+    SignedDb,
+    /// Half-dB steps: "+3.5 dB".
+    HalfDb,
+    /// Tenths of a second: "3.0 s".
+    Tenths,
+    /// Twice the value, in percent.
+    Percent2,
+    /// "OFF" below zero, else the number.
+    OffBelowZero,
+    /// The value's name from `values`.
+    Names,
 }
 
 const fn p(name: &'static str, a: [u8; 4], encoding: Encoding, min: u32, max: u32) -> ParamDef {
-    ParamDef { name, addr: addr(a), encoding, min, max, values: None, ofs: 0 }
+    ParamDef { name, addr: addr(a), encoding, min, max, values: None, ofs: 0, format: Format::Plain }
+}
+
+fn signed(v: impl std::fmt::Display + PartialOrd + Default) -> String {
+    if v > Default::default() {
+        format!("+{v}")
+    } else {
+        v.to_string()
+    }
+}
+
+/// The value as shown to the user, e.g. "400 ms", "+3.5 dB", "PLATE".
+pub fn format_value(def: &ParamDef, raw: u32) -> String {
+    let v = i64::from(raw) - i64::from(def.ofs);
+    let half = v as f64 / 2.0;
+    match def.format {
+        Format::Plain if def.ofs > 0 => signed(v),
+        Format::Plain => v.to_string(),
+        Format::Signed => signed(v),
+        Format::PlusOne => (v + 1).to_string(),
+        Format::Unit(u) => format!("{v} {u}"),
+        Format::SignedDb => format!("{} dB", signed(v)),
+        Format::HalfDb => format!("{}{half:.1} dB", if half > 0.0 { "+" } else { "" }),
+        Format::Tenths => format!("{:.1} s", v as f64 / 10.0),
+        Format::Percent2 => format!("{} %", v * 2),
+        Format::OffBelowZero if v < 0 => "OFF".to_string(),
+        Format::OffBelowZero => v.to_string(),
+        Format::Names => def
+            .values
+            .and_then(|vs| vs.iter().find(|&&(n, _)| n == raw))
+            .map_or_else(|| format!("? ({raw})"), |&(_, name)| name.to_string()),
+    }
+}
+
+/// A typed value back to raw: a number as shown (a unit may follow), or a
+/// value name. `None` if it doesn't parse or lies outside the range.
+pub fn parse_shown(def: &ParamDef, text: &str) -> Option<u32> {
+    let text = text.trim();
+    if def.format == Format::Names {
+        let vs = def.values?;
+        return vs.iter().find(|(_, n)| n.eq_ignore_ascii_case(text)).map(|&(v, _)| v);
+    }
+    let number = text.trim_end_matches(|c: char| c.is_alphabetic() || c == '%' || c.is_whitespace());
+    let shown: f64 = number.parse().ok()?;
+    let v = match def.format {
+        Format::HalfDb => shown * 2.0,
+        Format::Tenths => shown * 10.0,
+        Format::Percent2 => shown / 2.0,
+        Format::PlusOne => shown - 1.0,
+        _ => shown,
+    };
+    if v.fract() != 0.0 {
+        return None;
+    }
+    let raw = v as i64 + i64::from(def.ofs);
+    u32::try_from(raw).ok().filter(|r| (def.min..=def.max).contains(r))
 }
 
 const fn named(def: ParamDef, values: &'static [(u32, &'static str)]) -> ParamDef {
@@ -157,7 +239,7 @@ mod tests {
     use crate::{device, encode, Address, Command, FakeAmp, MemoryMap, Patch, ProtoError};
 
     const P: ParamDef =
-        ParamDef { name: "TEST", addr: 0x10, encoding: Encoding::U7, min: 0, max: 100, values: None, ofs: 0 };
+        ParamDef { name: "TEST", addr: 0x10, encoding: Encoding::U7, min: 0, max: 100, values: None, ofs: 0, format: Format::Plain };
 
     #[test]
     fn set_sends_single_dt1() {
@@ -182,7 +264,7 @@ mod tests {
     }
 
     const NIB: ParamDef =
-        ParamDef { name: "NIB", addr: 0x20, encoding: Encoding::Nibbles4, min: 1, max: 2000, values: None, ofs: 0 };
+        ParamDef { name: "NIB", addr: 0x20, encoding: Encoding::Nibbles4, min: 1, max: 2000, values: None, ofs: 0, format: Format::Plain };
 
     #[test]
     fn nibbles4_encodes_high_nibble_first() {
@@ -228,6 +310,46 @@ mod tests {
         for w in spans.windows(2) {
             assert!(w[0].1 <= w[1].0, "{} and {} share bytes", w[0].2, w[1].2);
         }
+    }
+
+    fn def(min: u32, max: u32, ofs: i32, format: Format) -> ParamDef {
+        ParamDef { name: "T", addr: 0, encoding: Encoding::U7, min, max, values: None, ofs, format }
+    }
+
+    #[test]
+    fn formats_show_values_like_tone_studio() {
+        assert_eq!(format_value(&def(1, 2000, 0, Format::Unit("ms")), 400), "400 ms");
+        // Reverb TIME: raw 0..99 = 0.1..10.0 s.
+        assert_eq!(format_value(&def(0, 99, -1, Format::Tenths), 29), "3.0 s");
+        assert_eq!(format_value(&def(0, 48, 24, Format::HalfDb), 30), "+3.0 dB");
+        assert_eq!(format_value(&def(0, 48, 24, Format::HalfDb), 23), "-0.5 dB");
+        assert_eq!(format_value(&def(0, 40, 20, Format::SignedDb), 20), "0 dB");
+        assert_eq!(format_value(&def(0, 40, 20, Format::SignedDb), 25), "+5 dB");
+        assert_eq!(format_value(&def(0, 100, 50, Format::Plain), 60), "+10");
+        assert_eq!(format_value(&def(0, 100, 0, Format::Plain), 60), "60");
+        assert_eq!(format_value(&def(0, 3, 0, Format::PlusOne), 0), "1");
+        assert_eq!(format_value(&def(0, 50, 0, Format::Percent2), 25), "50 %");
+        assert_eq!(format_value(&def(0, 101, 1, Format::OffBelowZero), 0), "OFF");
+    }
+
+    #[test]
+    fn names_format_shows_the_value_name() {
+        let d = ParamDef { values: Some(&[(0, "A"), (1, "B"), (2, "C")]), ..def(0, 2, 0, Format::Names) };
+        assert_eq!(format_value(&d, 1), "B");
+        assert_eq!(format_value(&d, 7), "? (7)");
+        assert_eq!(parse_shown(&d, "c"), Some(2));
+    }
+
+    #[test]
+    fn typed_values_parse_back() {
+        let d = def(0, 48, 24, Format::HalfDb);
+        assert_eq!(parse_shown(&d, "+3.5"), Some(31));
+        assert_eq!(parse_shown(&d, "-12 dB"), Some(0));
+        assert_eq!(parse_shown(&d, "13"), None);
+        assert_eq!(parse_shown(&def(1, 2000, 0, Format::Unit("ms")), "651ms"), Some(651));
+        assert_eq!(parse_shown(&def(0, 99, -1, Format::Tenths), "3.0"), Some(29));
+        assert_eq!(parse_shown(&def(0, 100, 50, Format::Plain), "-10"), Some(40));
+        assert_eq!(parse_shown(&def(0, 100, 0, Format::Plain), "abc"), None);
     }
 
     #[test]

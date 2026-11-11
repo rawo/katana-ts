@@ -38,7 +38,7 @@ pub use fake::FakeAmp;
 pub use memmap::MemoryMap;
 #[cfg(feature = "midi")]
 pub use midi::{MidirTransport, DEFAULT_PORT};
-pub use params::{all_params, encode_param, find_param, set_param, Encoding, ParamDef, PARAMS};
+pub use params::{all_params, encode_param, find_param, format_value, parse_shown, set_param, Encoding, Format, ParamDef, PARAMS};
 pub use patch::{read_blocks, read_patch, read_slot, verify_write_back, write_patch, Patch, SLOTS};
 pub use syx::{read_syx, write_syx};
 pub use transport::Transport;

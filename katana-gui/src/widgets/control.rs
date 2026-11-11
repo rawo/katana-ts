@@ -1,7 +1,7 @@
 //! Picks the widget for a parameter from its definition.
 
 use eframe::egui::{self, Button, ComboBox, RichText};
-use katana_proto::ParamDef;
+use katana_proto::{Format, ParamDef};
 
 use super::Knob;
 use crate::app::KatanaApp;
@@ -18,8 +18,26 @@ pub fn on_off_text(value: u32) -> String {
     }
 }
 
-/// Draws the right widget for `def` and applies changes with `KatanaApp::edit`:
-/// on/off → toggle, named values → dropdown, anything else → knob.
+/// Which widget edits a parameter.
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) enum Widget {
+    Toggle,
+    DropDown,
+    Knob,
+}
+
+/// On/off → toggle; named values → drop-down, unless the names are a
+/// knob's display (`Format::Names`); anything else → knob.
+pub(crate) fn widget_for(def: &ParamDef) -> Widget {
+    match def.values {
+        Some(ON_OFF) => Widget::Toggle,
+        Some(_) if def.format != Format::Names => Widget::DropDown,
+        _ => Widget::Knob,
+    }
+}
+
+/// Draws the right widget for `def` (`widget_for`) and applies changes with
+/// `KatanaApp::edit`.
 pub fn param_control(
     ui: &mut egui::Ui,
     app: &mut KatanaApp,
@@ -36,8 +54,8 @@ pub fn param_control(
             .response;
     };
     let mut new = value;
-    let response = match def.values {
-        Some(ON_OFF) => {
+    let response = match widget_for(def) {
+        Widget::Toggle => {
             ui.vertical(|ui| {
                 let caption = ui.label(RichText::new(label).small().color(p.dim));
                 let on = value == 1;
@@ -48,7 +66,8 @@ pub fn param_control(
             })
             .response
         }
-        Some(values) => {
+        Widget::DropDown => {
+            let values = def.values.unwrap_or(&[]);
             ui.vertical(|ui| {
                 let caption = ui.label(RichText::new(label).small().color(p.dim));
                 let current = values
@@ -64,7 +83,7 @@ pub fn param_control(
             })
             .response
         }
-        None => ui.add(Knob { label, value: &mut new, min: def.min, max: def.max, ofs: def.ofs, palette: p }),
+        Widget::Knob => ui.add(Knob { label, value: &mut new, def, palette: p }),
     };
     if new != value {
         let r = app.edit(def, new);
@@ -76,6 +95,20 @@ pub fn param_control(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use katana_proto::Encoding;
+
+    fn def(values: Option<&'static [(u32, &'static str)]>, format: Format) -> ParamDef {
+        ParamDef { name: "T", addr: 0, encoding: Encoding::U7, min: 0, max: 2, values, ofs: 0, format }
+    }
+
+    #[test]
+    fn widget_follows_values_and_format() {
+        const LIST: &[(u32, &str)] = &[(0, "A"), (1, "B"), (2, "C")];
+        assert_eq!(widget_for(&def(Some(ON_OFF), Format::Plain)), Widget::Toggle);
+        assert_eq!(widget_for(&def(Some(LIST), Format::Plain)), Widget::DropDown);
+        assert_eq!(widget_for(&def(Some(LIST), Format::Names)), Widget::Knob);
+        assert_eq!(widget_for(&def(None, Format::Unit("ms"))), Widget::Knob);
+    }
 
     #[test]
     fn on_off_text_names_unknown_values() {
