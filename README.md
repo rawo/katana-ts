@@ -1,7 +1,6 @@
 # katana-ts
 
-Tools for the BOSS **KATANA-100 Gen 3** amp over USB, for Linux (where BOSS TONE
-STUDIO doesn't run):
+Tools for the BOSS **KATANA-100 Gen 3** amp over USB, specifically for Linux systems:
 
 | Crate | What it is |
 |---|---|
@@ -9,7 +8,10 @@ STUDIO doesn't run):
 | `katana-cli` | Command-line tool: store patches into channels, dump channels to `.syx`/`.tsl`, set parameters, watch the amp, analyse captures. |
 | `katana-gui` | Desktop editor (egui). Edits `.syx` files offline; with the amp connected, plays and stores them on it. |
 
-Linux is the only target. The code also builds on macOS for development.
+![image](docs/screenshots/katana-ts-screenshot.png)
+
+## Supported distributions
+TBD
 
 ## Requirements
 
