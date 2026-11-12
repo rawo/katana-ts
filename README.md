@@ -381,3 +381,10 @@ katana-cli diff a.tsv b.tsv
   with `--rust`).
 - `docs/superpowers/specs/`: design specs (protocol, GUI).
 - `docs/superpowers/plans/`: implementation plans.
+
+## License
+
+Copyright 2026 Rafał Wokacz. Licensed under the Apache License, Version 2.0 (see
+`LICENSE`). BOSS, KATANA and BOSS TONE STUDIO are trademarks of Roland Corporation;
+this project is not affiliated with Roland, and it uses only data tables from the
+user's own installation of Tone Studio, not its code.
