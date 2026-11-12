@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=KATANA Tone Studio
+GenericName=Amp editor
+Comment=Edit, store and organise BOSS KATANA Gen 3 patches
+Exec=katana-gui
+Terminal=false
+Categories=AudioVideo;Audio;Music;
+Keywords=boss;katana;amp;guitar;midi;

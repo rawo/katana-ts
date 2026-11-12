@@ -1,0 +1,124 @@
+# Release for the Linux machine (CachyOS / Arch): a pacman package with SLSA
+# level 3 provenance.
+#
+# - Push a tag vX.Y.Z (scripts/release.sh X.Y.Z does it): tests, builds the
+#   package in the official Arch Linux container, publishes a GitHub release with
+#   it, and attaches signed provenance from the SLSA generic generator
+#   (https://github.com/slsa-framework/slsa-github-generator).
+# - Run it by hand (Actions > Release > Run workflow): a dry run that builds the
+#   package and keeps it as a workflow artifact; nothing is published.
+#
+# Install or update on the Linux machine: scripts/update.sh
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  package:
+    name: Test and build the pacman package
+    runs-on: ubuntu-latest
+    container: archlinux:base-devel
+    outputs:
+      file: ${{ steps.build.outputs.file }}
+    steps:
+      - name: Install build packages
+        run: pacman -Syu --noconfirm --needed git rust pkgconf alsa-lib libxkbcommon libglvnd
+
+      - uses: actions/checkout@v4
+
+      - name: Version
+        id: version
+        shell: bash
+        run: |
+          cargo_version=$(sed -n 's/^version = "\(.*\)"/\1/p' katana-gui/Cargo.toml | head -1)
+          if [[ "$GITHUB_REF_TYPE" == tag ]]; then
+            version="${GITHUB_REF_NAME#v}"
+            if [[ "$version" != "$cargo_version" ]]; then
+              echo "::error::tag $GITHUB_REF_NAME doesn't match the crates' version $cargo_version (use scripts/release.sh)"
+              exit 1
+            fi
+          else
+            version="$cargo_version"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Test
+        run: cargo test --workspace --locked
+
+      - name: Build the package
+        id: build
+        shell: bash
+        run: |
+          # makepkg refuses to run as root.
+          useradd -m builder
+          chown -R builder "$GITHUB_WORKSPACE"
+          sed -i "s/^pkgver=.*/pkgver=${{ steps.version.outputs.version }}/" packaging/arch/PKGBUILD
+          su builder -c "cd '$GITHUB_WORKSPACE/packaging/arch' && makepkg --noconfirm --nodeps"
+          file=$(cd packaging/arch && ls katana-ts-*.pkg.tar.zst)
+          echo "file=$file" >> "$GITHUB_OUTPUT"
+          pacman -Qip "packaging/arch/$file"
+          pacman -Qlp "packaging/arch/$file"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: package
+          path: packaging/arch/${{ steps.build.outputs.file }}
+          if-no-files-found: error
+
+  # The SHA-256 of the package, base64-encoded, as the generator expects.
+  hashes:
+    if: github.ref_type == 'tag'
+    needs: package
+    runs-on: ubuntu-latest
+    outputs:
+      subjects: ${{ steps.hash.outputs.subjects }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: package
+          path: dist
+
+      - name: Hash the package
+        id: hash
+        working-directory: dist
+        run: echo "subjects=$(sha256sum *.pkg.tar.zst | base64 -w0)" >> "$GITHUB_OUTPUT"
+
+  release:
+    if: github.ref_type == 'tag'
+    needs: [package, hashes]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: package
+          path: dist
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.pkg.tar.zst
+          generate_release_notes: true
+
+  provenance:
+    if: github.ref_type == 'tag'
+    needs: [hashes, release]
+    permissions:
+      actions: read # to read the workflow run
+      id-token: write # to sign the provenance
+      contents: write # to attach it to the release
+    # Must be referenced by tag, not by commit, for the SLSA verifier to accept it.
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
+    with:
+      base64-subjects: ${{ needs.hashes.outputs.subjects }}
+      upload-assets: true
+      upload-tag-name: ${{ github.ref_name }}

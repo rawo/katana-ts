@@ -1,0 +1,37 @@
+# Arch / CachyOS package, built from this checkout (not from a download).
+# Locally: cd packaging/arch && makepkg -si
+# In CI: .github/workflows/release.yml sets pkgver from the git tag.
+pkgname=katana-ts
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="Editor and librarian for the BOSS KATANA Gen 3 amp over USB-MIDI"
+arch=('x86_64')
+url="https://github.com/rawo/katana-ts"
+license=('Apache-2.0')
+depends=('alsa-lib' 'gcc-libs' 'glibc' 'libxkbcommon' 'libglvnd')
+makedepends=('cargo' 'pkgconf')
+optdepends=('xdg-desktop-portal: file dialogs (Import, Export) in katana-gui')
+options=('!debug' '!lto')
+
+# The repository root, two levels above this file.
+_root() { realpath "$startdir/../.."; }
+
+prepare() {
+  cd "$(_root)"
+  cargo fetch --locked --target "$(rustc -vV | sed -n 's/host: //p')"
+}
+
+build() {
+  cd "$(_root)"
+  export CARGO_TARGET_DIR="$srcdir/target"
+  cargo build --release --frozen -p katana-cli -p katana-gui
+}
+
+package() {
+  cd "$(_root)"
+  install -Dm755 "$srcdir/target/release/katana-cli" "$pkgdir/usr/bin/katana-cli"
+  install -Dm755 "$srcdir/target/release/katana-gui" "$pkgdir/usr/bin/katana-gui"
+  install -Dm644 packaging/arch/katana-gui.desktop "$pkgdir/usr/share/applications/katana-gui.desktop"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
+}

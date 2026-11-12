@@ -107,6 +107,40 @@ The VM can't reach the amp (no USB passthrough by default), so amp work still ne
 the Linux machine. A VM on an ARM Mac builds arm64 binaries; build on the target
 machine itself.
 
+## Continuous integration and releases
+
+Linux only. `.github/workflows/ci.yml` builds and tests the workspace on Ubuntu on
+every push to `main` and every pull request (no hardware tests).
+
+**Releasing** (`.github/workflows/release.yml`): a pacman package for the Linux
+machine (CachyOS / Arch), built in the official Arch Linux container from
+`packaging/arch/PKGBUILD`, with SLSA level 3 provenance.
+
+1. On the dev machine, with `main` committed and pushed:
+
+   ```bash
+   scripts/release.sh 0.2.0     # sets the version, commits, tags v0.2.0, pushes
+   ```
+
+   GitHub Actions tests, builds `katana-ts-0.2.0-1-x86_64.pkg.tar.zst`, publishes
+   it as release `v0.2.0` and attaches `multiple.intoto.jsonl` (provenance from the
+   SLSA generic generator).
+2. On the Linux machine (needs the GitHub CLI logged in, `gh auth login`; the
+   repository is private):
+
+   ```bash
+   scripts/update.sh            # newest release; or scripts/update.sh v0.2.0
+   ```
+
+   It downloads the package, checks its provenance when
+   [slsa-verifier](https://github.com/slsa-framework/slsa-verifier) is installed,
+   and installs it with `sudo pacman -U`. The package puts `katana-cli` and
+   `katana-gui` in `/usr/bin` and adds a "KATANA Tone Studio" desktop entry.
+
+To check the package build without releasing: Actions › Release › Run workflow (the
+package is kept as a workflow artifact). To build it on the Linux machine from a
+checkout: `cd packaging/arch && makepkg -si`.
+
 ## Lint and format
 
 ```bash
