@@ -1,7 +1,7 @@
 //! The signal chain: one card per block, in processing order.
 
 use eframe::egui::{self, Color32, CornerRadius, Frame, RichText, Role, Sense, Stroke, UiBuilder, Vec2, WidgetInfo};
-use katana_proto::chain::{self, Drop};
+use katana_proto::chain::{self, DropSpot};
 use katana_proto::find_param;
 use katana_proto::layout::{BlockDef, CHAIN};
 use katana_proto::settings::{self, Panel};
@@ -19,7 +19,7 @@ const CARD_W: f32 = 76.0;
 pub fn chain(ui: &mut egui::Ui, app: &mut KatanaApp, p: &Palette) {
     let order = chain::order(app.editor.patch());
     let drops = app.chain_drag.map(|b| (b, chain::drops(app.editor.patch(), b)));
-    let mut spots: Vec<(egui::Rect, Drop)> = Vec::new();
+    let mut spots: Vec<(egui::Rect, DropSpot)> = Vec::new();
     // Fixed row height, so the IN label and arrows centre on the cards.
     let row = Vec2::new(ui.available_width(), 104.0);
     ui.allocate_ui_with_layout(row, egui::Layout::left_to_right(egui::Align::Center), |ui| {
