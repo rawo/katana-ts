@@ -184,12 +184,12 @@ mod tests {
                 23,
                 "CHORUS",
                 vec![
-                    ("mod1-chorus-low-rate", a([0x20, 0, 0x1D, 0x37])),
-                    ("mod1-chorus-high-rate", a([0x20, 0, 0x1D, 0x3B])),
+                    ("mod1-2x2chorus-low-rate", a([0x20, 0, 0x1D, 0x37])),
+                    ("mod1-2x2chorus-high-rate", a([0x20, 0, 0x1D, 0x3B])),
                 ],
             ),
-            (1, "mod2-type", 25, "PHASER 90E", vec![("mod2-phaser90e-speed", a([0x20, 0, 0x1F, 0x45]))]),
-            (2, "mod3-type", 26, "FLANGER 117E", vec![("mod3-flanger117e-speed", a([0x20, 0, 0x21, 0x48]))]),
+            (1, "mod2-type", 25, "PHASER 90E", vec![("mod2-ephaser-speed", a([0x20, 0, 0x1F, 0x45]))]),
+            (2, "mod3-type", 26, "FLANGER 117E", vec![("mod3-eflanger-speed", a([0x20, 0, 0x21, 0x48]))]),
         ];
         for (c, type_param, t, label, want) in cases {
             p.set(color, c).unwrap();
@@ -211,7 +211,7 @@ mod tests {
         let cases = [
             (0, "fx1-type", 16, "TREMOLO", vec![("fx1-tremolo-rate", a([0x20, 0, 0x23, 0x19]))]),
             (1, "fx2-type", 0, "T.WAH", vec![("fx2-twah-sens", a([0x20, 0, 0x24, 0x02]))]),
-            (2, "fx3-type", 26, "FLANGER 117E", vec![("fx3-flanger117e-speed", a([0x20, 0, 0x27, 0x48]))]),
+            (2, "fx3-type", 26, "FLANGER 117E", vec![("fx3-eflanger-speed", a([0x20, 0, 0x27, 0x48]))]),
         ];
         for (c, type_param, t, label, want) in cases {
             p.set(color, c).unwrap();
@@ -300,7 +300,7 @@ mod tests {
             (21, &[("mod1-ringmod-frequency", a(0x2B), (0, 100, 0))]),
             (22, &[("mod1-humanizer-rate", a(0x32), (0, 100, 0))]),
             (24, &[("mod1-acsim-body", a(0x41), (0, 100, 0)), ("mod1-acsim-low", a(0x42), (0, 100, 50))]),
-            (27, &[("mod1-wah95e-pedal-max", a(0x4C), (0, 100, 0))]),
+            (27, &[("mod1-ewah-pedal-max", a(0x4C), (0, 100, 0))]),
             (
                 28,
                 &[
@@ -309,7 +309,7 @@ mod tests {
                 ],
             ),
             (29, &[("mod1-heavyoctave-1oct-level", a(0x5A), (0, 100, 0))]),
-            (30, &[("mod1-pedalbend-pitch", a(0x5D), (0, 48, 24))]),
+            (30, &[("mod1-bend-pitch", a(0x5D), (0, 48, 24))]),
         ];
         for (t, want) in cases {
             for &(name, addr, range) in want {

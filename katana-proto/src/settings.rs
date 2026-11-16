@@ -291,13 +291,24 @@ mod tests {
     }
 
     #[test]
+    fn modfx_settings_are_named_by_their_tone_studio_key() {
+        let b = gen_block("FX_DETAIL");
+        for &(inst, base) in b.inst {
+            for s in b.settings {
+                let d = def_at(base + s.offset).unwrap();
+                assert_eq!(d.name, format!("{inst}-{}", s.key));
+            }
+        }
+    }
+
+    #[test]
     fn known_addresses() {
         assert_eq!(setting("REVERB", 0, "layer-mode").unwrap().addr, addr([0x20, 0x00, 0x34, 0x01]));
         assert_eq!(setting("DELAY", 3, "time").unwrap().name, "delay4-time");
         assert_eq!(setting("DELAY", 1, "time").unwrap().name, "delay2-time");
         assert_eq!(setting("OTHER", 0, "chain").unwrap().max, 8);
         assert_eq!(setting("EQ_GE10", 1, "31hz").unwrap().addr, addr([0x20, 0x00, 0x56, 0x00]));
-        assert_eq!(setting("FX_DETAIL", 0, "2x2chorus-low-rate").unwrap().name, "mod1-chorus-low-rate");
+        assert_eq!(setting("FX_DETAIL", 0, "2x2chorus-low-rate").unwrap().name, "mod1-2x2chorus-low-rate");
         assert_eq!(setting("AMP", 0, "resonance").unwrap().addr, addr([0x20, 0x00, 0x06, 0x08]));
         assert!(BLOCKS.iter().all(|b| b.table != "PEDALFX"));
     }
