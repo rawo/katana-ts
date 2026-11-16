@@ -183,6 +183,7 @@ pub fn panel_controls(panel: Panel, color: u32, patch: &Patch) -> Vec<Control> {
         (Panel::Mod | Panel::Fx, Some(t)) => modfx::knob_targets(inst, t).into_iter().map(|(p, _)| p).collect(),
         _ => Vec::new(),
     };
+    let listed = |d: &&ParamDef| !EXCLUDED.contains(&d.name) && patch.get(d).is_some();
     let mut out: Vec<Control> = b
         .settings
         .iter()
@@ -190,17 +191,16 @@ pub fn panel_controls(panel: Panel, color: u32, patch: &Patch) -> Vec<Control> {
         .filter(|s| panel != Panel::Booster || !BOOSTER_SOLO_KEYS.contains(&s.key))
         .filter(|s| !typed || s.types.is_empty() || fx_type.is_some_and(|t| s.types.contains(&t)))
         .filter_map(|s| {
-            let def = def_at(base + s.offset)?;
+            let def = def_at(base + s.offset).filter(listed)?;
             let knob = panel.knob_keys().contains(&s.key) || knob_params.contains(&def.name);
             Some(Control { param: def.name, label: s.label, knob })
         })
         .collect();
     if matches!(panel, Panel::Mod | Panel::Fx) && fx_type == Some(12) {
-        if let Some(d) = setting("OTHER", 0, "master-key") {
+        if let Some(d) = setting("OTHER", 0, "master-key").filter(listed) {
             out.push(Control { param: d.name, label: "MASTER KEY", knob: false });
         }
     }
-    out.retain(|c| !EXCLUDED.contains(&c.param) && find_param(c.param).and_then(|d| patch.get(d)).is_some());
     out
 }
 
@@ -291,13 +291,24 @@ mod tests {
     }
 
     #[test]
+    fn modfx_settings_are_named_by_their_tone_studio_key() {
+        let b = gen_block("FX_DETAIL");
+        for &(inst, base) in b.inst {
+            for s in b.settings {
+                let d = def_at(base + s.offset).unwrap();
+                assert_eq!(d.name, format!("{inst}-{}", s.key));
+            }
+        }
+    }
+
+    #[test]
     fn known_addresses() {
         assert_eq!(setting("REVERB", 0, "layer-mode").unwrap().addr, addr([0x20, 0x00, 0x34, 0x01]));
         assert_eq!(setting("DELAY", 3, "time").unwrap().name, "delay4-time");
         assert_eq!(setting("DELAY", 1, "time").unwrap().name, "delay2-time");
         assert_eq!(setting("OTHER", 0, "chain").unwrap().max, 8);
         assert_eq!(setting("EQ_GE10", 1, "31hz").unwrap().addr, addr([0x20, 0x00, 0x56, 0x00]));
-        assert_eq!(setting("FX_DETAIL", 0, "2x2chorus-low-rate").unwrap().name, "mod1-chorus-low-rate");
+        assert_eq!(setting("FX_DETAIL", 0, "2x2chorus-low-rate").unwrap().name, "mod1-2x2chorus-low-rate");
         assert_eq!(setting("AMP", 0, "resonance").unwrap().addr, addr([0x20, 0x00, 0x06, 0x08]));
         assert!(BLOCKS.iter().all(|b| b.table != "PEDALFX"));
     }

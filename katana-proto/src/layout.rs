@@ -21,11 +21,10 @@ pub struct BlockDef {
     pub switch: Option<&'static str>,
     /// Parameter whose value name is the block's type line.
     pub kind: Option<&'static str>,
-    /// Variation colour parameter; selects an entry of `per_color`.
+    /// Variation colour parameter: the card's colour lights; also indexes
+    /// `tap` and `slots`.
     pub color: Option<&'static str>,
     pub common: &'static [Control],
-    /// Indexed by the colour value.
-    pub per_color: &'static [&'static [Control]],
     /// Delay time the TAP light blinks at, indexed by the colour value.
     pub tap: &'static [&'static str],
     /// MOD/FX slot (`modfx::SLOTS` index), indexed by the colour value: the
@@ -34,11 +33,11 @@ pub struct BlockDef {
 }
 
 impl BlockDef {
-    /// `common` followed by the current variation's controls.
+    /// `common` followed by the current MOD/FX slot type's knob settings.
+    /// The GUI shows this for the AMP card only (MOD and FX list theirs
+    /// through `settings::panel_controls`); the knob part is reached by tests.
     pub fn controls(&self, patch: &Patch) -> Vec<Control> {
-        let color = self.color.and_then(find_param).and_then(|p| patch.get(p));
-        let variation = color.and_then(|c| self.per_color.get(c as usize)).copied().unwrap_or(&[]);
-        let mut out: Vec<Control> = self.common.iter().chain(variation).copied().collect();
+        let mut out: Vec<Control> = self.common.to_vec();
         if let Some((slot, fx_type)) = self.slot_type(patch) {
             out.extend(modfx::knob_targets(slot, fx_type).into_iter().map(|(param, label)| Control {
                 param,
@@ -79,17 +78,13 @@ const fn c(param: &'static str, label: &'static str) -> Control {
 }
 
 const fn block(id: &'static str, title: &'static str, switch: Option<&'static str>) -> BlockDef {
-    BlockDef { id, title, switch, kind: None, color: None, common: &[], per_color: &[], tap: &[], slots: &[] }
+    BlockDef { id, title, switch, kind: None, color: None, common: &[], tap: &[], slots: &[] }
 }
 
 /// The signal chain in processing order. Fixed for now: the patch's chain
 /// setting is not verified yet, so this follows the default order.
 pub const CHAIN: &[BlockDef] = &[
-    BlockDef {
-        color: Some("booster-color"),
-        per_color: &[&[c("booster1-drive", "DRIVE")], &[c("booster2-drive", "DRIVE")], &[c("booster3-drive", "DRIVE")]],
-        ..block("booster", "BOOSTER", Some("booster-sw"))
-    },
+    BlockDef { color: Some("booster-color"), ..block("booster", "BOOSTER", Some("booster-sw")) },
     BlockDef { color: Some("mod-color"), slots: &[0, 1, 2], ..block("mod", "MOD", Some("mod-sw")) },
     block("eq1", "EQ 1", Some("eq1-sw")),
     BlockDef {
@@ -101,11 +96,6 @@ pub const CHAIN: &[BlockDef] = &[
     BlockDef { color: Some("fx-color"), slots: &[3, 4, 5], ..block("fx", "FX", Some("fx-sw")) },
     BlockDef {
         color: Some("delay-color"),
-        per_color: &[
-            &[c("delay1-time", "TIME"), c("delay1-feedback", "FEEDBACK"), c("delay1-level", "EFFECT LEVEL")],
-            &[c("delay2-time", "TIME"), c("delay2-feedback", "FEEDBACK"), c("delay2-level", "EFFECT LEVEL")],
-            &[c("delay3-time", "TIME"), c("delay3-feedback", "FEEDBACK"), c("delay3-level", "EFFECT LEVEL")],
-        ],
         tap: &["delay1-time", "delay2-time", "delay3-time"],
         ..block("delay", "DELAY", Some("delay-sw"))
     },
@@ -134,8 +124,7 @@ mod tests {
 
     #[test]
     fn every_control_names_a_verified_param() {
-        let all = CHAIN.iter().flat_map(|b| b.common.iter().chain(b.per_color.iter().flat_map(|c| c.iter())));
-        for c in all.chain(AMP_STRIP) {
+        for c in CHAIN.iter().flat_map(|b| b.common).chain(AMP_STRIP) {
             assert!(find_param(c.param).is_some(), "{} not in PARAMS", c.param);
         }
         for b in CHAIN {
@@ -146,40 +135,23 @@ mod tests {
     }
 
     #[test]
-    fn per_color_has_one_entry_per_colour_value() {
-        // DELAY 2 / REVERB lists its settings through `settings::panel_controls`.
-        for b in CHAIN.iter().filter(|b| b.color.is_some() && b.id != "dly2rev") {
+    fn every_colour_value_has_a_slot() {
+        for b in CHAIN.iter().filter(|b| !b.slots.is_empty()) {
             let n = find_param(b.color.unwrap()).unwrap().values.unwrap().len();
-            // Either fixed controls or a MOD/FX slot for every colour.
-            let per = if b.slots.is_empty() { b.per_color.len() } else { b.slots.len() };
-            assert_eq!(per, n, "{}", b.id);
+            assert_eq!(b.slots.len(), n, "{}", b.id);
         }
     }
 
     #[test]
-    fn booster_controls_follow_colour() {
-        let booster = CHAIN.iter().find(|b| b.id == "booster").unwrap();
-        let mut p = Patch::default_preset();
-        p.set(find_param("booster-color").unwrap(), 2).unwrap();
-        assert_eq!(booster.controls(&p)[0].param, "booster3-drive");
-    }
-
-    #[test]
-    fn delay_controls_follow_colour() {
+    fn delay_settings_sit_in_their_colours_block() {
         // captures/105: green edits DELAY(1) 28 xx, red DELAY(2) 2A xx, orange DELAY(3) 2C xx.
-        let delay = CHAIN.iter().find(|b| b.id == "delay").unwrap();
         let color = find_param("delay-color").unwrap();
         assert_eq!(color.addr, crate::device::addr([0x20, 0x00, 0x04, 0x03]));
-        let mut p = Patch::default_preset();
-        for (v, n, block) in [(0, 1, 0x28), (1, 2, 0x2A), (2, 3, 0x2C)] {
-            p.set(color, v).unwrap();
-            let names: Vec<_> = delay.controls(&p).iter().map(|c| c.param).collect();
-            let want = [format!("delay{n}-time"), format!("delay{n}-feedback"), format!("delay{n}-level")];
-            assert_eq!(names, want, "colour {v}");
-            let addrs: Vec<_> = names.iter().map(|n| find_param(n).unwrap().addr).collect();
-            let want: Vec<_> =
-                [0x01, 0x05, 0x07].iter().map(|&o| crate::device::addr([0x20, 0x00, block, o])).collect();
-            assert_eq!(addrs, want, "colour {v}");
+        for (n, block) in [(1, 0x28), (2, 0x2A), (3, 0x2C)] {
+            for (name, o) in [("time", 0x01), ("feedback", 0x05), ("level", 0x07)] {
+                let addr = find_param(&format!("delay{n}-{name}")).unwrap().addr;
+                assert_eq!(addr, crate::device::addr([0x20, 0x00, block, o]), "delay{n}-{name}");
+            }
         }
     }
 
@@ -215,12 +187,12 @@ mod tests {
                 23,
                 "CHORUS",
                 vec![
-                    ("mod1-chorus-low-rate", a([0x20, 0, 0x1D, 0x37])),
-                    ("mod1-chorus-high-rate", a([0x20, 0, 0x1D, 0x3B])),
+                    ("mod1-2x2chorus-low-rate", a([0x20, 0, 0x1D, 0x37])),
+                    ("mod1-2x2chorus-high-rate", a([0x20, 0, 0x1D, 0x3B])),
                 ],
             ),
-            (1, "mod2-type", 25, "PHASER 90E", vec![("mod2-phaser90e-speed", a([0x20, 0, 0x1F, 0x45]))]),
-            (2, "mod3-type", 26, "FLANGER 117E", vec![("mod3-flanger117e-speed", a([0x20, 0, 0x21, 0x48]))]),
+            (1, "mod2-type", 25, "PHASER 90E", vec![("mod2-ephaser-speed", a([0x20, 0, 0x1F, 0x45]))]),
+            (2, "mod3-type", 26, "FLANGER 117E", vec![("mod3-eflanger-speed", a([0x20, 0, 0x21, 0x48]))]),
         ];
         for (c, type_param, t, label, want) in cases {
             p.set(color, c).unwrap();
@@ -242,7 +214,7 @@ mod tests {
         let cases = [
             (0, "fx1-type", 16, "TREMOLO", vec![("fx1-tremolo-rate", a([0x20, 0, 0x23, 0x19]))]),
             (1, "fx2-type", 0, "T.WAH", vec![("fx2-twah-sens", a([0x20, 0, 0x24, 0x02]))]),
-            (2, "fx3-type", 26, "FLANGER 117E", vec![("fx3-flanger117e-speed", a([0x20, 0, 0x27, 0x48]))]),
+            (2, "fx3-type", 26, "FLANGER 117E", vec![("fx3-eflanger-speed", a([0x20, 0, 0x27, 0x48]))]),
         ];
         for (c, type_param, t, label, want) in cases {
             p.set(color, c).unwrap();
@@ -331,7 +303,7 @@ mod tests {
             (21, &[("mod1-ringmod-frequency", a(0x2B), (0, 100, 0))]),
             (22, &[("mod1-humanizer-rate", a(0x32), (0, 100, 0))]),
             (24, &[("mod1-acsim-body", a(0x41), (0, 100, 0)), ("mod1-acsim-low", a(0x42), (0, 100, 50))]),
-            (27, &[("mod1-wah95e-pedal-max", a(0x4C), (0, 100, 0))]),
+            (27, &[("mod1-ewah-pedal-max", a(0x4C), (0, 100, 0))]),
             (
                 28,
                 &[
@@ -340,7 +312,7 @@ mod tests {
                 ],
             ),
             (29, &[("mod1-heavyoctave-1oct-level", a(0x5A), (0, 100, 0))]),
-            (30, &[("mod1-pedalbend-pitch", a(0x5D), (0, 48, 24))]),
+            (30, &[("mod1-bend-pitch", a(0x5D), (0, 48, 24))]),
         ];
         for (t, want) in cases {
             for &(name, addr, range) in want {

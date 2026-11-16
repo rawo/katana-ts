@@ -2,6 +2,7 @@ use eframe::egui;
 use egui_kittest::kittest::{NodeT, Queryable};
 use egui_kittest::Harness;
 use katana_gui::app::{KatanaApp, MIN_WINDOW};
+use katana_proto::settings::{panel_controls, Panel};
 use katana_proto::{find_param, Address, Patch};
 
 fn harness_sized(size: [f32; 2], app: KatanaApp) -> Harness<'static, KatanaApp> {
@@ -391,6 +392,13 @@ fn harmonist_panel_fits_the_smallest_window() {
     select(&mut h, "MOD");
     h.get_by_label("MASTER KEY");
     h.get_by_label("GAIN");
+    let controls = panel_controls(Panel::Mod, 0, h.state().editor.patch());
+    assert!(controls.len() > 10, "HARMONIST lists its settings");
+    for c in controls {
+        for node in h.get_all_by_label(c.label) {
+            assert!(node.rect().right() <= MIN_WINDOW[0], "{} sticks out", c.label);
+        }
+    }
 }
 
 #[test]

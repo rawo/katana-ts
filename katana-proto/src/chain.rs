@@ -68,7 +68,7 @@ pub const MOVES: [&[(Block, &[u8])]; 9] = [
 
 /// A place a dragged card may be dropped: in front of `before`, applying `edit`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Drop {
+pub struct DropSpot {
     pub before: Block,
     pub edit: (&'static str, u32),
 }
@@ -116,14 +116,14 @@ fn next_after(order: &[Block], b: Block) -> Option<Block> {
 /// Where `dragged` may be dropped: BOOSTER, MOD, FX and DELAY into the orders
 /// Tone Studio allows from the current one; EQ 1 / EQ 2 to the other side of
 /// the AMP. Other cards don't move.
-pub fn drops(patch: &Patch, dragged: Block) -> Vec<Drop> {
+pub fn drops(patch: &Patch, dragged: Block) -> Vec<DropSpot> {
     let (chain, eq1, eq2) = layout(patch);
     match dragged {
         Block::Eq1 | Block::Eq2 => {
             let (k, out) = if dragged == Block::Eq1 { (1, !eq1) } else { (2, !eq2) };
             let target = if k == 1 { full_order(chain, out, eq2) } else { full_order(chain, eq1, out) };
             let edit = (if k == 1 { "eq1-position" } else { "eq2-position" }, u32::from(out));
-            next_after(&target, dragged).map(|before| Drop { before, edit }).into_iter().collect()
+            next_after(&target, dragged).map(|before| DropSpot { before, edit }).into_iter().collect()
         }
         _ => MOVES[chain]
             .iter()
@@ -131,7 +131,7 @@ pub fn drops(patch: &Patch, dragged: Block) -> Vec<Drop> {
             .flat_map(|(_, targets)| targets.iter())
             .filter_map(|&t| {
                 let before = next_after(&full_order(t as usize, eq1, eq2), dragged)?;
-                Some(Drop { before, edit: ("other-chain", u32::from(t)) })
+                Some(DropSpot { before, edit: ("other-chain", u32::from(t)) })
             })
             .collect(),
     }
@@ -199,7 +199,10 @@ mod tests {
         let d = drops(&patch(0, 1, 1), Mod);
         assert_eq!(
             d,
-            [Drop { before: Amp, edit: ("other-chain", 1) }, Drop { before: Booster, edit: ("other-chain", 4) }]
+            [
+                DropSpot { before: Amp, edit: ("other-chain", 1) },
+                DropSpot { before: Booster, edit: ("other-chain", 4) }
+            ]
         );
         // With EQ 1 at AMP IN, "before the AMP" is before EQ 1.
         assert_eq!(drops(&patch(0, 0, 1), Mod)[0].before, Eq1);
@@ -207,8 +210,8 @@ mod tests {
 
     #[test]
     fn eq_drops_cross_the_amp() {
-        assert_eq!(drops(&patch(0, 0, 1), Eq1), [Drop { before: Eq2, edit: ("eq1-position", 1) }]);
-        assert_eq!(drops(&patch(0, 1, 1), Eq1), [Drop { before: Amp, edit: ("eq1-position", 0) }]);
+        assert_eq!(drops(&patch(0, 0, 1), Eq1), [DropSpot { before: Eq2, edit: ("eq1-position", 1) }]);
+        assert_eq!(drops(&patch(0, 1, 1), Eq1), [DropSpot { before: Amp, edit: ("eq1-position", 0) }]);
     }
 
     #[test]
