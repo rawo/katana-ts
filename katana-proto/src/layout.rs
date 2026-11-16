@@ -40,7 +40,11 @@ impl BlockDef {
         let variation = color.and_then(|c| self.per_color.get(c as usize)).copied().unwrap_or(&[]);
         let mut out: Vec<Control> = self.common.iter().chain(variation).copied().collect();
         if let Some((slot, fx_type)) = self.slot_type(patch) {
-            out.extend(modfx::knob_targets(slot, fx_type).into_iter().map(|(param, label)| Control { param, label, knob: true }));
+            out.extend(modfx::knob_targets(slot, fx_type).into_iter().map(|(param, label)| Control {
+                param,
+                label,
+                knob: true,
+            }));
         }
         out
     }
@@ -90,10 +94,7 @@ pub const CHAIN: &[BlockDef] = &[
     block("eq1", "EQ 1", Some("eq1-sw")),
     BlockDef {
         kind: Some("amp-type"),
-        common: &[
-            c("amp-type", "TYPE"),
-            c("cab-resonance", "CAB RESONANCE"),
-        ],
+        common: &[c("amp-type", "TYPE"), c("cab-resonance", "CAB RESONANCE")],
         ..block("amp", "AMP", None)
     },
     block("eq2", "EQ 2", Some("eq2-sw")),

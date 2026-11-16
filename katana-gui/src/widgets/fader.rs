@@ -61,7 +61,13 @@ impl egui::Widget for Fader<'_> {
         let y = track.bottom() - frac.clamp(0.0, 1.0) * TRACK_PX;
         let thumb = egui::Rect::from_center_size(egui::pos2(track.center().x, y), Vec2::new(20.0, 6.0));
         painter.rect(thumb, CornerRadius::same(2), p.accent, Stroke::NONE, egui::StrokeKind::Inside);
-        painter.text(rect.center_bottom(), Align2::CENTER_BOTTOM, format_value(def, *value), FontId::proportional(11.0), p.text);
+        painter.text(
+            rect.center_bottom(),
+            Align2::CENTER_BOTTOM,
+            format_value(def, *value),
+            FontId::proportional(11.0),
+            p.text,
+        );
 
         ui.data_mut(|d| d.insert_temp(id, st));
         if *value != old {

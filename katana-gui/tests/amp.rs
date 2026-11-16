@@ -1260,14 +1260,30 @@ fn drop_while_amp_busy_is_ignored() {
         r.h.run();
     };
     ev(&mut r, egui::Event::PointerMoved(from));
-    ev(&mut r, egui::Event::PointerButton { pos: from, button: egui::PointerButton::Primary, pressed: true, modifiers: egui::Modifiers::NONE });
+    ev(
+        &mut r,
+        egui::Event::PointerButton {
+            pos: from,
+            button: egui::PointerButton::Primary,
+            pressed: true,
+            modifiers: egui::Modifiers::NONE,
+        },
+    );
     for dx in [10.0, 20.0, 40.0] {
         ev(&mut r, egui::Event::PointerMoved(from + egui::vec2(dx, 0.0)));
     }
     let to = r.h.get_by_label("Drop MOD before BOOSTER").rect().center();
     r.event(Event::Busy(Some("reading".into())));
     ev(&mut r, egui::Event::PointerMoved(to));
-    ev(&mut r, egui::Event::PointerButton { pos: to, button: egui::PointerButton::Primary, pressed: false, modifiers: egui::Modifiers::NONE });
+    ev(
+        &mut r,
+        egui::Event::PointerButton {
+            pos: to,
+            button: egui::PointerButton::Primary,
+            pressed: false,
+            modifiers: egui::Modifiers::NONE,
+        },
+    );
     assert_eq!(r.app().editor.get(chain), Some(0));
     assert_eq!(r.jobs(), vec![]);
 }

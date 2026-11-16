@@ -267,9 +267,9 @@ mod tests {
     use crate::params::PARAMS;
 
     fn gen_at(a: u32) -> Option<&'static GenSetting> {
-        BLOCKS.iter().find_map(|b| {
-            b.inst.iter().find_map(|&(_, base)| b.settings.iter().find(|s| base + s.offset == a))
-        })
+        BLOCKS
+            .iter()
+            .find_map(|b| b.inst.iter().find_map(|&(_, base)| b.settings.iter().find(|s| base + s.offset == a)))
     }
 
     #[test]
@@ -393,13 +393,18 @@ mod tests {
     fn harmonist_shows_master_key() {
         let c = panel_controls(Panel::Fx, 0, &with(&[("fx1-type", 12)]));
         assert!(c.iter().any(|c| c.param == "other-master-key"), "{c:?}");
-        assert!(!panel_controls(Panel::Fx, 0, &with(&[("fx1-type", 23)])).iter().any(|c| c.param == "other-master-key"));
+        assert!(!panel_controls(Panel::Fx, 0, &with(&[("fx1-type", 23)]))
+            .iter()
+            .any(|c| c.param == "other-master-key"));
     }
 
     #[test]
     fn booster_panel_shows_its_own_settings_only() {
         let l = labels(&panel_controls(Panel::Booster, 0, &Patch::default_preset()));
-        assert!(l.contains(&"DRIVE") && l.contains(&"TONE") && !l.contains(&"SOLO SW") && !l.contains(&"BOOSTER TYPE"), "{l:?}");
+        assert!(
+            l.contains(&"DRIVE") && l.contains(&"TONE") && !l.contains(&"SOLO SW") && !l.contains(&"BOOSTER TYPE"),
+            "{l:?}"
+        );
     }
 
     #[test]

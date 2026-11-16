@@ -95,7 +95,9 @@ fn dly2rev_panel(ui: &mut egui::Ui, app: &mut KatanaApp, block: &'static BlockDe
 pub(crate) fn type_name(panel: Panel, color: u32, patch: &Patch) -> String {
     let Some(def) = type_def(panel, color) else { return String::new() };
     match patch.get(def) {
-        Some(v) => def.values.and_then(|vs| vs.iter().find(|&&(n, _)| n == v)).map_or(format!("? ({v})"), |&(_, n)| n.into()),
+        Some(v) => {
+            def.values.and_then(|vs| vs.iter().find(|&&(n, _)| n == v)).map_or(format!("? ({v})"), |&(_, n)| n.into())
+        }
         None => "—".into(),
     }
 }
@@ -106,7 +108,8 @@ pub(crate) fn colour_tabs(ui: &mut egui::Ui, app: &mut KatanaApp, block_id: &'st
     let patch = app.editor.patch();
     let playing = color_of(panel, patch);
     let shown = app.shown_color(block_id, panel);
-    let labels: Vec<String> = (0..3u32).map(|c| format!("{} · {}", COLORS[c as usize], type_name(panel, c, patch))).collect();
+    let labels: Vec<String> =
+        (0..3u32).map(|c| format!("{} · {}", COLORS[c as usize], type_name(panel, c, patch))).collect();
     ui.horizontal(|ui| {
         for (c, label) in labels.iter().enumerate() {
             let c = c as u32;
@@ -132,7 +135,8 @@ pub(crate) fn colour_tabs(ui: &mut egui::Ui, app: &mut KatanaApp, block_id: &'st
 fn colour_panel(ui: &mut egui::Ui, app: &mut KatanaApp, block: &'static BlockDef, panel: Panel, p: &Palette) {
     let color = app.shown_color(block.id, panel).unwrap_or(0);
     let patch = app.editor.patch();
-    let heading = format!("{} · {} variation · type {}", block.title, COLORS[color as usize % 3], type_name(panel, color, patch));
+    let heading =
+        format!("{} · {} variation · type {}", block.title, COLORS[color as usize % 3], type_name(panel, color, patch));
     ui.label(RichText::new(heading).small().strong().color(p.dim));
     ui.add_space(6.0);
     colour_tabs(ui, app, block.id, panel, p);

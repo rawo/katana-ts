@@ -491,7 +491,6 @@ fn solo_panel_shows_the_solo_delay_read_only() {
     h.get_by_label_contains("FEEDBACK:");
 }
 
-
 #[test]
 fn amp_strip_has_the_hidden_amp_settings() {
     let h = harness();

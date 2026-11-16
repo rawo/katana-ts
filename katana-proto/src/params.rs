@@ -193,12 +193,7 @@ pub const PARAMS: &[ParamDef] = &[
 /// setting from Tone Studio's tables (`settings`).
 pub fn all_params() -> &'static [ParamDef] {
     static ALL: std::sync::LazyLock<Vec<ParamDef>> = std::sync::LazyLock::new(|| {
-        PARAMS
-            .iter()
-            .chain(crate::modfx::GENERATED.iter())
-            .chain(crate::settings::GENERATED.iter())
-            .copied()
-            .collect()
+        PARAMS.iter().chain(crate::modfx::GENERATED.iter()).chain(crate::settings::GENERATED.iter()).copied().collect()
     });
     &ALL
 }
@@ -245,8 +240,16 @@ mod tests {
     use super::*;
     use crate::{device, encode, Address, Command, FakeAmp, MemoryMap, Patch, ProtoError};
 
-    const P: ParamDef =
-        ParamDef { name: "TEST", addr: 0x10, encoding: Encoding::U7, min: 0, max: 100, values: None, ofs: 0, format: Format::Plain };
+    const P: ParamDef = ParamDef {
+        name: "TEST",
+        addr: 0x10,
+        encoding: Encoding::U7,
+        min: 0,
+        max: 100,
+        values: None,
+        ofs: 0,
+        format: Format::Plain,
+    };
 
     #[test]
     fn set_sends_single_dt1() {
@@ -270,8 +273,16 @@ mod tests {
         assert_eq!(Patch { mem }.get(&P), Some(42));
     }
 
-    const NIB: ParamDef =
-        ParamDef { name: "NIB", addr: 0x20, encoding: Encoding::Nibbles4, min: 1, max: 2000, values: None, ofs: 0, format: Format::Plain };
+    const NIB: ParamDef = ParamDef {
+        name: "NIB",
+        addr: 0x20,
+        encoding: Encoding::Nibbles4,
+        min: 1,
+        max: 2000,
+        values: None,
+        ofs: 0,
+        format: Format::Plain,
+    };
 
     #[test]
     fn nibbles4_encodes_high_nibble_first() {
