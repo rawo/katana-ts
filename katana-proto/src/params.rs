@@ -106,7 +106,9 @@ pub fn parse_shown(def: &ParamDef, text: &str) -> Option<u32> {
         let vs = def.values?;
         return vs.iter().find(|(_, n)| n.eq_ignore_ascii_case(text)).map(|&(v, _)| v);
     }
-    let text = if def.format == Format::OffBelowZero && text.eq_ignore_ascii_case("OFF") { "-1" } else { text };
+    if def.format == Format::OffBelowZero && text.eq_ignore_ascii_case("OFF") {
+        return (i64::from(def.min) < i64::from(def.ofs)).then_some(def.min);
+    }
     let number = text.trim_end_matches(|c: char| c.is_alphabetic() || c == '%' || c.is_whitespace());
     let shown: f64 = number.parse().ok()?;
     let v = match def.format {

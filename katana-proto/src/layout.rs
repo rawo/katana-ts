@@ -21,7 +21,8 @@ pub struct BlockDef {
     pub switch: Option<&'static str>,
     /// Parameter whose value name is the block's type line.
     pub kind: Option<&'static str>,
-    /// Variation colour parameter; indexes `tap` and `slots`.
+    /// Variation colour parameter: the card's colour lights; also indexes
+    /// `tap` and `slots`.
     pub color: Option<&'static str>,
     pub common: &'static [Control],
     /// Delay time the TAP light blinks at, indexed by the colour value.
@@ -33,6 +34,8 @@ pub struct BlockDef {
 
 impl BlockDef {
     /// `common` followed by the current MOD/FX slot type's knob settings.
+    /// The GUI shows this for the AMP card only (MOD and FX list theirs
+    /// through `settings::panel_controls`); the knob part is reached by tests.
     pub fn controls(&self, patch: &Patch) -> Vec<Control> {
         let mut out: Vec<Control> = self.common.to_vec();
         if let Some((slot, fx_type)) = self.slot_type(patch) {
