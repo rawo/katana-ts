@@ -28,7 +28,7 @@ pub fn header(model_id_hex: Option<&str>) -> anyhow::Result<Header> {
 
 pub fn parse_hex(s: &str) -> anyhow::Result<Vec<u8>> {
     let s: String = s.chars().filter(|c| !c.is_whitespace() && *c != ':').collect();
-    if s.len() % 2 != 0 {
+    if !s.len().is_multiple_of(2) {
         bail!("odd number of hex digits in {s:?}");
     }
     (0..s.len()).step_by(2).map(|i| u8::from_str_radix(&s[i..i + 2], 16).context("bad hex")).collect()

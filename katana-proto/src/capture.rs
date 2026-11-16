@@ -24,7 +24,7 @@ struct Reassembler {
 
 impl Reassembler {
     fn feed(&mut self, packets: &[u8], out: &mut Vec<Vec<u8>>) {
-        for p in packets.chunks_exact(4) {
+        for p in packets.as_chunks::<4>().0 {
             let (n, ends) = match p[0] & 0x0F {
                 0x4 => (3, false),
                 0x5 => (1, true),
@@ -69,7 +69,7 @@ pub fn load_tshark_export(text: &str) -> Result<Vec<CapturedMessage>, ProtoError
         if hex.is_empty() {
             continue;
         }
-        if hex.len() % 2 != 0 {
+        if !hex.len().is_multiple_of(2) {
             return Err(bad());
         }
         let bytes = (0..hex.len())
