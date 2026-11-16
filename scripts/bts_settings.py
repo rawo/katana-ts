@@ -741,9 +741,10 @@ def rust_values(p):
         return [(0, "OFF"), (1, "ON")], "Format::Plain"
     for c in cs:
         if c.get("format"):
-            f = RUST_FORMATS.get(re.sub(r"\s+", "", c["format"]).replace("<br>", ""))
-            if f:
-                return None, f
+            js = re.sub(r"\s+", "", c["format"]).replace("<br>", "")
+            if js not in RUST_FORMATS:
+                sys.exit(f"{p['id']}: display format {js!r} not known; add it to RUST_FORMATS")
+            return None, RUST_FORMATS[js]
     return None, "Format::Plain"
 
 
