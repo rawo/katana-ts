@@ -178,9 +178,18 @@ pub(crate) fn settings_list(ui: &mut egui::Ui, app: &mut KatanaApp, panel: Panel
 /// One setting, with a mark when the amp's panel knob also moves it.
 pub(crate) fn control(ui: &mut egui::Ui, app: &mut KatanaApp, c: Control, p: &Palette) {
     let Some(def) = find_param(c.param) else { return };
+    // A nested row gets what is left of the wrapping row's line and never
+    // wraps by itself: start a new line when last frame's width won't fit.
+    let id = ui.make_persistent_id(c.param);
+    let avail = ui.available_size_before_wrap().x;
+    match ui.data(|d| d.get_temp::<f32>(id)) {
+        Some(w) if w > avail && avail < ui.max_rect().width() => ui.end_row(),
+        Some(_) => {}
+        None => ui.ctx().request_discard("control width unknown"),
+    }
     // Top-aligned: a centred row inside a wrapping row is pushed down as the
     // wrapping row grows, so knobs would step down one after another.
-    ui.horizontal_top(|ui| {
+    let r = ui.horizontal_top(|ui| {
         ui.spacing_mut().item_spacing.x = 2.0;
         param_control(ui, app, def, c.label, p);
         if c.knob {
@@ -191,6 +200,7 @@ pub(crate) fn control(ui: &mut egui::Ui, app: &mut KatanaApp, c: Control, p: &Pa
             r.on_hover_text("The panel knob also moves this");
         }
     });
+    ui.data_mut(|d| d.insert_temp(id, r.response.rect.width()));
 }
 
 /// EQ 1 / EQ 2: POSITION and TYPE, then GE-10 faders or PARAMETRIC knobs.
