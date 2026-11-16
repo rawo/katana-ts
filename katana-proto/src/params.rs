@@ -106,6 +106,7 @@ pub fn parse_shown(def: &ParamDef, text: &str) -> Option<u32> {
         let vs = def.values?;
         return vs.iter().find(|(_, n)| n.eq_ignore_ascii_case(text)).map(|&(v, _)| v);
     }
+    let text = if def.format == Format::OffBelowZero && text.eq_ignore_ascii_case("OFF") { "-1" } else { text };
     let number = text.trim_end_matches(|c: char| c.is_alphabetic() || c == '%' || c.is_whitespace());
     let shown: f64 = number.parse().ok()?;
     let v = match def.format {
@@ -368,6 +369,26 @@ mod tests {
         assert_eq!(parse_shown(&def(0, 99, -1, Format::Tenths), "3.0"), Some(29));
         assert_eq!(parse_shown(&def(0, 100, 50, Format::Plain), "-10"), Some(40));
         assert_eq!(parse_shown(&def(0, 100, 0, Format::Plain), "abc"), None);
+    }
+
+    #[test]
+    fn off_below_zero_parses_off() {
+        let d = def(0, 101, 1, Format::OffBelowZero);
+        assert_eq!(parse_shown(&d, "off"), Some(0));
+        assert_eq!(parse_shown(&d, "-1"), Some(0));
+        assert_eq!(parse_shown(&d, "5"), Some(6));
+    }
+
+    #[test]
+    fn every_shown_value_parses_back() {
+        for p in all_params() {
+            for raw in p.min..=p.max {
+                let shown = format_value(p, raw);
+                if !shown.starts_with('?') {
+                    assert_eq!(parse_shown(p, &shown), Some(raw), "{} {shown:?}", p.name);
+                }
+            }
+        }
     }
 
     #[test]
